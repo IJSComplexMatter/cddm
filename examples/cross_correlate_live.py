@@ -28,15 +28,17 @@ conf.set_verbose(2)
 dual_video = get_dual_video()
 #apply blackman window 
 #dual_video = apply_window(dual_video, blackman(SHAPE))
-#dual_video = show_video(dual_video)
+dual_video = show_video(dual_video)
 fdual_video = rfft2(dual_video, kisize = 64, kjsize = 64)
-#fdual_video = show_fft(fdual_video)
+fdual_video = show_fft(fdual_video)
 
-#fdual_video = play(fdual_video,fps = 100)
+fdual_video = play(fdual_video,fps = 100)
+
+
 
 
 data, bg = iccorr_multi(fdual_video, t1, t2, period = PERIOD, level = 5, 
-                       chunk_size = 256*2, show = True, auto_background = False, binning =  True, return_background = True)
+                       chunk_size = 256, show = True, auto_background = False, binning =  True, return_background = True)
 plt.figure()
 plt.imshow(np.abs(bg[0]))
 

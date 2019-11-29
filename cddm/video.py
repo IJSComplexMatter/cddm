@@ -9,7 +9,7 @@ Created on Mon Jul 29 22:01:49 2019
 import numpy as np
 import matplotlib.pyplot as plt
 import time   
-from cddm.conf import CDDMConfig, CV2_INSTALLED, set_cv2, F32,F64, U16
+from cddm.conf import CDDMConfig, CV2_INSTALLED,  F32,F64, U16
 from cddm.print_tools import print_progress, print
 import numba as nb
 
@@ -26,9 +26,9 @@ def subtract_and_multiply_vec(array, window, bg):
     tmp = array - bg
     return tmp * window
 
-def random_dual_frame_video(shape = (512,512), n = 1000):
+def random_dual_frame_video(shape = (512,512), count = 1000):
     """"""
-    for i in range(n):
+    for i in range(count):
         yield np.random.randn(*shape), np.random.randn(*shape)
 
 def fromarrays(arrays):
@@ -176,17 +176,17 @@ class VideoViewer():
     
 def _pause():
     if CDDMConfig.cv2 == False:
-        plt.pause(0.01)  
+        plt.pause(0.001)  
     else:
         cv2.waitKey(1)
              
-def play(video, fps = 100):
+def play(video, fps = 100., max_delay = 0.1):
     t0 = None
-    update = True
-    for i, frames in enumerate(video):
+    for i, frames in enumerate(video):        
         if t0 is None:
             t0 = time.time()
-        if update == True:
+            
+        if time.time()-t0 < i/fps + max_delay:
             for key in list(_FIGURES.keys()):
                 (viewer, im) = _FIGURES.pop(key)
                 viewer.imshow(im)
@@ -194,10 +194,7 @@ def play(video, fps = 100):
             
         yield frames
         
-        if time.time()-t0 < i/fps:
-            update = True
-        else:
-            update = False  
+
     _FIGURES.clear()
         
 _FIGURES = {}
@@ -233,11 +230,13 @@ def show_diff(video):
         
 
 if __name__ == '__main__':
+    #from cddm.conf import set_cv2
+    #set_cv2(False)
 
-    video = random_dual_frame_video()
+    video = random_dual_frame_video(count = 1000)
     video = show_video(video)
     video = show_diff(video)
-    v1,v2 = load_array(play(video, fps = 20),1000)
+    v1,v2 = asarrays(play(video, fps = 20),count = 1000)
 
     #for frames in play(video, fps = 20):
     #    pass

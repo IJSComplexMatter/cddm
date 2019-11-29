@@ -37,7 +37,22 @@ NPARTICLES = 100
 
 def _crop_frames(frames):
     return tuple((frame[0:SHAPE[0],0:SHAPE[1]] for frame in frames))
-    
+
+def intensity_jitter(vid, t1,t2):
+    import scipy.misc
+    face = scipy.misc.face(gray = True)[0:SIMSHAPE[0],0:SIMSHAPE[1]]
+    facem = scipy.misc.face(gray = True)[-SIMSHAPE[0]-1:-1,-SIMSHAPE[1]-1:-1]
+    maxdt = max(np.abs(t1-t2))
+    for i, frames in enumerate(vid):
+        frames = frames[0]+ face, frames[1]+facem
+        if t1[i] == t2[i]:
+            yield frames
+        elif t1[i] > t2[i]:
+            #yield frames
+            #print(frames[0].dtype)
+            yield np.uint8(frames[0] * (1- 0.5/maxdt*(maxdt - np.abs(t1[i]-t2[i])))), frames[1]
+        else:
+            yield frames[0], np.uint8(frames[1] * (1- 0.5/maxdt*(maxdt - np.abs(t1[i]-t2[i]))))
 def get_dual_video(seed = None):
     
     #We use a mix of numba and numpy random generator... 
@@ -51,9 +66,9 @@ def get_dual_video(seed = None):
     #x2 = sim.brownian_particles(shape = SIMSHAPE, n = SIMFRAMES, delta = 0.1, dt = 1,
     #                           particles = 1, velocity = ((0.01,0),), x0 = ((0,256),)) 
     
-    dual_vid = sim.particles_video(x1, t1 = t1, t2 = t2, shape = SIMSHAPE, sigma = 5, intensity = 10, background = 30)
+    dual_vid = sim.particles_video(x1, t1 = t1, t2 = t2, shape = SIMSHAPE, sigma = 5, intensity = 5, background = 0)
     #dual_vid2 = sim.particles_video(x2,t1 = t1, t2 = t2,  shape = SIMSHAPE, sigma = 30, intensity = 30, background = 0)
-
+    dual_vid = intensity_jitter(dual_vid, t1,t2)
     return (_crop_frames(frames) for frames in dual_vid)
 
 def get_video(n = NFRAMES_SINGLE, seed = None):
@@ -69,7 +84,7 @@ def get_video(n = NFRAMES_SINGLE, seed = None):
     #x2 = sim.brownian_particles(shape = SIMSHAPE, n = NFRAMES_SINGLE, delta = 0.1, dt = 1,
     #                           particles = 1, velocity = ((0.01,0),), x0 = ((0,256),)) 
     
-    vid1 = sim.particles_video(x1, shape = SIMSHAPE, sigma = 5, intensity = 10, background = 30)
+    vid1 = sim.particles_video(x1, shape = SIMSHAPE, sigma = 5, intensity = 5, background = 0)
     #vid2 = sim.particles_video(x2,  shape = SIMSHAPE, sigma = 30, intensity = 30, background = 0)
 
     return (_crop_frames((frame,)) for frame in vid1)
@@ -103,4 +118,5 @@ if __name__ == "__main__":
     v = viewer.VideoViewer(v1)
     v.show()
 
-
+    v = viewer.VideoViewer(v2)
+    v.show()

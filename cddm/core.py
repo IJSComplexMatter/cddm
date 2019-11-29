@@ -90,19 +90,17 @@ def _set_data(f, axis):
     f = np.asarray(f)
     ndim = f.ndim
     
-    axes = list(range(ndim))
-    axis1, axis2 = axes[axis], axes[-2]
-    axes[axis1] = axis2
-    axes[axis2] = axis1
-    f = f.transpose(axes)  
-    
-    if ndim == 1.:
-        f = f[:,None]  
-    return f, ndim, axes
+    if ndim == 1:
+        f = f[:,None]
+    elif ndim > 1:    
+        f = np.swapaxes(f,axis,-2)
+        
+    return f, ndim
 
 def _auto_compute(func, data, t, axis = 0, out = None, n = None):
     print("Computing...")
-    f, ndim, axes = _set_data(data,axis) 
+    #f, ndim, axes = _set_data(data,axis) 
+    f, ndim  = _set_data(data,axis) 
     out, count = _set_out_count(f.shape, out, n)          
     if t is None:
         t = np.arange(f.shape[-2], dtype = I64DTYPE)
@@ -116,8 +114,10 @@ def _auto_compute(func, data, t, axis = 0, out = None, n = None):
 
 def _cross_compute(func,f1,f2,t1,t2,axis = 0,out = None, n = None):
     print("Computing...")
-    f1,ndim, axes = _set_data(f1,axis)
-    f2, ndim, axes = _set_data(f2,axis) 
+    #f1,ndim, axes = _set_data(f1,axis)
+    #f2, ndim, axes = _set_data(f2,axis) 
+    f1,ndim = _set_data(f1,axis)
+    f2, ndim = _set_data(f2,axis) 
     out, count = _set_out_count(f1.shape, out, n) 
     if t1 is None:
         t1 = np.arange(f1.shape[-2], dtype = I64DTYPE)
@@ -132,20 +132,41 @@ def _cross_compute(func,f1,f2,t1,t2,axis = 0,out = None, n = None):
     return out, count   
 
 def bin_data(data, axis = 0):
-    f, ndim, axes = _set_data(data,axis)
-    f = 0.5 * (f[...,::2,:] + f[...,1::2,:])
+    #f, ndim, axes = _set_data(data,axis)
+    f, ndim  = _set_data(data,axis)
+    f = (f[...,::2,:] + f[...,1::2,:])*0.5
+    if ndim == 1:
+        #if original data was one dimensional.. make it onedimensional again.
+        return f[...,0]
+    else:
+        #return np.transpose(f,axes)
+        return np.swapaxes(f,-2,axis)
+  
+    
+@nb.guvectorize([(C[:],C[:],C[:])],"(m),(m)->(m)", target = "parallel")    
+def _random_select(data1,data2, out):
+    for i in range(out.shape[0]):
+        r = np.random.rand()
+        if r >= 0.5:
+            out[i] = data1[i]
+        else:
+            out[i] = data2[i]        
+
+def random_select_data(data, axis = 0):
+    f, ndim = _set_data(data,axis)
+    f = _random_select(f[...,::2,:],f[...,1::2,:])
     if ndim == 1:
         return f[...,0]
     else:
-        return np.transpose(f,axes)
+        return np.swapaxes(f,-2,axis)
 
 def slice_data(data, axis = 0):
-    f, ndim, axes = _set_data(data,axis)
-    f = f[...,::2,:].copy()
+    f, ndim = _set_data(data,axis)
+    f = f[...,::2,:]
     if ndim == 1:
         return f[...,0]
     else:
-        return np.transpose(f,axes)
+        return np.swapaxes(f,-2,axis)
 
     
 def subtract_background(data, axis=0, bg = None, return_bg = False, out = None):
@@ -216,9 +237,20 @@ def ccorr(f1,f2,t1 = None,t2 = None, axis = 0, out = None, n = None) :
 def cdiff(f1,f2,t1 = None,t2 = None, axis = 0, out = None, n = None):
     return _cross_compute(_cross_diff_vec,f1,f2,t1,t2,axis = axis ,out = out, n = n)
 
-def acorr_multi(f, t, axis = 0, period = 1, n = 2**5, 
-                         binning = True,  nlog = None):
-    
+def _auto_compute_multi(f, t, axis = 0, period = 1, n = 2**5, 
+                         binning = True,  nlog = None, correlate = True):
+    if correlate == True:
+        func = acorr
+        if binning == True:
+            _bin = bin_data
+        else:
+            _bin = slice_data
+    else:
+        func = adiff
+        if binning == True:
+            _bin = random_select_data
+        else:
+            _bin = slice_data        
     assert n > 4
     n_fast = period * n
     n_slow = n
@@ -231,22 +263,45 @@ def acorr_multi(f, t, axis = 0, period = 1, n = 2**5,
     nlog = int(nlog)
     
     assert nlog >= 0
-    
 
-    out_fast, count_fast = acorr(f,t, axis = axis, n = n_fast)
+
+    out_fast, count_fast = func(f,t, axis = axis, n = n_fast)
     shape = out_fast.shape[0:-1]
     out_slow = np.zeros((nlog,) + shape[0:-1] + (n_slow,) + shape[-1:], FDTYPE)  
     out_slow = _transpose_data(out_slow) 
     count_slow = np.zeros((nlog, n_slow,),IDTYPE)
     
     for i in range(nlog):
-        f = bin_data(f,axis)
+        f = _bin(f,axis)
         t_slow = np.arange(len(t)//(2**(i+1)))
-        acorr(f,t_slow, axis = axis, out = (out_slow[i], count_slow[i]))
+        func(f,t_slow, axis = axis, out = (out_slow[i], count_slow[i]))
     return (out_fast, count_fast), (out_slow, count_slow)
 
-def ccorr_multi(f1,f2, t1, t2, axis = 0, period = 1, n = 2**5, 
+def acorr_multi(f, t, axis = 0, period = 1, n = 2**5, 
                          binning = True,  nlog = None):
+    return _auto_compute_multi(acorr, f, t, axis = axis, period = period, n = n, 
+                         binning = binning,  nlog = nlog)
+
+def adiff_multi(f, t, axis = 0, period = 1, n = 2**5, 
+                         binning = True,  nlog = None):
+    return _auto_compute_multi(adiff, f, t, axis = axis, period = period, n = n, 
+                         binning = binning,  nlog = nlog)
+    
+    
+def _cross_compute_multi(f1,f2, t1, t2, axis = 0, period = 1, n = 2**5, 
+                         binning = True,  nlog = None, correlate = True):
+    if correlate == True:
+        func = ccorr
+        if binning == True:
+            _bin = bin_data
+        else:
+            _bin = slice_data
+    else:
+        func = cdiff
+        if binning == True:
+            _bin = random_select_data
+        else:
+            _bin = slice_data   
     
     assert n > 4
     n_fast = period * n
@@ -260,19 +315,29 @@ def ccorr_multi(f1,f2, t1, t2, axis = 0, period = 1, n = 2**5,
     assert nlog >= 0
     
 
-    out_fast, count_fast = ccorr(f1,f2,t1,t2, axis = axis, n = n_fast)
+    out_fast, count_fast = func(f1,f2,t1,t2, axis = axis, n = n_fast)
     shape = out_fast.shape[0:-1]
     out_slow = np.zeros((nlog,) + shape[0:-1] + (n_slow,) + shape[-1:], FDTYPE)  
     out_slow = _transpose_data(out_slow) 
     count_slow = np.zeros((nlog, n_slow,),IDTYPE)
     
     for i in range(nlog):
-        f1 = bin_data(f1,axis)
-        f2 = bin_data(f2,axis)
+        f1 = _bin(f1,axis)
+        f2 = _bin(f2,axis)
         t_slow = np.arange(len(t1)//(2**(i+1)))
-        ccorr(f1,f2,t_slow,t_slow, axis = axis, out = (out_slow[i], count_slow[i]))
+        func(f1,f2,t_slow,t_slow, axis = axis, out = (out_slow[i], count_slow[i]))
     return (out_fast, count_fast), (out_slow, count_slow)
 
+
+def cdiff_multi(f1,f2, t1,t2, axis = 0, period = 1, n = 2**5, 
+                         binning = True,  nlog = None):
+    return _cross_compute_multi(f1,f2, t1,t2, axis = axis, period = period, n = n, 
+                         binning = binning,  nlog = nlog, correlate = False)
+    
+def ccorr_multi(f1,f2, t1,t2, axis = 0, period = 1, n = 2**5, 
+                         binning = True,  nlog = None):
+    return _cross_compute_multi(f1,f2, t1,t2, axis = axis, period = period, n = n, 
+                         binning = binning,  nlog = nlog, correlate = True)
 
 @nb.jit(nopython = True) 
 def _add_count_cross(t1,t2,n):
@@ -432,7 +497,7 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
         f = ccorr
     elif method == "diff":
         f = cdiff
-        binning = False
+        #binning = False
     else:
         raise ValueError("Unknown method '{}'".format(method))
     
@@ -574,7 +639,7 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
 
 
 
-class CorrelationViewer(object):
+class RawCorrelationViewer(object):
     """Shows correlation data in plot. You need to hold reference to this object, otherwise it will not work in interactive mode.
     """
     def __init__(self, data = None, **kw):
@@ -690,6 +755,121 @@ class CorrelationViewer(object):
         """Shows video."""
         self.fig.show()
            
+
+
+class CorrelationViewer(object):
+    """Shows correlation data in plot. You need to hold reference to this object, otherwise it will not work in interactive mode.
+    """
+    def __init__(self, data = None, **kw):
+        if data is not None:
+            self.init(data, **kw)
+            
+     
+    def init(self,data, semilogx = True):
+        
+        self.t, self.data = data
+        self.shape = self.data.shape[0:-1]
+        
+        self.fig, (self.ax1,self.ax2) = plt.subplots(1,2,gridspec_kw = {'width_ratios':[3, 1]})
+        
+        self.fig.show()
+        plt.subplots_adjust(bottom=0.25)
+        
+        graph_shape = self.shape[0], self.shape[1]
+        self._graph_shape = graph_shape
+        
+        graph = np.zeros(graph_shape)
+        
+        max_graph_value = max(graph_shape[0]//2+1, graph_shape[1]) 
+        graph[0,0] = max_graph_value 
+        
+        self._max_graph_value = max_graph_value
+        
+        self.im = self.ax2.imshow(graph, extent=[0,self.shape[1],self.shape[0]//2+1,-self.shape[0]//2-1])
+        #self.ax2.grid()
+        
+#        cfast_avg = self.data_fast[0,0]
+#        cslow_avg = self.data_slow[:,0,0]
+#        
+#        with np.errstate(divide='ignore', invalid='ignore'):
+#        
+#            cfast_avg = _normalize_fast(cfast_avg, self.count_fast )
+#            cslow_avg = _normalize_slow(cslow_avg, self.count_slow)
+#        
+#        t, avg_data = log_merge(cfast_avg,cslow_avg)
+        k_avg, avg_data  = k_select(self.data, 0 , sector = 0, kstep = 1, k = 1)
+        
+        if semilogx == True:
+            self.l, = self.ax1.semilogx(avg_data)
+        else:
+            self.l, = self.ax1.plot(avg_data)
+
+        self.kax = plt.axes([0.1, 0.15, 0.65, 0.03])
+        self.kindex = Slider(self.kax, "k",0,self.shape[1]-1,valinit = 0, valfmt='%i')
+
+        self.phiax = plt.axes([0.1, 0.10, 0.65, 0.03])
+        self.phiindex = Slider(self.phiax, "$\phi$",-90,90,valinit = 0, valfmt='%.2f')        
+
+        self.sectorax = plt.axes([0.1, 0.05, 0.65, 0.03])
+        self.sectorindex = Slider(self.sectorax, "sector",0,180,valinit = 5, valfmt='%.2f') 
+                                  
+        def update(val):
+            self.update()
+            
+        self.kindex.on_changed(update)
+        self.phiindex.on_changed(update)
+        self.sectorindex.on_changed(update)
+        
+
+        
+    def update(self):
+        k = self.kindex.val
+        phi = self.phiindex.val
+        sector = self.sectorindex.val
+
+        graph = np.zeros((self.shape[0], self.shape[1]))
+        if sector != 0:
+            indexmap = sector_indexmap(self.shape[0],self.shape[1],phi, sector, 1)
+        else:
+            indexmap = line_indexmap(self.shape[0],self.shape[1],phi)
+
+        
+        mask = (indexmap == int(k))
+        nans = (indexmap == -1)
+        graph = indexmap*1.0 # make it float
+        graph[mask] = self._max_graph_value +1
+        graph[nans] = np.nan
+
+        
+        with np.errstate(divide='ignore', invalid='ignore'):
+            k_avg, avg_data  = k_select(self.data, phi , sector = sector, kstep = 1, k = k)
+        avg_data = avg_data#/avg_data[0]
+        self.l.set_ydata(avg_data)
+        self.l.set_xdata(self.t)
+        
+        # recompute the ax.dataLim
+        self.ax1.relim()
+
+        # update ax.viewLim using the new dataLim
+        self.ax1.autoscale_view()
+        
+        
+        avg_graph = np.zeros(self._graph_shape)
+        avg_graph[mask] = 1
+
+        
+        self.im.set_data(np.fft.fftshift(graph,0))
+        #self.im.set_data(graph)
+
+        self.fig.canvas.draw() 
+        self.fig.canvas.flush_events()
+        plt.pause(0.1)
+        
+
+    def show(self):
+        """Shows video."""
+        self.fig.show()
+
         
 def iccorr_multi(data, t1, t2, period = 40, level = 4, 
                 chunk_size = 256,   binning = True, auto_background = False, nlog = None, show = False, return_background = False):
@@ -701,7 +881,7 @@ def iccorr_multi(data, t1, t2, period = 40, level = 4,
                         chunk_size,  binning,  method, auto_background, nlog, return_background)):
         if show == True:
             if viewer is None:
-                viewer = CorrelationViewer()
+                viewer = RawCorrelationViewer()
                 if return_background == True:
                     viewer.init(data[0])
                 else:
@@ -735,7 +915,7 @@ def iacorr_multi(data, t,  period = 1, level = 4,
                         chunk_size,  binning,  method, auto_background, nlog, index):
         if show == True:
             if viewer is None:
-                viewer = CorrelationViewer()
+                viewer = RawCorrelationViewer()
                 viewer.init(data)
                 _FIGURES["acorr_multi"] = viewer
             else:
@@ -753,12 +933,13 @@ def icdiff_multi(data, t1, t2, period = 1, level = 4,
                         chunk_size,  binning,  method, auto_background, nlog):
         if show == True:
             if viewer is None:
-                viewer = CorrelationViewer()
+                viewer = RawCorrelationViewer()
                 viewer.init(data)
                 _FIGURES["cdiff_multi"] = viewer
             else:
                 viewer.update()
     return data
+
 
 def iadiff_multi(data, t , period = 1, level = 4, 
                         chunk_size = 256,  auto_background = False, nlog = None,show = False, index = 0):
@@ -770,7 +951,7 @@ def iadiff_multi(data, t , period = 1, level = 4,
                         chunk_size,  binning,  method, auto_background, nlog, index):
         if show == True:
             if viewer is None:
-                viewer = CorrelationViewer()
+                viewer = RawCorrelationViewer()
                 viewer.init(data)
                 _FIGURES["adiff_multi"] = viewer
             else:
@@ -808,12 +989,12 @@ def normalize(data, inplace = False):
 @nb.guvectorize([(F[:],F[:])],"(m)->(m)", target = "parallel")
 def convolve(a, out):
     n = len(out)
-    out[0] = 0.
-    out[n-1] = 0.
+    out[0] = a[0] #at the end we do not use this boundary data so it does not matter what we set here.
+    out[n-1] = a[n-1]    
     for i in range(1,n-1):
         out[i] = 0.25*(a[i-1]+2*a[i]+a[i+1])
-    
-    
+
+
 def log_average(data, level = 4):
     n = 2**level
     assert data.shape[-1] % (n) == 0
@@ -870,10 +1051,11 @@ def log_merge(cfast, cslow):
     
 
 def _transpose_data(data):
-    na = data.ndim - 1
-    axes = list(range(na))
-    axes.insert(-1, na)
-    return data.transpose(axes)
+    return np.swapaxes(data,-2,-1)
+    #na = data.ndim - 1
+    #axes = list(range(na))
+    #axes.insert(-1, na)
+    #return data.transpose(axes)
 
 @nb.jit(nopython = True)        
 def _bin_data(x1,x2,out):
@@ -988,7 +1170,7 @@ def k_select(data, phi , sector = 5, kstep = 1, k = None):
     -------
     out : iterator, or tuple
         If k s not defined, this is an iterator that yields a tuple of (k_avg, data_avg)
-        of actual (mean) k and averaged data. If k is an list of indices, it returns
+        of actual (mean) k and averaged data. If k is a list of indices, it returns
          an iterator that yields a tuple of (k_avg, data_avg) for every non-zero data
         if k is an integer, it returns a tuple of (k_avg, data_avg) for a given k-index.
     """
