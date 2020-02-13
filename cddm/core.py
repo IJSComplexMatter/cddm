@@ -390,7 +390,7 @@ def auto_analyze_iter(data, t , period = 1, level = 4,
         
     t_slow = np.arange(len(t))
         
-    print("Computing...")
+    #print("Computing...")
     
     print_progress(0, len(t))
     
@@ -519,7 +519,7 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
         
     t_slow = np.arange(len(t1))
         
-    print("Computing...")
+    #print("Computing...")
     
     print_progress(0, len(t1))
     
