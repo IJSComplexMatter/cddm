@@ -38,6 +38,40 @@ def show_fft(video, id = 0, title = None):
         _FIGURES[title] = (viewer, frames[id])
         yield frames
         
+def show_alignment_and_focus(video, id = 0, title = None, clipfactor=0.1):
+    '''To be changed'''
+    
+    if title is None:
+        title = _window_title("fft - camera {}".format(id))
+    title2="alignment"
+    
+    viewer1 = VideoViewer(title)
+    viewer2 = VideoViewer(title2)
+    
+    
+    for i,frames in enumerate(video):
+        
+        if i==0:
+            f0=np.ones(np.shape(frames[id]))
+            
+        f=mkl_fft.fft2(frames[id])
+        f=np.abs(f)
+        f=np.abs((f-f0)/(256**2))
+        f.clip(0,clipfactor)
+        f=f/clipfactor
+        f=np.fft.fftshift(f)
+        
+        im1=frames[0]
+        im2=frames[1]
+        diff=(im2/im2.mean())-(im1/im1.mean())+0.5
+        
+        _FIGURES[title] = (viewer1, f)
+        _FIGURES[title2] = (viewer2, diff)
+        
+        f0=f.copy()
+        
+        yield frames
+        
 def _determine_cutoff_indices(shape, kisize = None, kjsize= None):
     if kisize is None:
         kisize = shape[0]

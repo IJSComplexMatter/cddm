@@ -86,6 +86,10 @@ def asarrays(video, count = None):
 
 def asmemmaps(basename, video, count = None):
     """Loads multi-frame video into numpy memmaps. 
+    
+    Actual data is written to numpy files with the provide basename and
+    subscripted by source identifier (index), e.g. "basename_0.npy" and "basename_1.npy"
+    in case of dual-frame video source.
      
     Parameters
     ----------
@@ -94,7 +98,7 @@ def asmemmaps(basename, video, count = None):
     video : iterable
        A multi-frame iterator object.
     count : int, optional
-       Defines how many frames are in the video. If not provided it is determined
+       Defines how many multi-frames are in the video. If not provided it is determined
        by len().
     """
     if count is None:

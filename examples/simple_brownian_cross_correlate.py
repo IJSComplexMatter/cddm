@@ -28,14 +28,14 @@ v2 = np.load("simple_brownian_cddm_fft_1.npy")
 v1 = v1/(v1[...,0,0][:,None,None])
 v2 = v2/(v2[...,0,0][:,None,None])
 #
-v1 = v1+ np.random.randn(64,33)
-v2 = v2+ np.random.randn(64,33)
+#v1 = v1+ np.random.randn(64,33)
+#v2 = v2+ np.random.randn(64,33)
 
 v1 = v1/v1[...,0,0].mean()
 v2 = v2/v2[...,0,0].mean()
 
-v1 = v1 - v1.mean(0)
-v2 = v2 - v2.mean(0)
+#v1 = v1 - v1.mean(0)
+#v2 = v2 - v2.mean(0)
 
 m = (t1 == t2)
 tmp = (v1[m].real)**2 + (v1[m].imag)**2 + (v2[m].real)**2 + (v2[m].imag)**2 
@@ -52,7 +52,7 @@ background = v1.mean(0), v2.mean(0)
 #
 
 
-data = normalize_ccorr(data1)
+data = normalize_ccorr(data1, background)
 
 
 
@@ -76,7 +76,7 @@ for k, c in kdata:
     plt.semilogx(x[1:], c[1:], label = k)
 plt.legend()
 
-data = normalize_ccorr(data2)
+data = normalize_ccorr(data2, background)
 
 
 
@@ -89,7 +89,7 @@ x = np.arange(data.shape[-1])
 plt.semilogx(x[1:], data[i,j][1:], "o")
 
 
-np.save("simple_brownian_ccorr_linear.npy", data)
+np.save("simple_brownian_ccorr_linear2.npy", data)
 
 ##now let us do some k-averaging
 kdata = k_select(data, phi = 0, sector = 180, kstep = 1)

@@ -33,8 +33,8 @@ v1 = v1/v1[...,0,0].mean()
 v2 = v2/v2[...,0,0].mean()
 
 
-v1 = v1+ v1[0]#np.random.randn(64,33)
-v2 = v2+ v2[-1]#np.random.randn(64,33)
+#v1 = v1+ v1[0]#np.random.randn(64,33)
+#v2 = v2+ v2[-1]#np.random.randn(64,33)
 
 #v1 = v1 - v1[:].mean(axis = 0)[None,...]
 #v2 = v2 - v2[:].mean(axis = 0)[None,...]
@@ -46,7 +46,7 @@ nframes = len(v1)
 
 v = fromarrays((v1,v2))
 
-data, bg, var = iccorr_multi(v, t1,t2, level = 4, period = PERIOD, binning = True, show = False, stats = True, norm = 2)
+data, bg, var = iccorr_multi(v, t1,t2, level = 4, period = PERIOD, binning = True, show = False, stats = True, norm = 0)
 #data, bg, var = ccorr_multi(v1,v2 , t1,t2, n=2**5, period = PERIOD, binning = True, norm = 0, stats = True)
 #data2 = ccorr_multi(v1,v2 , t1,t2, n=2**4, period = PERIOD, binning = False, norm = 2)
 data2, bg2, var2 = ccorr_multi(v1,v2 , t1,t2, n=2**4, period = PERIOD, binning = True, norm = 2, stats = True)
@@ -86,7 +86,7 @@ x2, logdata2 = log_merge(cfast2,cslow2)
 plt.semilogx(x2[1:], logdata2[i,j][1:], "k--", label = "merged2")
 plt.legend()
 
-np.save("simple_brownian_ccorr_log2.npy",(x,logdata2))
+np.save("simple_brownian_ccorr_log2.npy",(x2,logdata2))
 
 ##now let us do some k-averaging
 kdata = k_select(logdata, phi = 0, sector = 3, kstep = 1)

@@ -61,7 +61,7 @@ def get_dual_video(seed = None):
         sim.seed(seed)
         
     #build particle coordinates  of smaller, faster particles
-    x1 = sim.brownian_particles(shape = SIMSHAPE, n = SIMFRAMES, delta = 1., dt = 1, particles = NPARTICLES)   
+    x1 = sim.brownian_particles(shape = SIMSHAPE, n = SIMFRAMES, delta = 4., dt = 1, particles = NPARTICLES)   
     #build particle coordinate of a single large slow moving particle 
     #x2 = sim.brownian_particles(shape = SIMSHAPE, n = SIMFRAMES, delta = 0.1, dt = 1,
     #                           particles = 1, velocity = ((0.01,0),), x0 = ((0,256),)) 
@@ -79,7 +79,7 @@ def get_video(n = NFRAMES_SINGLE, seed = None):
         sim.seed(seed)
         
     #build particle coordinates  of smaller, faster particles
-    x1 = sim.brownian_particles(shape = SIMSHAPE, n = NFRAMES_SINGLE, delta = 1., dt = 1, particles = NPARTICLES)   
+    x1 = sim.brownian_particles(shape = SIMSHAPE, n = NFRAMES_SINGLE, delta = 4., dt = 1, particles = NPARTICLES)   
     #build particle coordinate of a single large slow moving particle 
     #x2 = sim.brownian_particles(shape = SIMSHAPE, n = NFRAMES_SINGLE, delta = 0.1, dt = 1,
     #                           particles = 1, velocity = ((0.01,0),), x0 = ((0,256),)) 

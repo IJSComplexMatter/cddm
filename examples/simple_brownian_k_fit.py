@@ -63,22 +63,28 @@ def fitc(x, data):
     popt = [0.1,1,0]
     for i, (k, y) in enumerate(data):
         y = y/y[0]
-        popt,pcov = curve_fit(_fit, x, y, p0 = popt)
-        
-        plt.semilogx(x,y,"o",color = colors[i%len(colors)],fillstyle='none')
-        plt.semilogx(x,_fit(x,*popt), color = colors[i%len(colors)])
-        yield k, popt[0]
+        try:
+            popt,pcov = curve_fit(_fit, x, y, p0 = popt)
+            
+            plt.semilogx(x,y,"o",color = colors[i%len(colors)],fillstyle='none')
+            plt.semilogx(x,_fit(x,*popt), color = colors[i%len(colors)])
+            yield k, popt[0]
+        except:
+            pass
         
 def fita(x, data):
     """performs fitting and plotting of auto correlation data"""
     popt = [0.1,1,0]
     for i, (k, y) in enumerate(data):
         y = y/y[0]
-        popt,pcov = curve_fit(_fit, x[1:], y[1:], p0 = popt)
-        
-        plt.semilogx(x,y,"o", color = colors[i%len(colors)],fillstyle='none')
-        plt.semilogx(x,_fit(x,*popt), color = colors[i%len(colors)])
-        yield k, popt[0]
+        try:
+            popt,pcov = curve_fit(_fit, x[1:], y[1:], p0 = popt)
+            
+            plt.semilogx(x,y,"o", color = colors[i%len(colors)],fillstyle='none')
+            plt.semilogx(x,_fit(x,*popt), color = colors[i%len(colors)])
+            yield k, popt[0]
+        except:
+            pass
   
 def _lin(x,k):
     return k*x

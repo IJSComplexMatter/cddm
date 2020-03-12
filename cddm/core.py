@@ -1376,16 +1376,7 @@ def iccorr_multi(data, t1, t2, period = 40, level = 4,
     t0 = time.time()
     for i, data in enumerate(cross_analyze_iter(data, t1, t2, period , level , 
                         chunk_size,  binning,  method, auto_background, nlog, norm, stats)):
-        if show == True:
-            if viewer is None:
-                viewer = RawCorrelationViewer()
-                if stats == True:
-                    viewer.init(data[0])
-                else:
-                    viewer.init(data)
-                _FIGURES["ccorr_multi"] = viewer
-            else:
-                viewer.update()
+
         if stats == True:
             if i == 0:
                 bg1, bg2 = data[1]
@@ -1396,7 +1387,20 @@ def iccorr_multi(data, t1, t2, period = 40, level = 4,
                 _bg1, _bg2 = data[1]
                 bg1, bg2 = np.add(bg1,_bg1), np.add(bg2,_bg2)
                 _sq1, _sq2 = data[2]
-                sq1, sq2 = np.add(sq1,_sq1), np.add(sq2,_sq2)                
+                sq1, sq2 = np.add(sq1,_sq1), np.add(sq2,_sq2)   
+
+
+        if show == True:
+            if viewer is None:
+                viewer = RawCorrelationViewer()
+                if stats == True:
+                    viewer.init(data[0])
+                else:
+                    viewer.init(data)
+                _FIGURES["ccorr_multi"] = viewer
+            else:
+                viewer.update()
+             
                 
     if stats == True:
         x, (_bg1, _bg2), (_sq1,_sq2) = data
@@ -1569,11 +1573,15 @@ def normalize_ccorr(data, background = None, variance = None, out = None):
         count = data[-1]
         data = data[:-1]
         
+        #dimensions of correlation data (the first element of the data tuple)
+        ndim = data[0].ndim
+        print("ndim",ndim, count.ndim)
+        
         if variance is None:
-            offset = 0.
+            offset = np.asarray(0.)
         else:
             #offset for norm == 2 type of normalization
-            offset = 0.5*(variance[0] + variance[1])
+            offset = np.asarray(0.5*(variance[0] + variance[1]))
         
         if background is None:
             bg1, bg2 = 0. ,0.
@@ -1581,9 +1589,13 @@ def normalize_ccorr(data, background = None, variance = None, out = None):
             bg1, bg2 = background
             bg1 = bg1[...,None] #add dimension for broadcasting
             bg2 = bg2[...,None]
-            
-        count = count[...,None,None,:]
         
+        #need to add dimensions to count for broadcasting
+        #for 2D data, this is equivalent to count = count[...,None,None,:]
+        ndiff = ndim - count.ndim
+        for i in range(ndiff):
+            count = np.expand_dims(count,-2)
+            
         if len(data) == 1:
             return _remove_ccorr_background_simple(data[0], count, bg1, bg2, out = out)
         elif len(data) == 3:
@@ -1673,10 +1685,7 @@ def log_merge(cfast, cslow):
 
 def _transpose_data(data):
     return np.swapaxes(data,-2,-1)
-    #na = data.ndim - 1
-    #axes = list(range(na))
-    #axes.insert(-1, na)
-    #return data.transpose(axes)
+
 
 @nb.jit(nopython = True)        
 def _bin_data(x1,x2,out):
@@ -1744,8 +1753,24 @@ def _select_data(data, k, indexmap, normalize = False):
     cslow_avg = cslow[:,mask,:].mean(1)
     
     if normalize == True:
-        _normalize_fast(cfast_avg, count_fast, cfast_avg)
-        _normalize_slow(cslow_avg, count_slow, cslow_avg)
+        normalize_ccorr(((cfast_avg, count_fast),(cslow_avg, count_slow)), out = (cfast_avg, cslow_avg))
+        #_normalize_fast(cfast_avg, count_fast, cfast_avg)
+        #_normalize_slow(cslow_avg, count_slow, cslow_avg)
+    
+    tx, cc_avg = log_merge(cfast_avg,cslow_avg)
+    
+    return tx, cc_avg
+
+def _select_data(data, k, indexmap, normalize = False):
+    
+    cfast, cslow = normalize_ccorr(data)
+
+    mask = (indexmap == int(round(k)))
+    
+    
+    cfast_avg = cfast[mask,:].mean(0)
+    cslow_avg = cslow[:,mask,:].mean(1)
+    
     
     tx, cc_avg = log_merge(cfast_avg,cslow_avg)
     
