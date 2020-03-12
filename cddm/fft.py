@@ -54,7 +54,7 @@ def show_alignment_and_focus(video, id = 0, title = None, clipfactor=0.1):
         if i==0:
             f0=np.ones(np.shape(frames[id]))
             
-        f=mkl_fft.fft2(frames[id])
+        f=_fft2(frames[id])
         f=np.abs(f)
         f=np.abs((f-f0)/(256**2))
         f.clip(0,clipfactor)
@@ -87,6 +87,18 @@ def _determine_cutoff_indices(shape, kisize = None, kjsize= None):
     
     shape = kisize, jstop
     return shape, istop, jstop
+
+def _fft2(a, overwrite_x = False):
+    libname = CDDMConfig["fftlib"]
+    if libname == "mkl_fft":
+        return mkl_fft.fft2(a, overwrite_x = overwrite_x)
+    elif libname == "scipy":
+        return spfft.fft2(a, overwrite_x = overwrite_x)
+    elif libname == "numpy":
+        return np.fft.fft2(a) #force real in case input is complex
+    else:#default implementation is numpy fft2
+        return np.fft.fft2(a)
+
     
 def _rfft2(a, overwrite_x = False):
     libname = CDDMConfig["fftlib"]
@@ -138,8 +150,9 @@ def rfft2(video, kisize = None, kjsize = None, overwrite_x = False):
 if __name__ == "__main__":
     from cddm.video import random_dual_frame_video
     video = random_dual_frame_video()
+    video = show_alignment_and_focus(video)
     fft = rfft2(video)
-    fft = show_fft(fft,0)
+    
 
-#    for frames in play(fft, fps = 20):
-#        pass
+    for frames in play(fft, fps = 20):
+        pass

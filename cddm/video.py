@@ -242,6 +242,6 @@ if __name__ == '__main__':
     video = show_diff(video)
     v1,v2 = asarrays(play(video, fps = 10),count = 256)
 
-    #for frames in play(video, fps = 20):
-    #    pass
+    for frames in play(video, fps = 20):
+        pass
     
