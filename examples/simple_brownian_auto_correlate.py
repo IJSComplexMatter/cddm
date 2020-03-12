@@ -15,7 +15,6 @@ import numpy as np
 #setting this to 2 shows progress bar
 conf.set_verbose(2)
 
-SHAPE = (512, 512)
 
 v = np.load("simple_brownian_ddm_fft.npy")
 
@@ -26,7 +25,7 @@ data,count = acorr(v,n = 2**10)
 
 data = normalize((data,count))
 
-i,j = 4,8
+i,j = 4,4
 
 plt.figure()
 
@@ -38,7 +37,7 @@ plt.semilogx(x[1:], data[i,j][1:], "o")
 np.save("simple_brownian_acorr_linear.npy", data)
 
 ##now let us do some k-averaging
-kdata = k_select(data, phi = 0, sector = 180, kstep = 1)
+kdata = k_select(data, phi = 0, sector = 0, kstep = 1)
 
 plt.figure()
 #

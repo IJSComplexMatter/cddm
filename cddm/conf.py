@@ -106,6 +106,7 @@ if read_environ_variable("CDDM_NUMBA_CACHE",
     if NUMBA_PARALLEL == False:
         NUMBA_CACHE = True  
     else:
+        #caching was not available for target parallel before 0.45 version
         if _numba_0_45_or_greater:
             NUMBA_CACHE = True
 

@@ -7,13 +7,16 @@ You must first create FFTs of the videos by calling simple_brownian_fft.py
 
 from simple_brownian_video import PERIOD
 
-from cddm import normalize, k_select, ccorr_multi, log_merge
-
+from cddm import normalize, k_select, ccorr_multi, log_merge, iccorr_multi
+from cddm.video import fromarrays
 import matplotlib.pyplot as plt
+
+from cddm.core import normalize_ccorr, cdiff_multi
 
 from cddm import conf
 import numpy as np
 
+np.random.seed(1)
 #setting this to 2 shows progress bar
 conf.set_verbose(2)
 
@@ -23,24 +26,37 @@ v1 = np.load("simple_brownian_cddm_fft_0.npy")
 v2 = np.load("simple_brownian_cddm_fft_1.npy")
 v1 = v1/(v1[...,0,0][:,None,None])
 v2 = v2/(v2[...,0,0][:,None,None])
+#
+
 
 v1 = v1/v1[...,0,0].mean()
 v2 = v2/v2[...,0,0].mean()
 
-v1 = v1 - v1.mean(axis = 0)[None,...]*0.99
-v2 = v2 - v2.mean(axis = 0)[None,...]*0.99
+
+v1 = v1+ v1[0]#np.random.randn(64,33)
+v2 = v2+ v2[-1]#np.random.randn(64,33)
+
+#v1 = v1 - v1[:].mean(axis = 0)[None,...]
+#v2 = v2 - v2[:].mean(axis = 0)[None,...]
 
 t1 = np.load("simple_brownian_cddm_t1.npy")
 t2 = np.load("simple_brownian_cddm_t2.npy")
 
 nframes = len(v1)
 
-data,count = ccorr_multi(v1,v2 , t1,t2, n = 16, period = PERIOD, binning = True)
+v = fromarrays((v1,v2))
 
-cfast, cslow = normalize((data,count))
+data, bg, var = iccorr_multi(v, t1,t2, level = 4, period = PERIOD, binning = True, show = False, stats = True, norm = 2)
+#data, bg, var = ccorr_multi(v1,v2 , t1,t2, n=2**5, period = PERIOD, binning = True, norm = 0, stats = True)
+#data2 = ccorr_multi(v1,v2 , t1,t2, n=2**4, period = PERIOD, binning = False, norm = 2)
+data2, bg2, var2 = ccorr_multi(v1,v2 , t1,t2, n=2**4, period = PERIOD, binning = True, norm = 2, stats = True)
+
+cfast2, cslow2 = normalize_ccorr(data2,bg2,var2)
+cfast, cslow = normalize_ccorr(data,bg,var)
 
 
-i,j = 5,6
+
+i,j = 0,6
 
 plt.figure()
 
@@ -49,30 +65,46 @@ x = np.arange(cfast.shape[-1])
 
 #plot fast data  at k =(i,j) and for x > 0 (all but first data point)
 
-plt.semilogx(x[1:], cfast[i,j][1:], "o", label = "fast", fillstyle = "none")
+plt.semilogx(x[1:], cfast[i,j][1:], "o", label = "fast - level 0", fillstyle = "none")
 
 #plot slow data
 x = np.arange(cslow.shape[-1]) * PERIOD
 for n, slow in enumerate(cslow):
     x = x * 2
-    plt.semilogx(x[1:], slow[i,j][1:], "o", label = "slow {}".format(n+1), fillstyle = "none")
+    plt.semilogx(x[1:], slow[i,j][1:], "o", label = "slow - level {}".format(n+1), fillstyle = "none")
     
 #merged data
-x, logdata2 = log_merge(cfast,cslow)
+x, logdata = log_merge(cfast,cslow)
+
+np.save("simple_brownian_ccorr_log.npy",(x,logdata))
+
 plt.semilogx(x[1:], logdata[i,j][1:], "k-", label = "merged")
-plt.semilogx(x[1:], logdata2[i,j][1:], "k-.", label = "merged2")
+
+
+x2, logdata2 = log_merge(cfast2,cslow2)
+
+plt.semilogx(x2[1:], logdata2[i,j][1:], "k--", label = "merged2")
 plt.legend()
 
-np.save("simple_brownian_ccorr_log.npy",(x,logdata2))
+np.save("simple_brownian_ccorr_log2.npy",(x,logdata2))
 
 ##now let us do some k-averaging
-kdata = k_select(logdata2, phi = 15, sector = 3, kstep = 1)
+kdata = k_select(logdata, phi = 0, sector = 3, kstep = 1)
+kdata2 = k_select(logdata2, phi = 0, sector = 3, kstep = 1)
 
 plt.figure()
 #
-for k, c in kdata: 
+for i,(k, c) in enumerate(kdata): 
     print(k)
-    plt.semilogx(x[1:], c[1:]/c[0], label = k)
+    if k >29:
+
+        plt.semilogx(x[1:], c[1:], label = k)
+    
+for i,(k, c) in enumerate(kdata2): 
+    print(k)
+    if k >29:   
+        plt.semilogx(x2[1:], c[1:], label = k)    
+    
 plt.legend()
 plt.show()
 

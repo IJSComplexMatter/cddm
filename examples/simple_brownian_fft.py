@@ -17,7 +17,8 @@ import numpy as np
 #setting this to 2 shows progress bar
 conf.set_verbose(2)
 
-SHAPE = (512, 512)
+from simple_brownian_video import SHAPE
+
 
 vid = np.load("simple_brownian_ddm_video.npy")
 nframes = len(vid)

@@ -1,6 +1,6 @@
 """Performs data fitting.
 
-To generate test data, you ust first run the following scripts
+To generate test data, you must first run the following scripts
 
 simple_brownian_ccorr.py
 simple_brownian_ccorr_multi.py
@@ -20,15 +20,17 @@ c = np.load("simple_brownian_ccorr_linear.npy")
 xc = np.arange(c.shape[-1])
 
 xcl,cl = np.load("simple_brownian_ccorr_log.npy", allow_pickle = True)
+xcl2,cl2 = np.load("simple_brownian_ccorr_log2.npy", allow_pickle = True)
 
 a = np.load("simple_brownian_acorr_linear.npy")
 xa = np.arange(a.shape[-1])
 
 ##now do some k-averaging over a cone of 5 degrees, at 0 angle
 ##kc and ka are lists of (q,data) tuples
-kc = list(k_select(c, phi = 0, sector = 120, kstep = 1))
-kcl = list(k_select(cl, phi = 0, sector = 120, kstep = 1))
-ka = list(k_select(a, phi = 0, sector = 120, kstep = 1))
+kc = list(k_select(c, phi = 0, sector = 5, kstep = 1))
+kcl = list(k_select(cl, phi = 0, sector = 5, kstep = 1))
+kcl2 = list(k_select(cl2, phi = 0, sector = 5, kstep = 1))
+ka = list(k_select(a, phi = 0, sector = 5, kstep = 1))
 
 
 #Plot 16th and 28th q
@@ -44,6 +46,10 @@ for i in (15,27):
 for i in (15,27):
     k, y = kcl[i]
     plt.semilogx(xcl[1:], y[1:]/y[0], label = "ccorr_multi k = {:.1f}".format(k))    
+
+for i in (15,27):
+    k, y = kcl2[i]
+    plt.semilogx(xcl2[1:], y[1:]/y[0], label = "ccorr_multi2 k = {:.1f}".format(k))    
 
 
 plt.legend()
@@ -85,10 +91,13 @@ kfa = np.array(list(fita(xa,ka[4:])))
 plt.figure() 
 kfcl = np.array(list(fitc(xcl,kcl[4:])))
 plt.figure() 
+kfcl2 = np.array(list(fitc(xcl2,kcl2[4:])))
+plt.figure() 
 
 plt.plot(kfa[...,0]**2,kfa[...,1],"o", color = colors[0],fillstyle='none', label = "acorr")
 plt.plot(kfc[...,0]**2,kfc[...,1],"o", color = colors[1],fillstyle='none', label = "ccorr")
 plt.plot(kfcl[...,0]**2,kfcl[...,1],"o", color = colors[2],fillstyle='none', label = "ccorr_multi")
+plt.plot(kfcl2[...,0]**2,kfcl2[...,1],"o", color = colors[3],fillstyle='none', label = "ccorr_multi2")
 
 x = kfc[...,0]**2
 
@@ -102,6 +111,10 @@ print("Measured D (ccorr):", popt[0])
 popt,pcov = curve_fit(_lin, x, kfcl[...,1])
 plt.plot(x,_lin(x,*popt), "--", color = colors[2], label = "fit ccorr_multi")
 print("Measured D (ccorr_multi):", popt[0])
+
+popt,pcov = curve_fit(_lin, x, kfcl2[...,1])
+plt.plot(x,_lin(x,*popt), "--", color = colors[3], label = "fit ccorr_multi2")
+print("Measured D (ccorr_multi2):", popt[0])
 
 popt,pcov = curve_fit(_lin, x, kfa[...,1])
 plt.plot(x,_lin(x,*popt), "--",color = colors[0], label = "fit acorr")

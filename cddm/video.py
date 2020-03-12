@@ -233,10 +233,10 @@ if __name__ == '__main__':
     #from cddm.conf import set_cv2
     #set_cv2(False)
 
-    video = random_dual_frame_video(count = 1000)
+    video = random_dual_frame_video(count = 256)
     video = show_video(video)
     video = show_diff(video)
-    v1,v2 = asarrays(play(video, fps = 20),count = 1000)
+    v1,v2 = asarrays(play(video, fps = 10),count = 256)
 
     #for frames in play(video, fps = 20):
     #    pass

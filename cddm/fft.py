@@ -1,9 +1,20 @@
 """
 FFT tools. 
+
+This module defines several functions for fft processing  of multi-frame data.
 """
 
 import numpy as np
 from cddm.video import VideoViewer, _FIGURES, play
+from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED 
+
+#from multiprocessing.pool import ThreadPool
+
+if MKL_FFT_INSTALLED == True:
+    import mkl_fft
+    
+if SCIPY_INSTALLED == True:
+    import scipy.fftpack as spfft
 
 class FFTViewer(VideoViewer):
     def __init__(self, title = "fft"):
@@ -18,6 +29,7 @@ def _window_title(name):
     return "Fig.{}: {}".format(i, name)
 
 def show_fft(video, id = 0, title = None):
+    """Show """
     if title is None:
         title = _window_title("fft - camera {}".format(id))
     viewer = FFTViewer(title)
@@ -41,47 +53,33 @@ def _determine_cutoff_indices(shape, kisize = None, kjsize= None):
     
     shape = kisize, jstop
     return shape, istop, jstop
+    
+def _rfft2(a, overwrite_x = False):
+    libname = CDDMConfig["fftlib"]
+    cutoff = a.shape[-1]//2 + 1
+    if libname == "mkl_fft":
+        return mkl_fft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]
+    elif libname == "scipy":
+        return spfft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]
+    elif libname == "numpy":
+        return np.fft.rfft2(a.real) #force real in case input is complex
+    else:#default implementation is numpy fft2
+        return np.fft.fft2(a)[...,0:cutoff]     
 
-#
-#def rfft2(video, kisize = None, kjsize = None):
-#    """A generator that performs rfft2 on a sequence of frames.
-#    """
-#    def _copy(data, vid, istop, jstop):
-#        vid[:istop,:] = data[:istop,:jstop] 
-#        vid[-istop:,:] = data[-istop:,:jstop] 
-#        return vid
-#    
-#    if kisize is None and kjsize is None:
-#        #just do fft, no cropping
-#        for frames in video:
-#            yield tuple((np.fft.rfft2(frame) for frame in frames))
-#    else:
-#        #do fft with cropping
-#        out = None
-#        for frames in video:
-#            if out is None:
-#                shape = frames[0].shape
-#                shape, istop, jstop = _determine_cutoff_indices(shape, kisize, kjsize)
-#                out = []
-#                for frame in frames:
-#                    data = np.fft.rfft2(frame)
-#                    vid = np.empty(shape,data.dtype)
-#                    out.append(_copy(data,vid,istop,jstop))
-#                out = tuple(out)
-#                yield out
-#            else:
-#                for vid, data in zip(out, frames):
-#                    data = np.fft.rfft2(data)
-#                    _copy(data,vid,istop,jstop) 
-#                yield out
-#            
-#        yield out
+#def _rfft2_sequence(a, overwrite_x = False):
+#    pool = ThreadPool(2)
+#    workers = [pool.apply_async(_rfft2, args = (d, overwrite_x)) for d in a] 
+#    results = [w.get() for w in workers]
+#    pool.close()
+#    return results
 
-def rfft2(video, kisize = None, kjsize = None):
-    """A generator that performs rfft2 on a sequence of frames.
+
+def rfft2(video, kisize = None, kjsize = None, overwrite_x = False):
+    """A generator that performs rfft2 on a sequence of multi-frame data.
     """
-    def _fft2(frame, shape, istop, jstop):
-        data = np.fft.rfft2(frame)
+    
+    def f(frame, shape, istop, jstop):
+        data = _rfft2(frame, overwrite_x = overwrite_x)
         vid = np.empty(shape,data.dtype)
         vid[:istop,:] = data[:istop,:jstop] 
         vid[-istop:,:] = data[-istop:,:jstop] 
@@ -90,7 +88,8 @@ def rfft2(video, kisize = None, kjsize = None):
     if kisize is None and kjsize is None:
         #just do fft, no cropping
         for frames in video:
-            yield tuple((np.fft.rfft2(frame) for frame in frames))
+            #yield _rfft2_sequence(frames, overwrite_x = overwrite_x)
+            yield tuple((_rfft2(frame, overwrite_x = overwrite_x) for frame in frames))
     else:
         #do fft with cropping
         out = None
@@ -98,9 +97,8 @@ def rfft2(video, kisize = None, kjsize = None):
             if out is None:
                 shape = frames[0].shape
                 shape, istop, jstop = _determine_cutoff_indices(shape, kisize, kjsize)
-            out = tuple((_fft2(frame,shape,istop,jstop) for frame in frames))
+            out = tuple((f(frame,shape,istop,jstop) for frame in frames))
             yield out
-   
 
         
 if __name__ == "__main__":
@@ -109,5 +107,5 @@ if __name__ == "__main__":
     fft = rfft2(video)
     fft = show_fft(fft,0)
 
-    for frames in play(fft, fps = 20):
-        pass
+#    for frames in play(fft, fps = 20):
+#        pass
