@@ -1079,6 +1079,9 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
                 np.divide(sum2, _divisor , out_bg2)
                 np.divide(sqsum1, _divisor , out_var1)
                 np.divide(sqsum2, _divisor , out_var2)
+                np.subtract(out_var1, np.abs(out_bg1)**2, out_var1)
+                np.subtract(out_var2, np.abs(out_bg2)**2, out_var2)
+
 
                 #out_bg1 = np.mean(fdata1[0,...,fstart1:fstop1,:], axis = -2)
                 #out_bg2 = np.mean(fdata2[0,...,fstart1:fstop1,:], axis = -2)

@@ -34,11 +34,11 @@ v2 = v2/v2[...,0,0].mean()
 #v1[3000:] = v1[3000:] + v1[0]
 #v2[3000:] = v2[3000:] + v2[-1]
 
-#v1 = v1+ np.random.randn(64,33)
-#v2 = v2+ np.random.randn(64,33)
+v1 = v1+ np.random.randn(64,33)
+v2 = v2+ np.random.randn(64,33)
 
-v1 = v1 - v1[:].mean(axis = 0)[None,...]
-v2 = v2 - v2[:].mean(axis = 0)[None,...]
+#v1 = v1 - v1[:].mean(axis = 0)[None,...]
+#v2 = v2 - v2[:].mean(axis = 0)[None,...]
 
 t1 = np.load("simple_brownian_cddm_t1.npy")
 t2 = np.load("simple_brownian_cddm_t2.npy")
@@ -47,7 +47,7 @@ nframes = len(v1)
 
 v = fromarrays((v1,v2))
 
-data, bg, var = iccorr_multi(v, t1,t2, level = 4, period = PERIOD, binning = True, stats = True, norm = 0, show = True)
+data, bg, var = iccorr_multi(v, t1,t2, level = 4, period = PERIOD, binning = True, stats = True, norm = 2, show = True)
 #data, bg, var = ccorr_multi(v1,v2 , t1,t2, n=2**5, period = PERIOD, binning = True, norm = 0, stats = True)
 #data2 = ccorr_multi(v1,v2 , t1,t2, n=2**4, period = PERIOD, binning = False, norm = 2)
 
