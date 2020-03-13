@@ -63,13 +63,15 @@ def get_dual_video(seed = None):
     #build particle coordinates  of smaller, faster particles
     x1 = sim.brownian_particles(shape = SIMSHAPE, n = SIMFRAMES, delta = 4., dt = 1, particles = NPARTICLES)   
     #build particle coordinate of a single large slow moving particle 
-    #x2 = sim.brownian_particles(shape = SIMSHAPE, n = SIMFRAMES, delta = 0.1, dt = 1,
-    #                           particles = 1, velocity = ((0.01,0),), x0 = ((0,256),)) 
+    x2 = sim.brownian_particles(shape = SIMSHAPE, n = SIMFRAMES, delta = 0.02, dt = 1,
+                               particles = 1, velocity = ((0.01,0),), x0 = ((0,256),)) 
     
-    dual_vid = sim.particles_video(x1, t1 = t1, t2 = t2, shape = SIMSHAPE, sigma = 5, intensity = 5, background = 0)
-    #dual_vid2 = sim.particles_video(x2,t1 = t1, t2 = t2,  shape = SIMSHAPE, sigma = 30, intensity = 30, background = 0)
-    #dual_vid = intensity_jitter(dual_vid, t1,t2)
-    return (_crop_frames(frames) for frames in dual_vid)
+    vid1 = sim.particles_video(x1, t1 = t1, t2 = t2, shape = SIMSHAPE, sigma = 5, intensity = 5, background = 0)
+    vid2 = sim.particles_video(x2,t1 = t1, t2 = t2,  shape = SIMSHAPE, sigma = 30, intensity = 30, background = 0)
+    video = ((frame1[0]+frame2[0],frame1[1]+frame2[1]) for frame1,frame2 in zip(vid1,vid2))
+
+    #dual_vid = intensity_jitter(video, t1,t2)
+    return (_crop_frames(frames) for frames in video)
 
 def get_video(n = NFRAMES_SINGLE, seed = None):
     
@@ -81,13 +83,14 @@ def get_video(n = NFRAMES_SINGLE, seed = None):
     #build particle coordinates  of smaller, faster particles
     x1 = sim.brownian_particles(shape = SIMSHAPE, n = NFRAMES_SINGLE, delta = 4., dt = 1, particles = NPARTICLES)   
     #build particle coordinate of a single large slow moving particle 
-    #x2 = sim.brownian_particles(shape = SIMSHAPE, n = NFRAMES_SINGLE, delta = 0.1, dt = 1,
-    #                           particles = 1, velocity = ((0.01,0),), x0 = ((0,256),)) 
+    x2 = sim.brownian_particles(shape = SIMSHAPE, n = NFRAMES_SINGLE, delta = 0.02, dt = 1,
+                               particles = 1, velocity = ((0.01,0),), x0 = ((0,256),)) 
     
     vid1 = sim.particles_video(x1, shape = SIMSHAPE, sigma = 5, intensity = 10, background = 0)
-    #vid2 = sim.particles_video(x2,  shape = SIMSHAPE, sigma = 30, intensity = 30, background = 0)
+    vid2 = sim.particles_video(x2,  shape = SIMSHAPE, sigma = 30, intensity = 30, background = 0)
+    video = (frame1+frame2 for frame1,frame2 in zip(vid1,vid2))
 
-    return (_crop_frames((frame,)) for frame in vid1)
+    return (_crop_frames((frame,)) for frame in video)
     #return ((frame1+frame2,frame1+frame2) for frame1,frame2 in zip(vid1,vid2))
 
 

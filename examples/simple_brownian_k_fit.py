@@ -27,10 +27,10 @@ xa = np.arange(a.shape[-1])
 
 ##now do some k-averaging over a cone of 5 degrees, at 0 angle
 ##kc and ka are lists of (q,data) tuples
-kc = list(k_select(c, phi = 0, sector = 5, kstep = 1))
-kcl = list(k_select(cl, phi = 0, sector = 5, kstep = 1))
-kcl2 = list(k_select(cl2, phi = 0, sector = 5, kstep = 1))
-ka = list(k_select(a, phi = 0, sector = 5, kstep = 1))
+kc = list(k_select(c, phi = 0, sector = 0, kstep = 1))
+kcl = list(k_select(cl, phi = 0, sector = 0, kstep = 1))
+kcl2 = list(k_select(cl2, phi = 0, sector = 0, kstep = 1))
+ka = list(k_select(a, phi = 0, sector = 0, kstep = 1))
 
 
 #Plot 16th and 28th q
@@ -107,7 +107,7 @@ plt.plot(kfcl2[...,0]**2,kfcl2[...,1],"o", color = colors[3],fillstyle='none', l
 
 x = kfc[...,0]**2
 
-D = 2*(np.pi/512)**2
+D = 2*(4*np.pi/512)**2
 plt.plot(x,_lin(x,D), "k-", label = "true")
 
 popt,pcov = curve_fit(_lin, x, kfc[...,1])
@@ -126,7 +126,7 @@ popt,pcov = curve_fit(_lin, x, kfa[...,1])
 plt.plot(x,_lin(x,*popt), "--",color = colors[0], label = "fit acorr")
 print("Measured D (acorr):", popt[0])
 
-print("Expected D:", 2*(np.pi/512)**2)
+print("Expected D:", D)
 
 plt.xlabel("$q^2$")
 

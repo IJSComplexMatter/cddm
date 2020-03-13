@@ -37,6 +37,18 @@ def _add_squaresum_vec(x, y, out):
         tmp = tmp + yy.real * yy.real + yy.imag * yy.imag
         out[j] =  out[j] + tmp
         
+@nb.jit([(C[:],C[:],F[:])], nopython = True)
+def _add_stats_vec(x, out1, out2):
+    for j in range(x.shape[0]):
+        out1[j] = out1[j] + x[j]
+        out2[j] = out2[j] + x[j].real * x[j].real  + x[j].imag * x[j].imag
+
+@nb.guvectorize([(C[:,:],C[:],F[:])],"(m,n)->(n),(n)", target = NUMBA_TARGET)
+def _calc_stats_vec(f,out1, out2):
+    for i in range(f.shape[0]):
+        _add_stats_vec(f[i],out1,out2)
+
+ 
 @nb.guvectorize([(C[:,:],C[:,:],I64[:],I64[:],F[:,:],F[:,:])],"(l,k),(n,k),(l),(n),(m,k)->(m,k)", target = NUMBA_TARGET)
 def _cross_corr_vec(f1,f2,t1,t2,dummy,out):
     for i in range(f1.shape[0]):
@@ -947,6 +959,17 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
         n_decades = nlog + 1
         assert n_decades >= 1
 
+    assert n > 4
+    n_fast = period * n
+    n_slow = n
+    if nlog is None:
+        n_decades = 0
+        while len(t1)// (2**(n_decades)) >= n:
+            n_decades += 1
+        nlog = n_decades -1
+    nlog = int(nlog)
+    assert nlog >= 0
+
         
     t_slow = np.arange(len(t1))
         
@@ -1001,8 +1024,17 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
                 #allocate memory for square data
                 sq1 = np.empty((n_decades,) + shape[0:-1] + (chunk_size,) + shape[-1:], FDTYPE)
                 sq2 = np.empty((n_decades,) + shape[0:-1] + (chunk_size,) + shape[-1:], FDTYPE)
-                            
-
+            
+            if stats == True:
+                sum1 = np.zeros(shape, CDTYPE)
+                sum2 =  np.zeros(shape, CDTYPE)
+                sqsum1 = np.zeros(shape, FDTYPE)
+                sqsum2 = np.zeros(shape, FDTYPE)
+                out_bg1 = np.empty(shape, CDTYPE)
+                out_bg2 = np.empty(shape, CDTYPE)
+                out_var1 = np.empty(shape, FDTYPE)
+                out_var2 = np.empty(shape, FDTYPE)    
+                
         _add_data2(i,x1, x2, fdata1,fdata2, binning)
         if norm == 2:
             _add_data2(i,np.abs(x1)**2, np.abs(x2)**2, sq1,sq2, binning)
@@ -1034,14 +1066,24 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
                 np.subtract(fdata2[0,...,fstart1:fstop1,:], bg2[...,None,:], fdata2[0,...,fstart1:fstop1,:])
 
             if stats == True:
-#                out_bg1 = np.mean(fdata1[0], axis = -2)
-#                out_bg2 = np.mean(fdata2[0], axis = -2)
-#                out_sq1 = np.var(fdata1[0], axis = -2)
-#                out_sq2 = np.var(fdata2[0], axis = -2)
-                out_bg1 = np.mean(fdata1[0,...,fstart1:fstop1,:], axis = -2)
-                out_bg2 = np.mean(fdata2[0,...,fstart1:fstop1,:], axis = -2)
-                out_sq1 = (np.abs(fdata1[0,...,fstart1:fstop1,:])**2).sum(axis=-2)/half_chunk_size 
-                out_sq2 = (np.abs(fdata2[0,...,fstart1:fstop1,:])**2).sum(axis=-2)/half_chunk_size 
+                #sum1[...]=0.
+                #sum2[...] =0.
+                #sqsum1[...]=0.
+                #sqsum2[...]=0.
+                _calc_stats_vec(fdata1[0,...,fstart1:fstop1,:], sum1, sqsum1)
+                _calc_stats_vec(fdata2[0,...,fstart1:fstop1,:], sum2, sqsum2)
+                
+                _divisor =  (ichunk + 1) * half_chunk_size
+                
+                np.divide(sum1,_divisor  , out_bg1)
+                np.divide(sum2, _divisor , out_bg2)
+                np.divide(sqsum1, _divisor , out_var1)
+                np.divide(sqsum2, _divisor , out_var2)
+
+                #out_bg1 = np.mean(fdata1[0,...,fstart1:fstop1,:], axis = -2)
+                #out_bg2 = np.mean(fdata2[0,...,fstart1:fstop1,:], axis = -2)
+                #out_var1 = (np.abs(fdata1[0,...,fstart1:fstop1,:])**2).sum(axis=-2)/half_chunk_size 
+                #out_var2 = (np.abs(fdata2[0,...,fstart1:fstop1,:])**2).sum(axis=-2)/half_chunk_size 
 
                                
             f1s = sq1[0,...,fstart1:fstop1,:] if norm == 2 else None
@@ -1126,7 +1168,7 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
             print_progress(i+1, len(t1))
             
             if stats == True:
-                yield out, (out_bg1, out_bg2), (out_sq1, out_sq2)
+                yield out, (out_bg1, out_bg2), (out_var1, out_var2)
             else:
                 yield out
 
@@ -1142,10 +1184,13 @@ class RawCorrelationViewer(object):
             self.init(data, **kw)
             
      
-    def init(self,data, semilogx = True, normalize = True):
+    def init(self,data, bg = None, var = None, semilogx = True, normalize = True):
         
         #self.shape = data.shape
         self.data = data
+        self.bg = bg
+        self.var = var
+        
         _dfast, _dslow = data
         
         (self.data_fast,self.count_fast), (self.data_slow,self.count_slow) = (_dfast[0],_dfast[-1]), (_dslow[0],_dslow[-1])
@@ -1224,7 +1269,7 @@ class RawCorrelationViewer(object):
         
         with np.errstate(divide='ignore', invalid='ignore'):
         
-            t, avg_data  = _select_data(self.data, int(k), indexmap, normalize = True)
+            t, avg_data  = _select_data(self.data, self.bg, self.var, int(k), indexmap, normalize = True)
         avg_data = avg_data#/avg_data[0]
         self.l.set_ydata(avg_data)
         self.l.set_xdata(t)
@@ -1377,43 +1422,17 @@ def iccorr_multi(data, t1, t2, period = 40, level = 4,
     for i, data in enumerate(cross_analyze_iter(data, t1, t2, period , level , 
                         chunk_size,  binning,  method, auto_background, nlog, norm, stats)):
 
-        if stats == True:
-            if i == 0:
-                bg1, bg2 = data[1]
-                _bg1, _bg2 = bg1, bg2
-                sq1, sq2 = data[2]
-                _sq1, _sq2 = sq1, sq2
-            else:
-                _bg1, _bg2 = data[1]
-                bg1, bg2 = np.add(bg1,_bg1), np.add(bg2,_bg2)
-                _sq1, _sq2 = data[2]
-                sq1, sq2 = np.add(sq1,_sq1), np.add(sq2,_sq2)   
-
-
         if show == True:
             if viewer is None:
                 viewer = RawCorrelationViewer()
                 if stats == True:
-                    viewer.init(data[0])
+                    viewer.init(data[0], bg = data[1], var = data[2])
                 else:
                     viewer.init(data)
                 _FIGURES["ccorr_multi"] = viewer
             else:
                 viewer.update()
              
-                
-    if stats == True:
-        x, (_bg1, _bg2), (_sq1,_sq2) = data
-        np.divide(bg1,(i+1), out = _bg1)
-        np.divide(bg2,(i+1), out = _bg2)
-        np.divide(sq1,(i+1), out = _sq1)
-        np.divide(sq2,(i+1), out = _sq2)
-        
-        #calculate variance <x^2> - <x>^2
-        np.subtract(_sq1,np.abs(_bg1)**2, out = _sq1)
-        np.subtract(_sq2,np.abs(_bg2)**2, out = _sq2)
-        
-            
     print_frame_rate(len(t1), t0)
     return data
 
@@ -1761,9 +1780,9 @@ def _select_data(data, k, indexmap, normalize = False):
     
     return tx, cc_avg
 
-def _select_data(data, k, indexmap, normalize = False):
+def _select_data(data, bg, var, k, indexmap, normalize = False):
     
-    cfast, cslow = normalize_ccorr(data)
+    cfast, cslow = normalize_ccorr(data, bg, var)
 
     mask = (indexmap == int(round(k)))
     
