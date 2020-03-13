@@ -24,8 +24,8 @@ SHAPE = (512, 512)
 
 v1 = np.load("simple_brownian_cddm_fft_0.npy")
 v2 = np.load("simple_brownian_cddm_fft_1.npy")
-v1 = v1/(v1[...,0,0][:,None,None])
-v2 = v2/(v2[...,0,0][:,None,None])
+#v1 = v1/(v1[...,0,0][:,None,None])
+#v2 = v2/(v2[...,0,0][:,None,None])
 #
 
 v1 = v1/v1[...,0,0].mean()
@@ -37,8 +37,8 @@ v2 = v2/v2[...,0,0].mean()
 v1 = v1+ np.random.randn(64,33)
 v2 = v2+ np.random.randn(64,33)
 
-#v1 = v1 - v1[:].mean(axis = 0)[None,...]
-#v2 = v2 - v2[:].mean(axis = 0)[None,...]
+v1 = v1 - v1[:2].mean(axis = 0)[None,...]
+v2 = v2 - v2[:2].mean(axis = 0)[None,...]
 
 t1 = np.load("simple_brownian_cddm_t1.npy")
 t2 = np.load("simple_brownian_cddm_t2.npy")
@@ -47,7 +47,7 @@ nframes = len(v1)
 
 v = fromarrays((v1,v2))
 
-data, bg, var = iccorr_multi(v, t1,t2, level = 4, period = PERIOD, binning = True, stats = True, norm = 2, show = True)
+data, bg, var = iccorr_multi(v, t1,t2, level = 5, chunk_size = 64, auto_background = True, period = PERIOD, binning = True, stats = True, norm = 1, show = True)
 #data, bg, var = ccorr_multi(v1,v2 , t1,t2, n=2**5, period = PERIOD, binning = True, norm = 0, stats = True)
 #data2 = ccorr_multi(v1,v2 , t1,t2, n=2**4, period = PERIOD, binning = False, norm = 2)
 

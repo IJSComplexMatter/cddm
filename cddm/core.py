@@ -959,16 +959,16 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
         n_decades = nlog + 1
         assert n_decades >= 1
 
-    assert n > 4
-    n_fast = period * n
-    n_slow = n
-    if nlog is None:
-        n_decades = 0
-        while len(t1)// (2**(n_decades)) >= n:
-            n_decades += 1
-        nlog = n_decades -1
-    nlog = int(nlog)
-    assert nlog >= 0
+#    assert n > 4
+#    n_fast = period * n
+#    n_slow = n
+#    if nlog is None:
+#        n_decades = 0
+#        while len(t1)// (2**(n_decades)) >= n:
+#            n_decades += 1
+#        nlog = n_decades -1
+#    nlog = int(nlog)
+#    assert nlog >= 0
 
         
     t_slow = np.arange(len(t1))
@@ -1033,11 +1033,33 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
                 out_bg1 = np.empty(shape, CDTYPE)
                 out_bg2 = np.empty(shape, CDTYPE)
                 out_var1 = np.empty(shape, FDTYPE)
-                out_var2 = np.empty(shape, FDTYPE)    
-                
-        _add_data2(i,x1, x2, fdata1,fdata2, binning)
-        if norm == 2:
-            _add_data2(i,np.abs(x1)**2, np.abs(x2)**2, sq1,sq2, binning)
+                out_var2 = np.empty(shape, FDTYPE)  
+            bg1, bg2 = None, None
+            
+        if i < half_chunk_size and auto_background == True:
+            fdata1[0,...,i,:] = x1
+            fdata2[0,...,i,:] = x2
+            
+            bg1 = fdata1[0,...,0:half_chunk_size,:].mean(-2)
+            bg2 = fdata2[0,...,0:half_chunk_size,:].mean(-2)
+            
+            if i == half_chunk_size -1:
+            
+                for i in range(half_chunk_size):
+                    x1 = fdata1[0,...,i,:] - bg1
+                    x2 = fdata2[0,...,i,:] - bg2
+                    _add_data2(i,x1, x2, fdata1,fdata2, binning)
+                    if norm == 2:
+                        _add_data2(i,np.abs(x1)**2, np.abs(x2)**2, sq1,sq2, binning) 
+        else:
+            if bg1 is not None:
+                x1 = x1 - bg1
+            if bg2 is not None:
+                x2 = x2 - bg2
+                    
+            _add_data2(i,x1, x2, fdata1,fdata2, binning)
+            if norm == 2:
+                _add_data2(i,np.abs(x1)**2, np.abs(x2)**2, sq1,sq2, binning)
                 
         if i % (half_chunk_size) == half_chunk_size -1: 
             
@@ -1058,12 +1080,13 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
 
 
 
-            if auto_background == True:
-                if ichunk == 0:
-                    bg1 = np.mean(fdata1[0,...,fstart1:fstop1,:], axis = -2)
-                    bg2 = np.mean(fdata2[0,...,fstart1:fstop1,:], axis = -2)
-                np.subtract(fdata1[0,...,fstart1:fstop1,:], bg1[...,None,:], fdata1[0,...,fstart1:fstop1,:])
-                np.subtract(fdata2[0,...,fstart1:fstop1,:], bg2[...,None,:], fdata2[0,...,fstart1:fstop1,:])
+            #if auto_background == True:
+                #if ichunk == 0:
+                    #bg1 = np.mean(fdata1[0,...,fstart1:fstop1,:], axis = -2)
+                    #bg2 = np.mean(fdata2[0,...,fstart1:fstop1,:], axis = -2)
+                    #remove background from data
+                    #np.subtract(fdata1[...,fstart1:fstop1,:], bg1[...,None,:], fdata1[...,fstart1:fstop1,:])
+                    #np.subtract(fdata2[...,fstart1:fstop1,:], bg2[...,None,:], fdata2[...,fstart1:fstop1,:])
 
             if stats == True:
                 #sum1[...]=0.
@@ -1132,11 +1155,11 @@ def cross_analyze_iter(data, t1, t2, period = 1, level = 4,
                     istart2 = istart1 - half_chunk_size
                     istop2 = istop1 - half_chunk_size  
                 
-                    if auto_background == True:
-#                        bg1 = np.mean(fdata1[j,...,fstart1:fstop1,:], axis = -2)
-#                        bg2 = np.mean(fdata2[j,...,fstart1:fstop1,:], axis = -2)
-                        np.subtract(fdata1[j,...,fstart1:fstop1,:], bg1[...,None,:], fdata1[j,...,fstart1:fstop1,:])
-                        np.subtract(fdata2[j,...,fstart1:fstop1,:], bg2[...,None,:], fdata2[j,...,fstart1:fstop1,:])
+                    #if auto_background == True:
+                        #_bg1 = np.mean(fdata1[j,...,fstart1:fstop1,:], axis = -2)
+                        #_bg2 = np.mean(fdata2[j,...,fstart1:fstop1,:], axis = -2)
+                    #    np.subtract(fdata1[j,...,fstart1:fstop1,:], bg1[...,None,:], fdata1[j,...,fstart1:fstop1,:])
+                    #    np.subtract(fdata2[j,...,fstart1:fstop1,:], bg2[...,None,:], fdata2[j,...,fstart1:fstop1,:])
                     
                     f1s = sq1[j,...,fstart1:fstop1,:] if norm == 2 else None
                     f2s = sq2[j,...,fstart1:fstop1,:] if norm == 2 else None                 
