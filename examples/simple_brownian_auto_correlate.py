@@ -9,8 +9,7 @@ $ simple_brownian_fft.py
 """
 
 #tools needed
-from cddm.core import normalize, acorr,iacorr, subtract_background, stats, reshape_input, reshape_output
-from cddm.video import fromarrays
+from cddm.core import normalize, acorr,subtract_background, stats
 from cddm.viewer import DataViewer
 from cddm.multitau import log_average 
 from cddm import conf
