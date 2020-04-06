@@ -37,7 +37,7 @@ extensions = ['sphinx.ext.autodoc',
 	'autoapi.extension'
     ]
     
-autoapi_keep_files = True
+#autoapi_keep_files = True
     
 napoleon_numpy_docstring = True
 
