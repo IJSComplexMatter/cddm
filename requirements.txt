@@ -1,6 +1,3 @@
 matplotlib
 numpy 
-scipy
 numba
-sphinx-autoapi
-sphinx>=2.2

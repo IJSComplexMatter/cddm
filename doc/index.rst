@@ -12,6 +12,7 @@ Welcome to cddm's documentation!
 
    introduction
    installation
+   autoapi/index
 
 
 
