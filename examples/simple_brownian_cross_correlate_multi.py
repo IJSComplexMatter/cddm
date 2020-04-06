@@ -1,115 +1,93 @@
 """
 In this example we use a simulated dual-camera video of o brownian motion
-of spherical particles and perform cross-ddm analysis.
+of spherical particles and perform multiple-tau cross-correlation analysis 
+with different two different normalizations:
+    1. background subtraction
+    2. background subtraction + compensation
 
-You must first create FFTs of the videos by calling simple_brownian_fft.py
+You must first create FFTs of the videos by calling
+
+$ simple_brownian_video.py
+$ simple_brownian_fft.py
 """
 
-from simple_brownian_video import PERIOD
-
-from cddm import normalize, k_select, ccorr_multi, log_merge, iccorr_multi
+from cddm.core import subtract_background, stats, NORM_COMPENSATED, NORM_BASELINE
+from cddm.multitau import log_merge, normalize_multi, ccorr_multi
 from cddm.video import fromarrays
+from cddm.viewer import MultitauViewer
+
+#simulated diffusion constant 
+from simple_brownian_video import D, PERIOD
+
 import matplotlib.pyplot as plt
-
-from cddm.core import normalize_ccorr, cdiff_multi
-
 from cddm import conf
 import numpy as np
 
-np.random.seed(1)
-#setting this to 2 shows progress bar
+#print mesages
 conf.set_verbose(2)
 
-SHAPE = (512, 512)
-
-v1 = np.load("simple_brownian_cddm_fft_0.npy")
-v2 = np.load("simple_brownian_cddm_fft_1.npy")
-#v1 = v1/(v1[...,0,0][:,None,None])
-#v2 = v2/(v2[...,0,0][:,None,None])
-#
-
-v1 = v1/v1[...,0,0].mean()
-v2 = v2/v2[...,0,0].mean()
-
-#v1[3000:] = v1[3000:] + v1[0]
-#v2[3000:] = v2[3000:] + v2[-1]
-
-v1 = v1+ np.random.randn(64,33)
-v2 = v2+ np.random.randn(64,33)
-
-v1 = v1 - v1[:2].mean(axis = 0)[None,...]
-v2 = v2 - v2[:2].mean(axis = 0)[None,...]
+#fourier transform of the video, axis = 0 (vid[0] is the first 2D frame)
+vid1 = np.load("simple_brownian_cddm_fft_0.npy")
+vid2 = np.load("simple_brownian_cddm_fft_1.npy")
 
 t1 = np.load("simple_brownian_cddm_t1.npy")
 t2 = np.load("simple_brownian_cddm_t2.npy")
 
-nframes = len(v1)
+#remove background inplace. This improves the computed correlation function.
+vid1 = subtract_background(vid1, axis = 0, out = vid1)
+vid2 = subtract_background(vid2, axis = 0, out = vid2)
 
-v = fromarrays((v1,v2))
+#compute cross-correlation function (max delay of 4096, now with norm == 1)
+#we are using thread_divisor here
+data = ccorr_multi(vid1,vid2,t1,t2, period = PERIOD, n = 16, axis = 0, norm = NORM_COMPENSATED, thread_divisor = 8)
+v = fromarrays((vid1,vid2))
 
-data, bg, var = iccorr_multi(v, t1,t2, level = 5, chunk_size = 64, auto_background = True, period = PERIOD, binning = True, stats = True, norm = 1, show = True)
-#data, bg, var = ccorr_multi(v1,v2 , t1,t2, n=2**5, period = PERIOD, binning = True, norm = 0, stats = True)
-#data2 = ccorr_multi(v1,v2 , t1,t2, n=2**4, period = PERIOD, binning = False, norm = 2)
+#variance is needed for scaling. This function computes background and variance
+bg, var = stats(vid1,vid2)
 
-v = fromarrays((v1,v2))
-data2, bg2, var2 = ccorr_multi(v1,v2 , t1,t2, n =2**4, period = PERIOD, binning = True, norm = 2, stats = True)
+# standard normalization norm = 0
+data_lin0 = normalize_multi(data,background = bg, variance =var, scale = True, norm = NORM_BASELINE)
 
-cfast2, cslow2 = normalize_ccorr(data2,bg2,var2)
-cfast, cslow = normalize_ccorr(data,bg,var)
+# compensated normalization (same as cdiff). Because we have computed  correlation
+# with norm == 1 we can normalize 
+data_lin1 = normalize_multi(data,background = bg, variance =var, scale = True, norm = NORM_COMPENSATED)
 
+#log average, make data log-spaced
+x_log, data_log0 = log_merge(*data_lin0)
+x_log, data_log1 = log_merge(*data_lin1)
 
+##dump  log_data to disk
+np.save("simple_brownian_ccorr_norm0_x.npy", x_log)
+np.save("simple_brownian_ccorr_norm0_data.npy", data_log0)
+np.save("simple_brownian_ccorr_norm1_x.npy", x_log)
+np.save("simple_brownian_ccorr_norm1_data.npy", data_log1)
 
-i,j = 0,6
+#linear data x values
+x_lin = np.arange(len(vid1))
 
-plt.figure()
-
-
-x = np.arange(cfast.shape[-1])
-
-#plot fast data  at k =(i,j) and for x > 0 (all but first data point)
-
-plt.semilogx(x[1:], cfast[i,j][1:], "o", label = "fast - level 0", fillstyle = "none")
-
-#plot slow data
-x = np.arange(cslow.shape[-1]) * PERIOD
-for n, slow in enumerate(cslow):
-    x = x * 2
-    plt.semilogx(x, slow[i,j], "o", label = "slow - level {}".format(n+1), fillstyle = "none")
-    
-#merged data
-x, logdata = log_merge(cfast,cslow)
-
-#np.save("simple_brownian_ccorr_log.npy",(x,logdata))
-
-plt.semilogx(x[1:], logdata[i,j][1:], "k-", label = "merged")
-
-
-x2, logdata2 = log_merge(cfast2,cslow2)
-
-plt.semilogx(x2[1:], logdata2[i,j][1:], "k--", label = "merged2")
-plt.legend()
-
-#np.save("simple_brownian_ccorr_log2.npy",(x2,logdata2))
-
-##now let us do some k-averaging
-kdata = k_select(logdata, phi = 90, sector = 120, kstep = 1)
-kdata2 = k_select(logdata2, phi = 90, sector = 120, kstep = 1)
+def exp_decay(x,i,j,D):
+    return np.exp(-D*(i**2+j**2)*x)
 
 plt.figure()
-#
-for i,(k, c) in enumerate(kdata): 
-    print(k)
-    if k >29:
 
-        plt.semilogx(x[1:], c[1:], label = k)
-    
-for i,(k, c) in enumerate(kdata2): 
-    print(k)
-    if k >29:   
-        plt.semilogx(x2[1:], c[1:], label = k)    
-    
+for k in ((14,0), (8,2)):
+    #take i-th and j-th wavevector
+    i,j = k
+    #plot all but first element (x = 0 cannot be plotted in semilog)
+    plt.semilogx(x_log[1:], data_log0[i,j,1:],"-", label = "norm = 0, k = ({},{})".format(i,j))
+    plt.semilogx(x_log[1:], data_log1[i,j,1:],"-", label = "norm = 1, k = ({},{})".format(i,j))
+    plt.semilogx(x_log[1:], exp_decay(x_log[1:],i,j,D), ":", label = "true, k = ({},{})".format(i,j))
+
+plt.xlabel("dt")
+plt.ylabel("g/var")
+plt.title("cross-correlation with different normalizations")
+
 plt.legend()
-plt.show()
 
 
-
+# this is a simple data viewer that you can use to inspect data
+# here we perform basic normalization with scaling
+viewer = MultitauViewer(scale = True)
+viewer.set_data(data, bg, var)
+viewer.plot()
+viewer.show()

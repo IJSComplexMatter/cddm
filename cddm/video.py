@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time   
 from cddm.conf import CDDMConfig, CV2_INSTALLED,  F32,F64, U16
-from cddm.print_tools import print_progress, print
+from cddm.print_tools import print_progress, print1
 import numba as nb
 
 if CV2_INSTALLED:
@@ -62,7 +62,7 @@ def asarrays(video, count = None):
     def _load(array, frame):
         array[...] = frame
         
-    print("Writing to array...")
+    print1("Writing to array...")
     
     if count is None:
         try:
@@ -112,7 +112,7 @@ def asmemmaps(basename, video, count = None):
                       for i,frame in enumerate(frames)))
         return out
 
-    print("Writing to memmap...")
+    print1("Writing to memmap...")
     print_progress(0, count)
     
     frames = next(video)

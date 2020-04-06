@@ -71,22 +71,29 @@ def show_alignment_and_focus(video, id = 0, title = None, clipfactor=0.1):
         f0=f.copy()
         
         yield frames
-        
-def _determine_cutoff_indices(shape, kisize = None, kjsize= None):
-    if kisize is None:
-        kisize = shape[0]
-    else:    
-        kisize = min(kisize, shape[0])
-    if kjsize is None:
-        kjsize = shape[1]
-    else:
-        kjsize = min(kjsize, shape[1])
-    
-    jstop = kjsize//2+1
-    istop = kisize//2+1
-    
-    shape = kisize, jstop
-    return shape, istop, jstop
+
+
+def _fft(a, overwrite_x = False):
+    libname = CDDMConfig["fftlib"]
+    if libname == "mkl_fft":
+        return mkl_fft.fft(a, overwrite_x = overwrite_x)
+    elif libname == "scipy":
+        return spfft.fft(a, overwrite_x = overwrite_x)
+    elif libname == "numpy":
+        return np.fft.fft(a) #force real in case input is complex
+    else:#default implementation is numpy fft
+        return np.fft.fft(a)
+
+def _ifft(a, overwrite_x = False):
+    libname = CDDMConfig["fftlib"]
+    if libname == "mkl_fft":
+        return mkl_fft.ifft(a, overwrite_x = overwrite_x)
+    elif libname == "scipy":
+        return spfft.ifft(a, overwrite_x = overwrite_x)
+    elif libname == "numpy":
+        return np.fft.ifft(a) #force real in case input is complex
+    else:#default implementation is numpy ifft
+        return np.fft.ifft(a)
 
 def _fft2(a, overwrite_x = False):
     libname = CDDMConfig["fftlib"]
@@ -120,7 +127,24 @@ def _rfft2(a, overwrite_x = False):
 #    return results
 
 
-def rfft2(video, kisize = None, kjsize = None, overwrite_x = False):
+        
+def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
+    if kimax is None:
+        kisize = shape[0]
+    else:    
+        kisize = min(kimax*2+1, shape[0])
+    if kjmax is None:
+        kjsize = shape[1]
+    else:
+        kjsize = min(kjmax*2+1, shape[1])
+    
+    jstop = kjsize//2+1
+    istop = kisize//2+1
+    
+    shape = kisize, jstop
+    return shape, istop, jstop
+
+def rfft2(video, kimax = None, kjmax = None, overwrite_x = False):
     """A generator that performs rfft2 on a sequence of multi-frame data.
     """
     
@@ -131,7 +155,7 @@ def rfft2(video, kisize = None, kjsize = None, overwrite_x = False):
         vid[-istop:,:] = data[-istop:,:jstop] 
         return vid
     
-    if kisize is None and kjsize is None:
+    if kimax is None and kjmax is None:
         #just do fft, no cropping
         for frames in video:
             #yield _rfft2_sequence(frames, overwrite_x = overwrite_x)
@@ -142,7 +166,7 @@ def rfft2(video, kisize = None, kjsize = None, overwrite_x = False):
         for frames in video:
             if out is None:
                 shape = frames[0].shape
-                shape, istop, jstop = _determine_cutoff_indices(shape, kisize, kjsize)
+                shape, istop, jstop = _determine_cutoff_indices(shape, kimax, kjmax)
             out = tuple((f(frame,shape,istop,jstop) for frame in frames))
             yield out
 

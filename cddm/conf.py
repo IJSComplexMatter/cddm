@@ -8,15 +8,24 @@ import numpy as np
 from functools import wraps
 import os, warnings, shutil
 
+#These will be defined later at runtime... here we hold reference  to disable warnings in autoapi generation
+I = None
+CDTYPE = None 
+IDTYPE = None
+C = None
+NUMBA_PARALLEL = None
+
 try:
     from configparser import ConfigParser
 except:
     #python 2.7
     from ConfigParser import ConfigParser
 
+#: path to data files
 DATAPATH = os.path.dirname(__file__)
 
-def read_environ_variable(name, default):
+def _read_environ_variable(name, default):
+    """Reads environment variable"""
     try:
         return int(os.environ.get(name, default))
     except ValueError:
@@ -40,11 +49,14 @@ def get_home_dir():
     else:
         raise RuntimeError('Please define environment variable $HOME')
 
-#: home directory
-HOMEDIR = get_home_dir()
+HOMEDIR = get_home_dir() 
+"""Users home directory"""
 
 CDDM_CONFIG_DIR = os.path.join(HOMEDIR, ".cddm")
+"""Config directory where cddm.ini lives"""
+
 NUMBA_CACHE_DIR = os.path.join(CDDM_CONFIG_DIR, "numba_cache")
+"""Numba cache directory, where compiled functions are written"""
 
 if not os.path.exists(CDDM_CONFIG_DIR):
     try:
@@ -53,8 +65,9 @@ if not os.path.exists(CDDM_CONFIG_DIR):
         warnings.warn("Could not create folder in user's home directory! Is it writeable?")
         NUMBA_CACHE_DIR = ""
         
-
 CONF = os.path.join(CDDM_CONFIG_DIR, "cddm.ini")
+"""Configuration file filename"""
+
 CONF_TEMPLATE = os.path.join(DATAPATH, "cddm.ini")
 
 config = ConfigParser()
@@ -77,7 +90,7 @@ def _readconfig(func, section, name, default):
 if NUMBA_CACHE_DIR != "":
     os.environ["NUMBA_CACHE_DIR"] = NUMBA_CACHE_DIR #set it to os.environ.. so that numba can use it
 
-if read_environ_variable("CDDM_TARGET_PARALLEL",
+if _read_environ_variable("CDDM_TARGET_PARALLEL",
             default = _readconfig(config.getboolean, "numba", "parallel", False)):
     NUMBA_TARGET = "parallel"
     NUMBA_PARALLEL = True
@@ -85,7 +98,8 @@ else:
     NUMBA_TARGET = "cpu"
     NUMBA_PARALLEL = False
 
-NUMBA_CACHE = False   
+NUMBA_CACHE = False 
+"""Specifiess whether we use numba caching or not"""  
 
 _numba_0_39_or_greater = False
 _numba_0_45_or_greater = False
@@ -101,7 +115,7 @@ except:
     print("Could not determine numba version you are using, assuming < 0.39")
 
 
-if read_environ_variable("CDDM_NUMBA_CACHE",
+if _read_environ_variable("CDDM_NUMBA_CACHE",
             default = _readconfig(config.getboolean, "numba", "cache", True)):
     if NUMBA_PARALLEL == False:
         NUMBA_CACHE = True  
@@ -110,7 +124,7 @@ if read_environ_variable("CDDM_NUMBA_CACHE",
         if _numba_0_45_or_greater:
             NUMBA_CACHE = True
 
-if read_environ_variable("CDDM_FASTMATH",
+if _read_environ_variable("CDDM_FASTMATH",
         default = _readconfig(config.getboolean, "numba", "fastmath", False)):        
     NUMBA_FASTMATH = True
 else:
@@ -174,7 +188,7 @@ I32DTYPE = np.dtype("int32")
 I64DTYPE = np.dtype("int64")
 
 
-if read_environ_variable("CDDM_DOUBLE_PRECISION",
+if _read_environ_variable("CDDM_DOUBLE_PRECISION",
   default =  _readconfig(config.getboolean, "core", "double_precision", True)):
     FDTYPE = F64DTYPE
     CDTYPE = C128DTYPE
@@ -295,7 +309,7 @@ U64 = numba.uint64
 I32 = numba.int32
 I64 = numba.int64
 
-if read_environ_variable("CDDM_DOUBLE_PRECISION",
+if _read_environ_variable("CDDM_DOUBLE_PRECISION",
   default =  _readconfig(config.getboolean, "core", "double_precision", True)):
     F = F64
     C = C128

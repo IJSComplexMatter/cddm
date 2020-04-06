@@ -16,11 +16,8 @@ analyze video frame by frame with minimal memory requirement.
 import numpy as np
 import numba as nb
 import math
-import warnings
 
 from cddm.conf import U8,F,I,FDTYPE, NUMBA_TARGET, NUMBA_PARALLEL 
-
-
 
 @nb.vectorize([F(F,F,F)], target = NUMBA_TARGET)
 def mirror(x,x0,x1):
@@ -51,7 +48,7 @@ def seed(value):
 def numba_seed(value):
     """Seed for numba random generator"""
     if NUMBA_TARGET != "cpu":
-        print("WARNING: Seed not effective. Seeding only works with NUMBA_TARGET = 'cpu'")
+        print("WARNING: Numba seed not effective. Seeding only works with NUMBA_TARGET = 'cpu'")
     np.random.seed(value)
                           
 @nb.vectorize([F(F,F,F)], target = NUMBA_TARGET)        
