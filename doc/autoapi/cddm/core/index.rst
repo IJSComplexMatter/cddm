@@ -505,12 +505,14 @@ Module Contents
    Say we have two datasets f1 and f2. To compute cross-correlation of both
    datasets :
 
-   >>> data = ccorr(f1, f2, n = 64)
+   >>> f1, f2 = np.random.randn(24,4,6) + 0j, np.random.randn(24,4,6) + 0j
+
+   >>> data = ccorr(f1, f2, n = 16)
 
    Now we can set the 'out' parameter, and the results of the next dataset
    are added to results of the first dataset:
 
-   >>> data = ccorr(f1, f2, aout = data)
+   >>> data = ccorr(f1, f2,  aout = data)
 
    Note that the parameter 'n' = 64 is automatically determined here, based on the
    provided 'aout' arrays.

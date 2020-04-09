@@ -5,7 +5,9 @@
 
 .. autoapi-nested-parse::
 
-   Windowing functions
+   Windowing functions.
+
+   These windowing functions can be used to generate FFT window functions.
 
 
 
@@ -31,8 +33,8 @@ Module Contents
 
    :param shape: A shape of the 2D window
    :type shape: (int,int)
-   :param waist: Waist of the gaussian.
-   :type waist: float
+   :param sigma: Waist of the gaussian in units of total width of the frame.
+   :type sigma: float
    :param out: Output array.
    :type out: ndarray, optional
 
@@ -47,7 +49,7 @@ Module Contents
    :param shape: A shape of the 2D window
    :type shape: (int,int)
    :param alpha: Smoothnes parameter - defines smoothness of the edge of the tukey
-                 (should be between 0. and 1.; 0.05 by default). When set to zero, it
+                 (should be between 0. and 1. When set to zero, it
                  becomes an aperture filter. When set to 1 it becomes a Hann window.
    :type alpha: float
    :param out: Output array.

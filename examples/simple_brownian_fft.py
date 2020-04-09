@@ -4,7 +4,7 @@ This script opens videos DDM and c-DDM, peforms FFT, crops FFTs and dumps to dis
 First you must generate videos with simple_brownian_video.py
 """
 
-from cddm.video import  apply_window, fromarrays, asarrays, asmemmaps
+from cddm.video import  multiply, fromarrays, asarrays, asmemmaps
 from cddm.window import blackman
 from cddm.fft import rfft2
 
@@ -20,7 +20,7 @@ def fft_video(vid, window = True):
     ##apply blackman window 
     if window == True:
         window = blackman(shape)
-        video = apply_window(video, (window,)*len(vid))
+        video = multiply(video, ((window,)*len(vid),)*len(vid[0]))
     #perform rfft2 and crop data. it is best to use odd fo kjmax... so that
     # outputsize is even (32) in this case... and a power of two.
     video = rfft2(video, kimax = 31, kjmax = 31)

@@ -32,7 +32,7 @@ vid = np.load("simple_brownian_ddm_fft.npy")
 vid = subtract_background(vid, axis = 0, out = vid)
 #compute cross-correlation function (max delay of 4096, now with norm == 1)
 #we are using thread_divisor here
-data = acorr_multi(vid, n = 16, axis = 0, norm = NORM_COMPENSATED, thread_divisor = 8)
+data = acorr_multi(vid, n = 16, axis = 0, norm = NORM_COMPENSATED, thread_divisor = 8, method = "corr")
 
 #variance is needed for scaling. This function computes background and variance
 bg, var = stats(vid)

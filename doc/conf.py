@@ -10,10 +10,10 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
-
+sys.path.insert(0, os.path.abspath(os.path.split(__file__)[0]))
 
 # -- Project information -----------------------------------------------------
 
@@ -34,9 +34,30 @@ release = '0.1.0'
 
 extensions = ['sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
-	'autoapi.extension'
+	"sphinx.ext.doctest",    
+	'autoapi.extension',
+	'matplotlib.sphinxext.plot_directive'
     ]
+
+doctest_path = [os.path.abspath("examples")] 
+doctest_global_setup = '''
+try:
+    import numpy as np
+    from cddm.fft import * 
+    from cddm.core import * 
+    from cddm.decorators import * 
+    from cddm.multitau import * 
+    from cddm.window import *
+    from cddm.video import *
+    from cddm.sim import * 
+except ImportError:
+	pass
+'''
+
     
+plot_working_directory = "examples"
+#plot_include_source = True
+
 autoapi_keep_files = True
     
 napoleon_numpy_docstring = True
@@ -45,6 +66,58 @@ autoapi_dirs = ['../cddm']
 autoapi_options = ['members', 'undoc-members', 'show-inheritance', 'special-members']
 autoapi_options = ['members', 'show-inheritance']
 autoapi_ignore = ["*test_*.py"]
+
+numfig = True
+
+# custom matplotlib plot_template
+
+if sys.argv[2] in ('latex', 'latexpdf'):
+    plot_template = """
+{% for img in images %}
+.. figure:: {{ build_dir }}/{{ img.basename }}.pdf
+    {%- for option in options %}
+    {{ option }}
+    {% endfor %}
+    
+    \t{{caption}}
+{% endfor %}
+"""
+
+else:
+    plot_template = """
+{% for img in images %}
+
+.. figure:: {{ build_dir }}/{{ img.basename }}.png
+    {%- for option in options %}
+    {{ option }}
+    {% endfor %}
+
+    \t{% if html_show_formats and multi_image -%}
+    (
+    {%- for fmt in img.formats -%}
+    {%- if not loop.first -%}, {% endif -%}
+    `{{ fmt }} <{{ dest_dir }}/{{ img.basename }}.{{ fmt }}>`__
+    {%- endfor -%}
+    )
+    {%- endif -%}
+
+    {{ caption }} {% if source_link or (html_show_formats and not multi_image) %} (
+{%- if source_link -%}
+`Source code <{{ source_link }}>`__
+{%- endif -%}
+{%- if html_show_formats and not multi_image -%}
+    {%- for img in images -%}
+    {%- for fmt in img.formats -%}
+        {%- if source_link or not loop.first -%}, {% endif -%}
+        `{{ fmt }} <{{ dest_dir }}/{{ img.basename }}.{{ fmt }}>`__
+    {%- endfor -%}
+    {%- endfor -%}
+{%- endif -%}
+)
+{% endif %}
+{% endfor %}
+"""
+
 
 
 

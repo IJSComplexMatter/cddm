@@ -54,7 +54,7 @@ Module Contents
    Instead of binning, this only takes every second channel.
 
 
-.. function:: ccorr_multi(f1, f2, t1=None, t2=None, n=2**5, norm=1, method='corr', align=False, axis=0, period=1, binning=1, nlevel=None, thread_divisor=None, stats=False)
+.. function:: ccorr_multi(f1, f2, t1=None, t2=None, n=2**5, norm=1, method='corr', align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None, stats=False)
 
    Multitau version of :func:`.core.ccorr`
 
@@ -102,7 +102,7 @@ Module Contents
    :rtype: lin_data, multilevel_data
 
 
-.. function:: acorr_multi(f, t=None, n=2**5, norm=1, method='corr', align=False, axis=0, period=1, binning=True, nlevel=None, thread_divisor=None, stats=False)
+.. function:: acorr_multi(f, t=None, n=2**5, norm=1, method='corr', align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None, stats=False)
 
    Multitau version of :func:`.core.ccorr`
 
@@ -143,7 +143,7 @@ Module Contents
    :rtype: lin_data, multilevel_data
 
 
-.. function:: iccorr_multi(data, t1, t2=None, n=2**5, norm=0, method='corr', period=1, binning=1, nlevel=None, chunk_size=256, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=False)
+.. function:: iccorr_multi(data, t1, t2=None, n=2**5, norm=3, method='corr', period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
    Iterative version of :func:`.core.ccorr`
 

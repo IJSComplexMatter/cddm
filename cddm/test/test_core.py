@@ -284,21 +284,21 @@ class TestIcorr(unittest.TestCase):
     def test_cross_equivalence(self):
         for method in ("corr","diff","fft"):
             bg,var = core.stats(test_data1, test_data2, axis = 0)
-            data = core.ccorr(test_data1, test_data2,n = 16, norm = 1, method = method)
+            data = core.ccorr(test_data1, test_data2,n = 8, norm = 1, method = method)
             out1 = core.normalize(data, bg, var)
             vid = fromarrays((test_data1, test_data2))
-            data = core.iccorr(vid, len(test_data1), n = 16, norm = 1, method = method)
+            data = core.iccorr(vid, len(test_data1), chunk_size = 16,n = 8, norm = 1, method = method)
             out2 = core.normalize(data, bg, var)  
             self.assertTrue(np.allclose(out1, out2))              
-#
-#    def test_auto_equivalence_2(self):
-#        for method in ("corr",):
-#            bg,var = core.stats(test_data1, axis = 0)
-#            data1 = core.acorr(test_data1, n = 8, norm = 2, method = method)
-#            out1 = core.normalize(data1, bg, var, norm = 2)
-#            data2 = core.iacorr(test_data1, n = 8, norm = 2, method = method)
-#            out2 = core.normalize(data2, bg, var, norm = 2)  
-#            self.assertTrue(np.allclose(out1, out2))    
+
+    def test_auto_equivalence_2(self):
+        for method in ("corr",):
+            bg,var = core.stats(test_data1, axis = 0)
+            data1 = core.ccorr(test_data1,test_data1, n = 8, norm = 2, method = method)
+            out1 = core.normalize(data1, bg, var, norm = 2)
+            data2 = core.iacorr(test_data1, n = 8, norm = 2, method = method)
+            out2 = core.normalize(data2, bg, var, norm = 2)  
+            self.assertTrue(np.allclose(out1, out2))    
 
     def test_auto_equivalence_1(self):
         for method in ("corr","fft","diff"):

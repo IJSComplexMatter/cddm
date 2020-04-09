@@ -1,36 +1,22 @@
-#!/usr/bin/env python2
-# -*- coding: utf-8 -*-
 """
-Created on Mon Jul 29 22:01:49 2019
+Video processing tools. 
 
-@author: andrej
+You can use this helper functions to perform normalization, background subtraction 
+and windowing on multi-frame data. 
+
+There are also function for real-time display of videos for real-time analysis.
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 import time   
-from cddm.conf import CDDMConfig, CV2_INSTALLED,  F32,F64, U16
-from cddm.print_tools import print_progress, print1
-import numba as nb
+from cddm.conf import CDDMConfig, CV2_INSTALLED,  FDTYPE
+from cddm.print_tools import print_progress, print1, print_frame_rate
+from queue import Queue
 
 if CV2_INSTALLED:
     import cv2
     
-@nb.njit()    
-def subtract_and_multiply(array, window, bg):
-    tmp = array - bg
-    return tmp * window
-
-@nb.vectorize([F32(U16,F32,F32),F64(U16,F64,F64)], target = "parallel")    
-def subtract_and_multiply_vec(array, window, bg):
-    tmp = array - bg
-    return tmp * window
-
-def random_dual_frame_video(shape = (512,512), count = 1000):
-    """"""
-    for i in range(count):
-        yield np.random.randn(*shape), np.random.randn(*shape)
-
 def fromarrays(arrays):
     """Creates a multi-frame iterator from given list of arrays.
     
@@ -52,27 +38,34 @@ def asarrays(video, count = None):
     Parameters
     ----------
     video : iterable
-       A multi-frame iterator object.
+        A multi-frame iterator object.
     count : int, optional
-       Defines how many frames are in the video. If not provided and video has
-       an undefined length, it will try to load the video using np.asarray. 
-       This means that data copying 
+        Defines how many frames are in the video. If not provided it will calculate
+        length of the video based on the length of the iterable. If that is not
+        possible ValueError is raised
+       
+    Returns
+    -------
+    out : tuple of arrays
+        A tuple of array(s) representing video(s)
     """
+    
+    t0 = time.time()
     
     def _load(array, frame):
         array[...] = frame
         
-    print1("Writing to array...")
+    print1("Loading array...")
     
     if count is None:
         try:
             count = len(video)
         except TypeError:
-            out = np.asarray(video)
-            out = tuple((out[:,i] for i in range(out.shape[1])))
-            return out
+            raise ValueError("You must provide count")
 
     print_progress(0, count)
+    
+    video = iter(video)
     
     frames = next(video)
     out = tuple((np.empty(shape = (count,) + frame.shape, dtype = frame.dtype) for frame in frames))
@@ -82,6 +75,7 @@ def asarrays(video, count = None):
         [_load(out[i][j+1],frame) for i,frame in enumerate(frames)]
         
     print_progress(count, count)
+    print_frame_rate(count,t0)
     return out
 
 def asmemmaps(basename, video, count = None):
@@ -100,7 +94,13 @@ def asmemmaps(basename, video, count = None):
     count : int, optional
        Defines how many multi-frames are in the video. If not provided it is determined
        by len().
+       
+    Returns
+    -------
+    out : tuple of arrays
+        A tuple of memmapped array(s) representing video(s)
     """
+    
     if count is None:
         count = len(count)
         
@@ -124,9 +124,131 @@ def asmemmaps(basename, video, count = None):
     
     print_progress(count, count)   
     return out
-    
+ 
 
-class VideoViewer():
+def crop(video, roi = (slice(None), slice(None))):
+    """Crops each frame in video 
+    
+    Parameters
+    ----------
+    video : iterable
+        Input multi-frame iterable object. Each element of the iterable is a tuple
+        of ndarrays (frames)
+    roi : tuple 
+        A tuple of two slice objects for slicing in first axis (height) and the
+        second axis (width). You can also provide a tuple arguments tuple
+        that are past to the slice builtin function. 
+        
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+        
+    Examples
+    --------
+    One option is to provide roi with indices. To crop frames like frame[10:100,20:120]
+    
+    >>> video = random_video(count = 100)
+    >>> video = crop(video, roi = ((10,100),(20,120)))
+    
+    Or you can use slice objects to perform crop
+    
+    >>> video = crop(video, roi = (slice(10,100),slice(20,120)))
+    """
+    try:    
+        hslice, wslice = roi
+        if not isinstance(hslice, slice) :
+            hslice = slice(*hslice)
+        if not isinstance(wslice, slice) :
+            wslice = slice(*wslice)   
+    except:
+        raise ValueError("Invalid roi")
+    for frames in video:
+        yield tuple((frame[hslice,wslice] for frame in frames))
+
+def subtract(x, y, inplace = False, dtype = None):
+    """Subtracts each of the frames in multi-frame video with a given arrays.
+    
+    Parameters
+    ----------
+    x, y : iterable
+        Input multi-frame iterable object. Each element of the iterable is a tuple
+        of ndarrays (frames)
+    inplace : bool, optional
+        Whether tranformation is performed inplace or not. 
+    dtype : numpy dtype
+        If specifed, determines output dtype. Only valid if inplace == False.
+                
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+
+    for frames, arrays in zip(x,y):
+        if len(frames) != len(arrays):
+            raise ValueError("Number of frames in x and y do not match")
+        if inplace == True:
+            yield tuple((np.subtract(frame, w, frame) for w, frame in zip(arrays,frames)))
+        else:
+            yield tuple((np.asarray(frame - w, dtype = dtype) for w, frame in zip(arrays,frames)))            
+
+def normalize_video(video, inplace = False, dtype = None):
+    """Normalizes each frame in video to the mean value (intensity)
+    
+    Parameters
+    ----------
+    video : iterable
+        Input multi-frame iterable object. Each element of the iterable is a tuple
+        of ndarrays (frames)
+    inplace : bool, optional
+        Whether tranformation is performed inplace or not. 
+    dtype : numpy dtype
+        If specifed, determines output dtype. Only valid if inplace == False.
+                
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+    for frames in video:
+        if inplace == True:
+            yield tuple((np.divide(frame, frame.mean(), frame) for frame in frames))
+        else:
+            yield tuple((np.asarray(frame / frame.mean(), dtype = dtype) for frame in frames))   
+
+def multiply(x,y, inplace = False, dtype = None):
+    """Multiplies each of the frames in multi-frame video with a given array.
+    
+    Parameters
+    ----------
+    x,y : iterable
+        Input multi-frame iterable object. Each element of the iterable is a tuple
+        of ndarrays (frames)
+    inplace : bool, optional
+        Whether tranformation is performed inplace or not. 
+    dtype : numpy dtype
+        If specifed, determines output dtype. Only valid if inplace == False.
+        
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+    for frames, arrays in zip(x,y):
+        if len(frames) != len(arrays):
+            raise ValueError("Number of frames in x and y do not match")
+        if inplace == True:
+            yield tuple((np.multiply(frame, w, frame) for w, frame in zip(arrays,frames)))
+        else:
+            yield tuple((np.asarray(frame*w, dtype = dtype) for w, frame in zip(arrays,frames)))
+            
+class ImageShow():
+    """A simple interface for video visualization using matplotlib or opencv.
+    
+    To use cv2 (which is much faster) for visualization 
+    you must set it with :func:`.conf.set_cv2`
+    """
     
     fig = None
     
@@ -156,17 +278,16 @@ class VideoViewer():
             self.fig = self.title
         im = self._prepare_image(im)
         
-        #scale from 0 to 1
-#        immin = im.min() 
-#        if immin < 0:
-#            im -= immin
-#        immax = im.max()
-#        if immax > 1:
-#            im = im/immax
-        
         cv2.imshow(self.fig,im)
         
-    def imshow(self, im):
+    def show(self, im):
+        """Shows image
+        
+        Parameters
+        ----------
+        im : ndarray
+            A 2D array 
+        """
         if CDDMConfig.cv2 == True:
             self._cv_imshow(im)
         else:
@@ -178,70 +299,164 @@ class VideoViewer():
         else:
             plt.close()       
     
-def _pause():
+def pause(i = 1):
+    """Pause in milliseconds needed to update matplotlib or opencv figures"""
     if CDDMConfig.cv2 == False:
-        plt.pause(0.001)  
+        plt.pause(i/1000.)  
     else:
-        cv2.waitKey(1)
+        cv2.waitKey(int(i))
+
+#placehold for imshow figures        
+_FIGURES = {}
              
 def play(video, fps = 100., max_delay = 0.1):
+    """Plays video for real-time visualization. 
+    
+    You must first call show functions (e.g. :func:`show_video`) to specify 
+    what needs to be played. This function performs the actual display when in
+    a for loop
+    
+    Parameters
+    ----------
+    video : iterable
+        A multi-frame iterable object. 
+    fps : float
+        Expected FPS of the input video. If rendering of video is too slow
+        for the expected frame rate, frames will be skipped to assure the 
+        expected acquisition. Therefore, you must match exactly the acquisition
+        frame rate with this parameter.
+    max_delay : float
+        Max delay that visualization can produce before it starts skipping frames.
+        
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator    
+        
+    Examples
+    --------
+    
+    First create some test data of a dual video
+    
+    >>> video = random_video(count = 256, dual = True)
+    >>> video = show_video(video)
+    
+    Now we can load video to memory, and play it as we load frame by frame...
+    
+    >>> v1,v2 = asarrays(play(video, fps = 30),count = 256)
+    
+    """
     t0 = None
-    for i, frames in enumerate(video):        
+    for i, frames in enumerate(video):   
         if t0 is None:
             t0 = time.time()
             
         if time.time()-t0 < i/fps + max_delay:
             for key in list(_FIGURES.keys()):
-                (viewer, im) = _FIGURES.pop(key)
-                viewer.imshow(im)
-            _pause()
+                (viewer, queue) = _FIGURES.get(key)
+                if not queue.empty():
+                    viewer.show(queue.get())
+                    queue.task_done()
+            pause()
             
         yield frames
         
-
     _FIGURES.clear()
-        
-_FIGURES = {}
+    
+def figure_title(name):
+    """Generate a unique figure title"""
+    i = len(_FIGURES)+1
+    return "Fig.{}: {}".format(i, name)
 
-  
-def apply_window(video, window, inplace = False):
-    for frames in video:
-        if inplace == True:
-            yield tuple((np.multiply(frame, w, frame) for w, frame in zip(window,frames)))
-        else:
-            yield tuple((frame*w for w, frame in zip(window,frames)))
-            
-            
-def show_video(video, id = 0):
-    title = "video - camera {}".format(id)
-    viewer = VideoViewer(title)
+def show_video(video, id = 0, title = None):
+    """Returns a video and performs image live video show.
+    This works in connection with :func:`play` that does the actual display.
+    
+    Parameters
+    ----------
+    video : iterator
+        A multi-frame iterator
+    id : int
+        Frame index
+    title : str
+        Unique title of the video. You can use :func:`figure_title`
+        a to produce unique name.
+    
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+    if title is None:
+        title = figure_title("video - camera {}".format(id))
+
+    viewer = ImageShow(title)
+    queue = Queue(1)
+    _FIGURES[title] = (viewer, queue)
     
     for frames in video:
-        _FIGURES[title] = (viewer, frames[id])
-        yield frames
-        
+        if queue.empty():
+            queue.put(frames[id],block = False)
+        yield frames  
      
-def show_diff(video):
-    title = "video - difference"
-    viewer = VideoViewer(title)
+def show_diff(video, title = None):
+    """Returns a video and performs image difference live video show.
+    This works in connection with :func:`play` that does the actual display.
+    
+    Parameters
+    ----------
+    video : iterator
+        A multi-frame iterator
+    title : str
+        Unique title of the video. You can use :func:`figure_title`
+        a to produce unique name.
+        
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+    
+    if title is None:
+        title = figure_title("diff".format(id))
+
+    viewer = ImageShow(title)
+    queue = Queue(1)
+    _FIGURES[title] = (viewer, queue)
     
     for frames in video:
-        if not title in _FIGURES:
+        if queue.empty():
             m = 2* max(frames[0].max(),frames[1].max())
             im = frames[0]/m - frames[1]/m + 0.5
-            _FIGURES[title] = (viewer, im)
+            queue.put(im,block = False)
         yield frames    
-        
 
+def random_video(shape = (512,512), count = 256, dtype = FDTYPE, max_value = 1., dual = False):
+    """Random multi-frame video generator, useful for testing."""
+    nframes = 2 if dual == True else 1 
+    for i in range(count):
+        yield tuple((np.asarray(np.random.rand(*shape)*max_value,dtype) for i in range(nframes)))
+
+        
 if __name__ == '__main__':
     #from cddm.conf import set_cv2
     #set_cv2(False)
-
-    video = random_dual_frame_video(count = 256)
+    import cddm.conf
+    cddm.conf.set_verbose(2)
+    
+    #example how to use show_video and play
+    video = random_video(count = 256, dual = True)
     video = show_video(video)
     video = show_diff(video)
-    v1,v2 = asarrays(play(video, fps = 10),count = 256)
+    
+    v1,v2 = asarrays(play(video, fps = 30),count = 256)
 
-    for frames in play(video, fps = 20):
-        pass
+#    #example how to use ImageShow
+#    video = random_video(count = 256)
+#    viewer = ImageShow()
+#    for frames in video:
+#        viewer.show(frames[0])
+#        pause()
+#        
+    
     

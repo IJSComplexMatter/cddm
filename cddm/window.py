@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Windowing functions
+Windowing functions. 
+
+These windowing functions can be used to generate FFT window functions.
 """
 import numpy as np
 from cddm.conf import FDTYPE
@@ -45,8 +45,8 @@ def gaussian(shape, sigma, out = None):
     ----------
     shape : (int,int)
         A shape of the 2D window
-    waist : float
-        Waist of the gaussian.
+    sigma : float
+        Waist of the gaussian in units of total width of the frame.
     out : ndarray, optional
         Output array.
         
@@ -55,6 +55,8 @@ def gaussian(shape, sigma, out = None):
     window : ndarray
         Gaussian beam window
     """
+    if sigma <= 0.:
+        raise ValueError("Wrong sigma value")
     r = _r(shape, sigma* (2**0.5))
     out = np.empty(shape, FDTYPE)
     return np.exp(-r**2, out = out)
@@ -68,7 +70,7 @@ def tukey(shape, alpha, out = None):
         A shape of the 2D window
     alpha : float
         Smoothnes parameter - defines smoothness of the edge of the tukey
-        (should be between 0. and 1.; 0.05 by default). When set to zero, it 
+        (should be between 0. and 1. When set to zero, it 
         becomes an aperture filter. When set to 1 it becomes a Hann window.
     out : ndarray, optional
         Output array.
@@ -100,6 +102,8 @@ def hann(shape, out = None):
     return _tukey(r, 1., out = out) 
 
 def _tukey(r,alpha = 0.1, rmax = 1., out =  None):
+    if alpha> 1 or alpha < 0 :
+        raise ValueError("Wrong alpha value")
     if out is None:
         out = np.ones(r.shape, FDTYPE)
     else:
@@ -117,7 +121,7 @@ def _tukey(r,alpha = 0.1, rmax = 1., out =  None):
 if __name__  == "__main__":
     import matplotlib.pyplot as plt
     
-    shape = (32,32) 
+    shape = (32,64) 
     #shape = (13,42) #any 2D shape is valid 
     
     plt.subplot(221)

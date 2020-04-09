@@ -12,7 +12,7 @@
 Module Contents
 ---------------
 
-.. py:class:: VideoViewer(video, n=None, id=0, title='')
+.. py:class:: VideoViewer(video, count=None, id=0, title='')
 
    Bases: :class:`object`
 
@@ -21,8 +21,8 @@ Module Contents
    :param video: A list of a tuple of 2D arrays or a generator of a tuple of 2D arrays.
                  If an iterator is provided, you must set 'n' as well.
    :type video: list-like, iterator
-   :param n: Length of the video. When this is set it displays only first 'n' frames of the video.
-   :type n: int
+   :param count: Length of the video. When this is set it displays only first 'count' frames of the video.
+   :type count: int
    :param id: For multi-frame data specifies camera index.
    :type id: int, optional
    :param title: Plot title.
@@ -40,6 +40,19 @@ Module Contents
    Bases: :class:`object`
 
    Shows correlation data in plot. You need to hold reference to this object, otherwise it will not work in interactive mode.
+
+   :param norm: Normalization constant used in normalization
+   :type norm: int, optional
+   :param scale: Scale constant used in normalization.
+   :type scale: bool, optional
+   :param semilogx: Whether plot data with semilogx or not.
+   :type semilogx: bool
+   :param shape: Original frame shape. For non-rectangular you must provide this so
+                 to define k step.
+   :type shape: tuple of ints, optional
+   :param size: If specified, perform log_averaging of data with provided size parameter.
+                If not given, no averaging is performed.
+   :type size: int, optional
 
    .. method:: set_data(self, data, background=None, variance=None)
 
@@ -65,15 +78,21 @@ Module Contents
       :rtype: ndarray, ndarray
 
 
-   .. method:: set_mask(self, k, phi=0, sector=5, kstep=1)
+   .. method:: get_k(self)
+
+
+      Returns average k value of current data.
+
+
+   .. method:: set_mask(self, k, angle=0, sector=5, kstep=1)
 
 
       Sets k-mask for averaging,
 
       :param k: k index in kstep units.
       :type k: int
-      :param phi: Mean k-angle in degrees. Measure with respecto to image horizontal axis.
-      :type phi: int
+      :param angle: Mean k-angle in degrees. Measure with respecto to image horizontal axis.
+      :type angle: int
       :param sector: Averaging full angle in degrees.
       :type sector: int
       :param kstep: K step in units of minimum k step for a given FFT dimensions.
@@ -102,5 +121,15 @@ Module Contents
 
    Shows multitau data in plot. You need to hold reference to this object,
    otherwise it will not work in interactive mode.
+
+   :param norm: Normalization constant used in normalization
+   :type norm: int, optional
+   :param scale: Scale constant used in normalization.
+   :type scale: bool, optional
+   :param semilogx: Whether plot data with semilogx or not.
+   :type semilogx: bool
+   :param shape: Original frame shape. For non-rectangular you must provide this so
+                 to define k step.
+   :type shape: tuple of ints, optional
 
 

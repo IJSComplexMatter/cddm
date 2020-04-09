@@ -20,6 +20,10 @@ Module Contents
 
    The class itself is also used as a decorator (doc_inherit)
 
+
+.. data:: doc_inherit
+   
+
    .. rubric:: Example
 
    >>> class Foo(object):

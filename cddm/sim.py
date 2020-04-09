@@ -95,7 +95,7 @@ def brownian_walk(x0, n = 1024, shape = (256,256), delta = 1, dt = 1, velocity =
         x = make_step(x,scale, velocity) 
         x = mirror(x,x1,x2)
         
-def brownian_particles(n = 500, shape = (256,256),particles = 10,delta = 1, dt = 1,velocity = 0., x0 = None):
+def brownian_particles(n = 500, shape = (256,256),particles = 100, delta = 1, dt = 1,velocity = 0., x0 = None):
     """Creates coordinates of multiple brownian particles.
     
     Parameters
@@ -175,7 +175,7 @@ def draw_psf(im, points, intensity, sigma):
     return im  
 
  
-def particles_video(particles, shape = (512,512),t1 = None, t2 = None, 
+def particles_video(particles, t1, shape = (512,512), t2 = None, 
                  background = 0, intensity = 10, sigma = None, noise = 0.):
     """Creates brownian particles video"""
         
@@ -185,10 +185,9 @@ def particles_video(particles, shape = (512,512),t1 = None, t2 = None,
     out1 = None
     out2 = None
     
-    if t1 is not None and t2 is not None:
-        t1 = list(t1)
-        t2 = list(t2)
-    
+    t1 = list(t1)
+    t2 = list(t2) if t2 is not None else None
+        
     def get_frame(data, noise):
         im = background.copy()
         if noise > 0.:
@@ -201,28 +200,26 @@ def particles_video(particles, shape = (512,512),t1 = None, t2 = None,
             im = draw_psf(im, data, intensity, sigma)
         return im
     
-    count = 0
     
     for i,data in enumerate(particles):
-        
-        if t1 is not None and t2 is not None:
-            if i in t1[:1]:
-                t1.pop(0)
-                if out1 is not None:
-                    1/0
-                out1 = get_frame(data,noise)   
-                
-            if i in t2[:1]:
-                if out2 is not None:
-                    1/0
-                out2 = get_frame(data,noise)  
-                t2.pop(0)
+    
+        if i in t1[:1]:
+            t1.pop(0)
+            out1 = get_frame(data,noise)   
+            
+        if t2 is not None and i in t2[:1]:
+            t2.pop(0)
+            out2 = get_frame(data,noise)  
+            
+        if t2 is not None:
             if out1 is not None and out2 is not None:
                 yield out1, out2
-                count +=1
                 out1, out2 = None, None
         else:
-            yield get_frame(data, noise)
+            if out1 is not None:
+                yield out1,
+                out1 = None     
+
 
 
 def data_trigger(data, indices):
@@ -314,6 +311,22 @@ def frame_grabber(nframes, shape = (256,256), intensity = 30, sigma = 2, noise =
     kw["shape"] = shape
     p = brownian_particles(**kw) 
     return particles_video(p, shape = shape, sigma = sigma, intensity = intensity, noise = noise) 
+
+def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 200, intensity = 5, sigma = 5, noise = 0, **kw):
+    t1 = np.asarray(t1)
+    if t2 is None:
+        if t1.ndim == 0:  
+            n = t1
+        else:
+            n = len(t1)
+    else:
+        t2 = np.asarray(t2)
+        n = max(t1.max(),t2.max())+1
+    kw["n"] = n
+    kw["shape"] = shape
+    p = brownian_particles(**kw) 
+    return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, noise = noise) 
+    
     
 
 if __name__ == "__main__":

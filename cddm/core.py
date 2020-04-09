@@ -278,7 +278,7 @@ def _cross_corr_fft_regular(x, y, dummy, out):
     x = x*np.conj(y)
 
     _out = _ifft(x, overwrite_x = True)
-    
+
     out[:] += _out[:out_length].real
     out[1:] += _out[-1:-out_length:-1].real
     
@@ -406,6 +406,8 @@ def _inspect_cross_arguments(f1,f2,t1,t2,axis,n, aout, dtype = CDTYPE):
 
     if n is None:
         if aout is not None:
+            if not isinstance(aout, np.ndarray):
+                raise TypeError("aout must be a valid numpy array.")
             n = aout.shape[-1]
         else:
             n = _determine_full_length_cross(f1.shape,t1,t2,axis)
@@ -974,7 +976,7 @@ def cross_count(t1,t2 = None, n = None, aout = None):
     >>> cross_count(10,n=5)
     array([10, 18, 16, 14, 12])
     >>> cross_count([1,3,6],[0,2,6],n=5)
-    array([1, 3, 0, 2, 1])    
+    array([1, 3, 0, 2, 1])
     """
     t1 = np.asarray(t1, I64DTYPE)
     if t1.ndim == 0:
@@ -1321,7 +1323,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = NORM_COMPENSATED,
         if norm not in (0,1,2,3):
             raise ValueError("Normalization mode must be 0, 1, 2 or 3 for method '{}'.".format(method))
 
-    f,t,axis,n = _inspect_auto_arguments(f,t,axis,n, aout)
+    f,t,axis,n = _inspect_auto_arguments(f,t,axis,n, cor)
     
     nframes = f.shape[axis]
 
@@ -1375,7 +1377,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = NORM_COMPENSATED,
     if method == "diff":
         return cor, count, None, None
     else:
-        return cor, count, sq, ds, ds
+        return cor, count, sq, ds, None
  
 def ccorr(f1,f2,t1 = None, t2 = None,  n = None, 
           norm = NORM_COMPENSATED|NORM_SUBTRACTED,  method = None, 
@@ -1434,13 +1436,15 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
     
     Say we have two datasets f1 and f2. To compute cross-correlation of both 
     datasets :
+        
+    >>> f1, f2 = np.random.randn(24,4,6) + 0j, np.random.randn(24,4,6) + 0j
     
-    >>> data = ccorr(f1, f2, n = 64)
+    >>> data = ccorr(f1, f2, n = 16)
     
     Now we can set the 'out' parameter, and the results of the next dataset
     are added to results of the first dataset:
     
-    >>> data = ccorr(f1, f2, aout = data)
+    >>> data = ccorr(f1, f2,  aout = data)
     
     Note that the parameter 'n' = 64 is automatically determined here, based on the
     provided 'aout' arrays.  
@@ -1461,7 +1465,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         if norm not in (0,1,2,3):
             raise ValueError("Normalization mode must be 0, 1, 2 or 3 for method '{}'.".format(method))
 
-    f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n,aout)
+    f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n,cor)
     
     nframes = f1.shape[axis]
     
@@ -1672,10 +1676,10 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr",
         data.
     """
     t = len(data) if t is None else t
-    n = len(data)//2 if n is None else int(n)
-    chunk_size = n * 2 if chunk_size is None else int(chunk_size)
-    period = n
-    n = 1
+    n = len(data) if n is None else n
+    chunk_size = n if chunk_size is None else int(chunk_size)
+    period = 1
+    n = n
     nlevel = 0
     #in order to prevent circular import we import it here
     from cddm.multitau import _compute_multi_iter, _VIEWERS
@@ -1762,7 +1766,7 @@ def _norm_from_ccorr_data(data, norm = None):
     except ValueError:
         raise ValueError("Not a valid correlation data")
         
-    if (s1 is None or s2 is None):
+    if s1 is None:
         if sq is None:
             default_norm = 0
         else:
@@ -1870,6 +1874,24 @@ def take_data(data, mask):
         return data
         
     return tuple((_mask(i,d) for (i,d) in enumerate(data)))
+
+def _method_from_data(data):
+    try:
+        return "corr" if len(data) == 5 else "diff" 
+    except:
+        raise ValueError("Invalid data type")
+        
+def _inspect_mode(mode):
+    if mode in ("corr","diff"):
+        return mode
+    else:
+        raise ValueError("Invalid mode")
+    
+def _inspect_scale(scale):
+    try:
+        return bool(scale)
+    except:
+        raise ValueError("Invalid scale")
         
 def normalize(data, background = None, variance = None, norm = None,  mode = "corr", scale = False, mask = None, out = None):
     """Normalizes correlation (difference) data. Data must be data as returned
@@ -1909,8 +1931,10 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         Normalized data.
     """
     print1("Normalizing...")
-    #determine what kind of data is there (diff or corr)
-    method = "corr" if len(data) == 5 else "diff" 
+    #determine what kind of data is there ('diff' or 'corr')
+    method = _method_from_data(data)
+    scale = _inspect_scale(scale)
+    mode = _inspect_mode(mode)
     
     #determine default normalization if not specified by user
     if method == "corr":
@@ -1962,14 +1986,18 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
                 result = _diff2corr(result, variance, mask)
 
     elif norm == NORM_SUBTRACTED:
-        result = _normalize_ccorr_2(data[0], count, bg1, bg2, data[3], data[4], out = out)
+        m1 = data[3]
+        m2 = data[4] if data[4] is not None else m1
+        result = _normalize_ccorr_2(data[0], count, bg1, bg2, m1,m2, out = out)
         if mode == "diff":
             result = _corr2diff(result, variance, mask)
 
     elif norm == NORM_COMPENSATED|NORM_SUBTRACTED:
         if method == "corr":
             offset = _variance2offset(variance, mask)
-            result = _normalize_ccorr_3(data[0], count, bg1, bg2, data[2], data[3], data[4],  out = out)
+            m1 = data[3]
+            m2 = data[4] if data[4] is not None else m1
+            result = _normalize_ccorr_3(data[0], count, bg1, bg2, data[2], m1, m2,  out = out)
             result += offset
             if mode == "diff":
                 result = _corr2diff(result, variance, mask)
@@ -1982,4 +2010,8 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     if scale == True:
         result /= _scale_factor
     return result
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
    

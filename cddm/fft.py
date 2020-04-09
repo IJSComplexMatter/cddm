@@ -5,8 +5,9 @@ This module defines several functions for fft processing  of multi-frame data.
 """
 
 import numpy as np
-from cddm.video import VideoViewer, _FIGURES, play
-from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED 
+from cddm.video import ImageShow, _FIGURES, play, figure_title
+from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED
+from queue import Queue
 
 #from multiprocessing.pool import ThreadPool
 
@@ -16,62 +17,81 @@ if MKL_FFT_INSTALLED == True:
 if SCIPY_INSTALLED == True:
     import scipy.fftpack as spfft
 
-class FFTViewer(VideoViewer):
-    def __init__(self, title = "fft"):
-        self.title = title
+def show_fft(video, id = 0, clip = None, title = None):
+    """Show fft
     
-    def _prepare_image(self,im):
-        im = np.fft.fftshift(np.log(1+np.abs(im)),0)
-        return im/im.max()
-
-def _window_title(name):
-    i = len(_FIGURES)+1
-    return "Fig.{}: {}".format(i, name)
-
-def show_fft(video, id = 0, title = None):
-    """Show """
+    Parameters
+    ----------
+    video : iterator
+        A multi-frame iterator
+    id : int
+        Frame index
+    clip : float, optional
+        Clipping value. If not given, it is determined automatically.
+    title : str, optional
+        Unique title of the video. You can use :func:`.video.figure_title`
+        to create a unique name.
+    
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    
+    """
     if title is None:
-        title = _window_title("fft - camera {}".format(id))
-    viewer = FFTViewer(title)
+        title = figure_title("fft - camera {}".format(id))
+    viewer = ImageShow(title)
+    queue = Queue(1)
+    _FIGURES[title] = (viewer, queue)
     
     for frames in video:
-        _FIGURES[title] = (viewer, frames[id])
+        if queue.empty():
+            im = _clip_fft(frames[id],clip)
+            queue.put(im, block = False)
         yield frames
         
-def show_alignment_and_focus(video, id = 0, title = None, clipfactor=0.1):
-    '''To be changed'''
-    
-    if title is None:
-        title = _window_title("fft - camera {}".format(id))
-    title2="alignment"
-    
-    viewer1 = VideoViewer(title)
-    viewer2 = VideoViewer(title2)
-    
-    
-    for i,frames in enumerate(video):
+def _clip_fft(im, clip = None):
+    im = np.abs(im)
+    if clip is None:
+        im[0,0] = 0
+        clip = im.max()
         
-        if i==0:
-            f0=np.ones(np.shape(frames[id]))
-            
-        f=_fft2(frames[id])
-        f=np.abs(f)
-        f=np.abs((f-f0)/(256**2))
-        f.clip(0,clipfactor)
-        f=f/clipfactor
-        f=np.fft.fftshift(f)
-        
-        im1=frames[0]
-        im2=frames[1]
-        diff=(im2/im2.mean())-(im1/im1.mean())+0.5
-        
-        _FIGURES[title] = (viewer1, f)
-        _FIGURES[title2] = (viewer2, diff)
-        
-        f0=f.copy()
-        
-        yield frames
+    im = im/clip
+    im = im.clip(0,1)    
+    return np.fft.fftshift(im,0)
 
+def show_fftdiff(video, clip = None, title = None):
+    """Show fft difference video
+    
+    Parameters
+    ----------
+    video : iterator
+        A multi-frame iterator
+    clip : float, optional
+        Clipping value. If not given, it is determined automatically.
+    title : str, optional
+        Unique title of the video. You can use :func:`figure_title``
+        a to produce unique name.
+    
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    
+    """
+    if title is None:
+        title = figure_title("FFT diff")
+    viewer = ImageShow(title)
+    queue = Queue(1)
+    _FIGURES[title] = (viewer, queue)
+    
+    for frames in video:
+        if queue.empty():
+            im = frames[1]-frames[0]
+            im = _clip_fft(im,clip)
+            queue.put(im, block = False)
+        yield frames
+        
 
 def _fft(a, overwrite_x = False):
     libname = CDDMConfig["fftlib"]
@@ -80,7 +100,7 @@ def _fft(a, overwrite_x = False):
     elif libname == "scipy":
         return spfft.fft(a, overwrite_x = overwrite_x)
     elif libname == "numpy":
-        return np.fft.fft(a) #force real in case input is complex
+        return np.fft.fft(a) 
     else:#default implementation is numpy fft
         return np.fft.fft(a)
 
@@ -91,7 +111,7 @@ def _ifft(a, overwrite_x = False):
     elif libname == "scipy":
         return spfft.ifft(a, overwrite_x = overwrite_x)
     elif libname == "numpy":
-        return np.fft.ifft(a) #force real in case input is complex
+        return np.fft.ifft(a) 
     else:#default implementation is numpy ifft
         return np.fft.ifft(a)
 
@@ -102,7 +122,7 @@ def _fft2(a, overwrite_x = False):
     elif libname == "scipy":
         return spfft.fft2(a, overwrite_x = overwrite_x)
     elif libname == "numpy":
-        return np.fft.fft2(a) #force real in case input is complex
+        return np.fft.fft2(a) 
     else:#default implementation is numpy fft2
         return np.fft.fft2(a)
 
@@ -119,24 +139,20 @@ def _rfft2(a, overwrite_x = False):
     else:#default implementation is numpy fft2
         return np.fft.fft2(a)[...,0:cutoff]     
 
-#def _rfft2_sequence(a, overwrite_x = False):
-#    pool = ThreadPool(2)
-#    workers = [pool.apply_async(_rfft2, args = (d, overwrite_x)) for d in a] 
-#    results = [w.get() for w in workers]
-#    pool.close()
-#    return results
-
-
         
 def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
     if kimax is None:
         kisize = shape[0]
     else:    
-        kisize = min(kimax*2+1, shape[0])
+        kisize = kimax*2+1
+        if kisize >= shape[0]:
+            raise ValueError("kimax too large for a given frame")
     if kjmax is None:
         kjsize = shape[1]
     else:
-        kjsize = min(kjmax*2+1, shape[1])
+        kjsize = kjmax*2+1
+        if kjsize > shape[1]:
+            raise ValueError("kjmax too large for a given frame")
     
     jstop = kjsize//2+1
     istop = kisize//2+1
@@ -146,6 +162,26 @@ def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
 
 def rfft2(video, kimax = None, kjmax = None, overwrite_x = False):
     """A generator that performs rfft2 on a sequence of multi-frame data.
+    
+    Shape of the output depends on kimax and kjmax. It is (2*kimax+1, kjmax +1), 
+    or same as the result of rfft2 if kimax and kjmax are not defined.
+    
+    Parameters
+    ----------
+    video : iterable
+        An iterable of multi-frame data
+    kimax : float, optional
+        Max value of the wavenumber in vertical axis (i)
+    kjmax : float, optional
+        Max value of the wavenumber in horizontal axis (j)
+    overwrite_x : bool, optional
+        If input type is complex and fft library used is not numpy, fft can 
+        be performed inplace to speed up computation.
+        
+    Returns
+    -------
+    video : iterator
+        An iterator over FFT of the video.
     """
     
     def f(frame, shape, istop, jstop):
@@ -170,13 +206,42 @@ def rfft2(video, kimax = None, kjmax = None, overwrite_x = False):
             out = tuple((f(frame,shape,istop,jstop) for frame in frames))
             yield out
 
+def normalize_fft(video, inplace = False, dtype = None):
+    """Normalizes each frame in fft video to the mean value (intensity) of
+    the [0,0] component of fft.
+    
+    Parameters
+    ----------
+    video : iterable
+        Input multi-frame iterable object. Each element of the iterable is a tuple
+        of ndarrays (frames)
+    inplace : bool, optional
+        Whether tranformation is performed inplace or not. 
+    dtype : numpy dtype
+        If specifed, determines output dtype. Only valid if inplace == False.
+                
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+    for frames in video:
+        if inplace == True:
+            yield tuple((np.divide(frame, frame[0,0], frame) for frame in frames))
+        else:
+            yield tuple((np.asarray(frame / frame[0,0], dtype = dtype) for frame in frames))   
+
+
         
 if __name__ == "__main__":
-    from cddm.video import random_dual_frame_video
-    video = random_dual_frame_video()
-    video = show_alignment_and_focus(video)
-    fft = rfft2(video)
+    import cddm.conf
+    cddm.conf.set_fftlib("numpy")
+    from cddm.video import random_video, show_diff, show_video
+    video = random_video(dual = True)
+    video = show_video(video,0)
+    video = show_diff(video)
+    video = rfft2(video,63,63)
+    video = show_fft(video,0)
     
-
-    for frames in play(fft, fps = 20):
+    for frames in play(video, fps = 20):
         pass

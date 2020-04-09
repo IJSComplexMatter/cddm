@@ -87,7 +87,7 @@ plt.legend()
 
 # this is a simple data viewer that you can use to inspect data
 # here we perform basic normalization with scaling
-viewer = MultitauViewer(scale = True)
+viewer = MultitauViewer(scale = True, norm = 1)
 viewer.set_data(data, bg, var)
 viewer.plot()
 viewer.show()

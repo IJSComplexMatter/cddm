@@ -8,7 +8,7 @@ import numpy as np
 from functools import wraps
 import os, warnings, shutil
 
-#These will be defined later at runtime... here we hold reference  to disable warnings in autoapi generation
+#These will be defined later at runtime... here we hold reference to disable warnings in autoapi generation
 I = None
 CDTYPE = None 
 IDTYPE = None

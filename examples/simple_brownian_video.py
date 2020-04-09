@@ -4,6 +4,11 @@ and a cross-ddm video (two videos) are writen to disk.
 (about 3 x 1 GB of data written)
 """
 
+#change current work directory to this file's path.. so that loading of dust files work properly
+#only needed if you run this from some other directory (doctests)
+import os
+os.chdir(os.path.abspath(os.path.split(__file__)[0]))
+
 from cddm import viewer
 from cddm import sim 
 from cddm import video
@@ -28,7 +33,6 @@ dust1 = plt.imread('dust1.png')[...,0] #float normalized to (0,1)
 dust2 = plt.imread('dust2.png')[...,0]
 DUST = dust1, dust2
 
-conf.set_verbose(2)
 
 #the n parameter (from the CDDM paper) in dual video.
 n = 16
@@ -39,7 +43,7 @@ PERIOD = n*2
 NFRAMES_DUAL = 1024*4
 NFRAMES_SINGLE = NFRAMES_DUAL #// 2 // n
 
-sim.seed(0)
+
 #build random time sequence for cross DDM
 t1, t2 = sim.create_random_times2(nframes = NFRAMES_DUAL, n = n)
 
@@ -87,12 +91,15 @@ def get_video(n = NFRAMES_SINGLE, seed = None):
         
     x1 = sim.brownian_particles(shape = SIMSHAPE, n = NFRAMES_SINGLE, delta = DELTA, dt = 1,  particles = NPARTICLES)   
 
-    video = sim.particles_video(x1, shape = SIMSHAPE, sigma = 5, intensity = 5, background = 200)
+    video = sim.particles_video(x1, t1 = np.arange(NFRAMES_SINGLE), shape = SIMSHAPE, sigma = 5, intensity = 5, background = 200)
     
-    return (_crop_frames((frame,)) for frame in video)
+    return (_crop_frames(frame) for frame in video)
 
 
 if __name__ == "__main__":
+    
+    conf.set_verbose(2)
+    sim.seed(0)
 
     print("Computing ddm video...")
     vid = get_video(seed = 0)
@@ -102,16 +109,11 @@ if __name__ == "__main__":
     
     print("Computing cddm video...")
     vid = get_dual_video(seed = 0)
+
     
-    v1, v2 = video.asarrays(vid,NFRAMES_DUAL)
-    
-    print("Writing to HD ...")
-    np.save("brownian_dual_camera_0.npy",v1)
-    np.save("brownian_dual_camera_1.npy",v2)
-    
-#    #we can write directly to HD by creating and writing to numpy memmap
-#    vid = get_dual_video(seed = 0)
-#    v1,v2 = video.asmemmaps("simple_brownian_cddm_video", vid, NFRAMES_DUAL)
+    #we can write directly to HD by creating and writing to numpy memmap
+    vid = get_dual_video(seed = 0)
+    v1,v2 = video.asmemmaps("simple_brownian_cddm_video", vid, NFRAMES_DUAL)
 #    
     np.save("simple_brownian_cddm_t1.npy", t1)
     np.save("simple_brownian_cddm_t2.npy", t2)

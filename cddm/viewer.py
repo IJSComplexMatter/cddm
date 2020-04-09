@@ -18,21 +18,21 @@ class VideoViewer(object):
     video : list-like, iterator
         A list of a tuple of 2D arrays or a generator of a tuple of 2D arrays. 
         If an iterator is provided, you must set 'n' as well. 
-    n: int
-        Length of the video. When this is set it displays only first 'n' frames of the video.
+    count: int
+        Length of the video. When this is set it displays only first 'count' frames of the video.
     id : int, optional
         For multi-frame data specifies camera index.
     title : str, optional
         Plot title.
     """
 
-    def __init__(self, video, n = None, id = 0, title = ""):
+    def __init__(self, video, count = None, id = 0, title = ""):
 
-        if n is None:
+        if count is None:
             try:
-                n = len(video)
+                count = len(video)
             except TypeError:
-                raise Exception("You must specify nframes!")
+                raise Exception("You must specify count!")
         self.id = id
         self.index = 0
         self.video = video
@@ -42,10 +42,10 @@ class VideoViewer(object):
         
         frame = next(iter(video)) #take first frame
         frame = self._prepare_image(frame)
-        self.img = self.ax.imshow(frame) 
+        self.img = self.ax.imshow(frame, vmin = 0, cmap='gray') 
 
         self.axframe= plt.axes([0.1, 0.1, 0.7, 0.03])
-        self.sframe = Slider(self.axframe, '', 0, n - 1, valinit=0, valstep=1, valfmt='%i')
+        self.sframe = Slider(self.axframe, '', 0, count - 1, valinit=0, valstep=1, valfmt='%i')
  
         self.axnext = plt.axes([0.7, 0.02, 0.1, 0.05])
         self.bnext =  Button(self.axnext, '>') 
@@ -69,14 +69,14 @@ class VideoViewer(object):
         self.bfast =  Button(self.axfast, 'FF') 
         
         self.playing = False
-        self.step_fast = n/100
+        self.step_fast = count/100
         self.step = 1
         
         def _play():
             while self.playing:
                 plt.pause(0.001)
                 next_frame = self.sframe.val + self.step
-                if next_frame >= n:
+                if next_frame >= count:
                     self.playing = False
                 else:
                     self.sframe.set_val(next_frame)        
@@ -97,10 +97,10 @@ class VideoViewer(object):
             _play()
                     
         def next_frame(event):
-            self.sframe.set_val(min(self.sframe.val + 1,n-1))
+            self.sframe.set_val(min(self.sframe.val + 1,count-1))
 
         def next_fast(event):
-            self.sframe.set_val(min(self.sframe.val + self.step,n-1))
+            self.sframe.set_val(min(self.sframe.val + self.step,count-1))
 
         def prev_frame(event):
             self.sframe.set_val(max(self.sframe.val - 1,0))
@@ -150,6 +150,22 @@ class VideoViewer(object):
 
 class DataViewer(object):
     """Shows correlation data in plot. You need to hold reference to this object, otherwise it will not work in interactive mode.
+
+    Parameters
+    ----------
+    norm : int, optional
+        Normalization constant used in normalization
+    scale : bool, optional
+        Scale constant used in normalization.
+    semilogx : bool
+        Whether plot data with semilogx or not.
+    shape : tuple of ints, optional
+        Original frame shape. For non-rectangular you must provide this so
+        to define k step.
+    size : int, optional
+        If specified, perform log_averaging of data with provided size parameter.
+        If not given, no averaging is performed.
+
     """
     fig = None
     data = None
@@ -157,26 +173,14 @@ class DataViewer(object):
     variance = None
     mask = None
     kmap = None
-    phimap = None
+    anglemap = None
     indexmap = None
+    k = 0
+    angle = 0
+    sector = 5
+    kstep = 1
     
     def __init__(self, norm = None, scale = False, semilogx = True,  shape = None, size = None):
-        """
-        Parameters
-        ----------
-        norm : int, optional
-            Normalization constant used in normalization
-        scale : bool, optional
-            Scale constant used in normalization.
-        semilogx : bool
-            Whether plot data with semilogx or not.
-        shape : tuple of ints, optional
-            Original frame shape. For non-rectangular you must provide this so
-            to define k step.
-        size : int, optional
-            If specified, perform log_averaging of data with provided size parameter.
-            If not given, no averaging is performed.
-        """
         self.norm  = norm
         self.scale = scale
         self.semilogx = semilogx
@@ -185,7 +189,7 @@ class DataViewer(object):
         
     def _init_map(self):
         self.kmap, self.anglemap = rfft2_kangle(self.kisize, self.kjsize, self.shape)
-        self.indexmap = sector_indexmap(self.kmap, self.anglemap, 0, 5, 1)
+        self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
         
     def _init_fig(self):
         if self.data is None:
@@ -211,19 +215,20 @@ class DataViewer(object):
        
 
         self.kax = plt.axes([0.1, 0.15, 0.65, 0.03])
-        self.kindex = Slider(self.kax, "k",0,int(self.kmap.max()),valinit = 0, valfmt='%i')
+        self.kindex = Slider(self.kax, "k",0,int(self.kmap.max()),valinit = self.k, valfmt='%i')
 
-        self.phiax = plt.axes([0.1, 0.10, 0.65, 0.03])
-        self.phiindex = Slider(self.phiax, "angle",-90,90,valinit = 0, valfmt='%.2f')        
+        self.angleax = plt.axes([0.1, 0.10, 0.65, 0.03])
+        self.angleindex = Slider(self.angleax, "angle",-90,90,valinit = self.angle, valfmt='%.2f')        
 
         self.sectorax = plt.axes([0.1, 0.05, 0.65, 0.03])
-        self.sectorindex = Slider(self.sectorax, "sector",0,180,valinit = 5, valfmt='%.2f') 
+        self.sectorindex = Slider(self.sectorax, "sector",0,180,valinit = self.sector, valfmt='%.2f') 
                                   
         def update(val):
+            self.set_mask(int(round(self.kindex.val)),self.angleindex.val,self.sectorindex.val, self.kstep)
             self.plot()
             
         self.kindex.on_changed(update)
-        self.phiindex.on_changed(update)
+        self.angleindex.on_changed(update)
         self.sectorindex.on_changed(update)
         
         
@@ -269,18 +274,19 @@ class DataViewer(object):
         return t, avg_data
     
     def get_k(self):
+        """Returns average k value of current data."""
         if self.mask is None:
             raise ValueError("Mask not specified, you must first set mask.")
         return self.kmap[self.mask].mean()
     
-    def set_mask(self, k, phi = 0, sector = 5, kstep = 1):
+    def set_mask(self, k, angle = 0, sector = 5, kstep = 1):
         """Sets k-mask for averaging,
         
         Parameters
         ----------
         k : int
             k index in kstep units.
-        phi : int
+        angle : int
             Mean k-angle in degrees. Measure with respecto to image horizontal axis.
         sector : int
             Averaging full angle in degrees.
@@ -293,12 +299,12 @@ class DataViewer(object):
             True if mask is valid else False
         """
         self.k = k
-        self.phi = phi
+        self.angle = angle
         self.kstep = kstep
         self.sector = sector
         if self.kmap is None:
             self._init_map()
-        self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.phi, self.sector, self.kstep)
+        self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
         self.mask = (self.indexmap == int(self.k))
         return self.mask.any()
         
@@ -307,9 +313,8 @@ class DataViewer(object):
         
         if self.fig is None:
             self._init_fig()
+            self.set_mask(int(round(self.k)),self.angle,self.sector, self.kstep)
             
-        self.set_mask(self.kindex.val,self.phiindex.val,self.sectorindex.val)
-
         nans = (self.indexmap == -1)
         self.graph = self.indexmap*1.0 # make it float
         self.graph[self.mask] = self._max_graph_value +1
@@ -344,21 +349,21 @@ class DataViewer(object):
 class MultitauViewer(DataViewer):
     """Shows multitau data in plot. You need to hold reference to this object, 
     otherwise it will not work in interactive mode.
+    
+    Parameters
+    ----------
+    norm : int, optional
+        Normalization constant used in normalization
+    scale : bool, optional
+        Scale constant used in normalization.
+    semilogx : bool
+        Whether plot data with semilogx or not.
+    shape : tuple of ints, optional
+        Original frame shape. For non-rectangular you must provide this so
+        to define k step.
     """
     def __init__(self, norm = None, scale = False, semilogx = True,  shape = None):
-        """
-        Parameters
-        ----------
-        norm : int, optional
-            Normalization constant used in normalization
-        scale : bool, optional
-            Scale constant used in normalization.
-        semilogx : bool
-            Whether plot data with semilogx or not.
-        shape : tuple of ints, optional
-            Original frame shape. For non-rectangular you must provide this so
-            to define k step.
-        """
+
         self.norm  = norm
         self.scale = scale
         self.semilogx = semilogx

@@ -66,7 +66,7 @@ Module Contents
    :type velocity: (float,float)
 
 
-.. function:: brownian_particles(n=500, shape=(256, 256), particles=10, delta=1, dt=1, velocity=0.0, x0=None)
+.. function:: brownian_particles(n=500, shape=(256, 256), particles=100, delta=1, dt=1, velocity=0.0, x0=None)
 
    Creates coordinates of multiple brownian particles.
 
@@ -100,7 +100,7 @@ Module Contents
    Draws psf to image from a given points array
 
 
-.. function:: particles_video(particles, shape=(512, 512), t1=None, t2=None, background=0, intensity=10, sigma=None, noise=0.0)
+.. function:: particles_video(particles, t1, shape=(512, 512), t2=None, background=0, intensity=10, sigma=None, noise=0.0)
 
    Creates brownian particles video
 

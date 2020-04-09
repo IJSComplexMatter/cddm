@@ -7,21 +7,6 @@ class DocInherit(object):
     Docstring inheriting method descriptor
 
     The class itself is also used as a decorator (doc_inherit)
-    
-    Example
-    -------
-    >>> class Foo(object):
-    ...     def foo(self):
-    ...         "Frobber"
-    ...         pass
-
-    >>> class Bar(Foo):
-    ...     @doc_inherit
-    ...     def foo(self):
-    ...         pass
-
-    >>> Bar.foo.__doc__ == Bar().foo.__doc__ == Foo.foo.__doc__ == "Frobber"
-    True
     """
 
     def __init__(self, mthd):
@@ -63,6 +48,23 @@ class DocInherit(object):
         return func
 
 doc_inherit = DocInherit 
+"""
+Example
+-------
+>>> class Foo(object):
+...     def foo(self):
+...         "Frobber"
+...         pass
+
+>>> class Bar(Foo):
+...     @doc_inherit
+...     def foo(self):
+...         pass
+
+>>> Bar.foo.__doc__ == Bar().foo.__doc__ == Foo.foo.__doc__ == "Frobber"
+True
+"""
+
 
 def skip_runtime_error(f):
     """A decorator to disable messages due to runtime error in matplotlib"""
