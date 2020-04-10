@@ -473,5 +473,6 @@ In the examples in this guide we were simulating Brownian motion of particles, s
 
 As can be seen, normalization with *norm = 3* appears to work best with this data. For further details and examples, you are encouraged to browse the source, API reference and examples.
 
+
 .. _imageio: https://github.com/imageio/imageio
 .. _paper: https://doi.org/10.1039/C9SM00121B

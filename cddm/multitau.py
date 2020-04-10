@@ -480,30 +480,34 @@ def _default_chunk_size(chunk_size, count, n):
     return chunk_size
 
 
+def _inspect_t1_t2_count(t1,t2,count):
+    if t1 is None:
+        t1 = np.arange(int(count))
+    else:
+        t1 = np.asarray(t1)  
+    if count is None:
+        count = len(t1)
+    t2 = np.asarray(t2) if t2 is not None else t1   
+    if len(t1) != len(t2):
+        raise ValueError("time arrays do not match in length")
+    return t1,t2,count
+
 def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16, 
-                        chunk_size = None,  binning = None, method = "corr",
+                        chunk_size = None,  binning = None, method = "corr", count = None,
                         auto_background = False, nlevel = None,  norm = 0,
                         stats = False, thread_divisor = None, mode = "full", mask = None):
     t0 = time.time()
     
     method, binning = _default_method_and_binning(method,binning, chunked = True)
-
+    t1,t2, count = _inspect_t1_t2_count(t1,t2,count)
     correlate = False if method == "diff" else True
         
-    t1 = np.asarray(t1)
-    if t1.ndim == 0:
-        #assume regular spaced data
-        t1 = np.arange(t1)
-    t2 = np.asarray(t2) if t2 is not None else t1
-    
     n = int(n)
    
     chunk_size = _default_chunk_size(chunk_size,len(t1),n)
     
     half_chunk_size = chunk_size
     chunk_size = 2* half_chunk_size #this will be the actual chunk size of data, split into two halfs
-    
-    
     
     try:    
         assert n <= half_chunk_size 
@@ -514,12 +518,12 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
     n_slow = n
     
     n_decades = 0
-    while len(t1)//(chunk_size * 2**(n_decades)) > 0:
+    while count//(chunk_size * 2**(n_decades)) > 0:
         n_decades += 1     
     
     nframes = int(2**(n_decades-1) * chunk_size) #int in case n_decades = 0
     
-    if nframes != len(t1):
+    if nframes != count:
         print("WARNING: chunk_size not compatible with the length of the input data, data length cropped to {}".format(nframes))
     
     n_decades_max = 0
@@ -884,7 +888,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
         yield tuple((reshape_output(o, original_shape,mask) for o in out))
 
 
-def iccorr_multi(data, t1, t2 = None, n = 2**4, norm = 3, method = "corr", period = 1,
+def iccorr_multi(data, t1 = None, t2 = None, n = 2**4, norm = 3, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
                  auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
     """Iterative version of :func:`.core.ccorr`
@@ -893,12 +897,12 @@ def iccorr_multi(data, t1, t2 = None, n = 2**4, norm = 3, method = "corr", perio
     ----------
     data : iterable
         An iterable object, iterating over dual-frame ndarray data.
-    t1 : int or array-like, optional
-        Array of integers defining frame times of the first data. If it is a scalar
-        it defines the length of the input data
+    t1 : array-like, optional
+        Array of integers defining frame times of the first data. Either this or 
+        count must be defined. If not defined, regular-spaced data is assumed.
     t2 : array-like, optional
-        Array of integers defining frame times of the second data. If not provided, 
-        regular time-spaced data is assumed.  
+        Array of integers defining frame times of the second data. If not provided
+        it is same as t1.
     n : int, optional
         If provided, determines the length of the output.
     norm : int, optional
@@ -906,6 +910,9 @@ def iccorr_multi(data, t1, t2 = None, n = 2**4, norm = 3, method = "corr", perio
     method : str, optional
         Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on 
         the rest of the input parameters.
+    count : int, optional
+        If given it defines how many elements of the data to process. If not given,
+        count is set to len(t1)
     period : int, optional
         Period of the irregular-spaced random triggering sequence. For regular
         spaced data, this should be set to 1 (deefault).
@@ -948,7 +955,7 @@ def iccorr_multi(data, t1, t2 = None, n = 2**4, norm = 3, method = "corr", perio
     """
     
     for i, data in enumerate(_compute_multi_iter(data, t1, t2, period = period, n = n , 
-                        chunk_size = chunk_size,  binning = binning,  method = method, auto_background = auto_background,
+                        chunk_size = chunk_size,  binning = binning,  method = method, count = count, auto_background = auto_background,
                         nlevel = nlevel, norm = norm, stats = stats,mask = mask)):
         if viewer is not None:
             if i == 0:
@@ -965,13 +972,70 @@ def iccorr_multi(data, t1, t2 = None, n = 2**4, norm = 3, method = "corr", perio
 
 
 
-def iacorr_multi(data, t, period = 1, n = 2**4,  binning = None, 
-                 nlevel = None,  norm = 3, thread_divisor = None, chunk_size = None, 
-                 auto_background = False, stats = True, viewer = None, viewer_interval = 1,
-                 mode = "full", method = "corr"):
-
+def iacorr_multi(data, t = None,  n = 2**4, norm = 3, method = "corr", count = None, period = 1,
+                 binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
+                 auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
+    """Iterative version of :func:`.core.ccorr`
+        
+    Parameters
+    ----------
+    data : iterable
+        An iterable object, iterating over dual-frame ndarray data.
+    t : array-like, optional
+        Array of integers defining frame times of the first data. Either this or 
+        count must be defined. If not defined, regular-spaced data is assumed.
+    n : int, optional
+        If provided, determines the length of the output.
+    norm : int, optional
+        Specifies normalization procedure 0,1,2, or 3 (default).
+    method : str, optional
+        Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on 
+        the rest of the input parameters.
+    count : int, optional
+        If given it defines how many elements of the data to process. If not given,
+        count is set to len(t1)
+    period : int, optional
+        Period of the irregular-spaced random triggering sequence. For regular
+        spaced data, this should be set to 1 (deefault).
+    binning : int, optional
+        Binning mode (0 - no binning, 1 : average, 2 : random select)
+    nlevel : int, optional
+        If specified, defines how many levels are used in multitau algorithm.
+        If not provided, all available levels are used.
+    chunk_size : int
+        Length of data chunk. 
+    thread_divisor : int, optional
+        If specified, input frame is reshaped to 2D with first axis of length
+        specified with the argument. It defines how many treads are run. This
+        must be a divisor of the total size of the frame. Using this may speed 
+        up computation in some cases because of better memory alignment and
+        cache sizing.
+    auto_background : bool
+        Whether to use data from first chunk to calculate and subtract background.
+    viewer : any, optional
+        You can use :class:`.viewer.MultitauViewer` to display data.
+    viewer_interval : int, optional
+        A positive integer, defines how frequently are plots updated 1 for most 
+        frequent, higher numbers for less frequent updates. 
+    mode : str
+        Either "full" or "partial". With mode = "full", output of this function 
+        is identical to the output of :func:`ccorr_multi`. With mode = "partial", 
+        cross correlation between neigbouring chunks is not computed.
+    mask : ndarray, optional
+        If specifed, computation is done only over elements specified by the mask.
+        The rest of elements are not computed, np.nan values are written to output
+        arrays.
+    stats : bool
+        Whether to return stats as well.
+        
+    Returns
+    -------
+    fast, slow : lin_data, multilevel_data
+        A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
+        data.
+    """
     for i, data in enumerate(_compute_multi_iter(data, t, None, period = period, n = n , 
-                        chunk_size = chunk_size,  binning = binning,  method = method, auto_background = auto_background,
+                        chunk_size = chunk_size,  binning = binning,  method = method, count = count,auto_background = auto_background,
                         nlevel = nlevel, norm = norm, stats = stats)):
         if viewer is not None:
             if i == 0:

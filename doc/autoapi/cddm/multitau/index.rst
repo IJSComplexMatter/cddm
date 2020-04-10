@@ -143,17 +143,17 @@ Module Contents
    :rtype: lin_data, multilevel_data
 
 
-.. function:: iccorr_multi(data, t1, t2=None, n=2**4, norm=3, method='corr', period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
+.. function:: iccorr_multi(data, t1=None, t2=None, n=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
    Iterative version of :func:`.core.ccorr`
 
    :param data: An iterable object, iterating over dual-frame ndarray data.
    :type data: iterable
-   :param t1: Array of integers defining frame times of the first data. If it is a scalar
-              it defines the length of the input data
-   :type t1: int or array-like, optional
-   :param t2: Array of integers defining frame times of the second data. If not provided,
-              regular time-spaced data is assumed.
+   :param t1: Array of integers defining frame times of the first data. Either this or
+              count must be defined. If not defined, regular-spaced data is assumed.
+   :type t1: array-like, optional
+   :param t2: Array of integers defining frame times of the second data. If not provided
+              it is same as t1.
    :type t2: array-like, optional
    :param n: If provided, determines the length of the output.
    :type n: int, optional
@@ -162,6 +162,67 @@ Module Contents
    :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
                   the rest of the input parameters.
    :type method: str, optional
+   :param count: If given it defines how many elements of the data to process. If not given,
+                 count is set to len(t1)
+   :type count: int, optional
+   :param period: Period of the irregular-spaced random triggering sequence. For regular
+                  spaced data, this should be set to 1 (deefault).
+   :type period: int, optional
+   :param binning: Binning mode (0 - no binning, 1 : average, 2 : random select)
+   :type binning: int, optional
+   :param nlevel: If specified, defines how many levels are used in multitau algorithm.
+                  If not provided, all available levels are used.
+   :type nlevel: int, optional
+   :param chunk_size: Length of data chunk.
+   :type chunk_size: int
+   :param thread_divisor: If specified, input frame is reshaped to 2D with first axis of length
+                          specified with the argument. It defines how many treads are run. This
+                          must be a divisor of the total size of the frame. Using this may speed
+                          up computation in some cases because of better memory alignment and
+                          cache sizing.
+   :type thread_divisor: int, optional
+   :param auto_background: Whether to use data from first chunk to calculate and subtract background.
+   :type auto_background: bool
+   :param viewer: You can use :class:`.viewer.MultitauViewer` to display data.
+   :type viewer: any, optional
+   :param viewer_interval: A positive integer, defines how frequently are plots updated 1 for most
+                           frequent, higher numbers for less frequent updates.
+   :type viewer_interval: int, optional
+   :param mode: Either "full" or "partial". With mode = "full", output of this function
+                is identical to the output of :func:`ccorr_multi`. With mode = "partial",
+                cross correlation between neigbouring chunks is not computed.
+   :type mode: str
+   :param mask: If specifed, computation is done only over elements specified by the mask.
+                The rest of elements are not computed, np.nan values are written to output
+                arrays.
+   :type mask: ndarray, optional
+   :param stats: Whether to return stats as well.
+   :type stats: bool
+
+   :returns: **fast, slow** -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
+             data.
+   :rtype: lin_data, multilevel_data
+
+
+.. function:: iacorr_multi(data, t=None, n=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
+
+   Iterative version of :func:`.core.ccorr`
+
+   :param data: An iterable object, iterating over dual-frame ndarray data.
+   :type data: iterable
+   :param t: Array of integers defining frame times of the first data. Either this or
+             count must be defined. If not defined, regular-spaced data is assumed.
+   :type t: array-like, optional
+   :param n: If provided, determines the length of the output.
+   :type n: int, optional
+   :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
+   :type norm: int, optional
+   :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
+                  the rest of the input parameters.
+   :type method: str, optional
+   :param count: If given it defines how many elements of the data to process. If not given,
+                 count is set to len(t1)
+   :type count: int, optional
    :param period: Period of the irregular-spaced random triggering sequence. For regular
                   spaced data, this should be set to 1 (deefault).
    :type period: int, optional
