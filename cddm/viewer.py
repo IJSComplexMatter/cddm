@@ -204,7 +204,7 @@ class DataViewer(object):
         
         self.graph = np.zeros(self.indexmap.shape)
         
-        max_graph_value = max(self.kmap[0,:].max(), self.kmap[:,0].max()) 
+        max_graph_value =self.kmap.max() #max(self.kmap[0,:].max(), self.kmap[:,0].max()) 
         self.graph[0,0] = max_graph_value 
         
         self._max_graph_value = max_graph_value

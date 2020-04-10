@@ -884,7 +884,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
         yield tuple((reshape_output(o, original_shape,mask) for o in out))
 
 
-def iccorr_multi(data, t1, t2 = None, n = 2**5, norm = 3, method = "corr", period = 1,
+def iccorr_multi(data, t1, t2 = None, n = 2**4, norm = 3, method = "corr", period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
                  auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
     """Iterative version of :func:`.core.ccorr`

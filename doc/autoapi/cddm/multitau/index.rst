@@ -143,7 +143,7 @@ Module Contents
    :rtype: lin_data, multilevel_data
 
 
-.. function:: iccorr_multi(data, t1, t2=None, n=2**5, norm=3, method='corr', period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
+.. function:: iccorr_multi(data, t1, t2=None, n=2**4, norm=3, method='corr', period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
    Iterative version of :func:`.core.ccorr`
 

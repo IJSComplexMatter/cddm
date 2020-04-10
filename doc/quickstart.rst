@@ -12,10 +12,12 @@ For this guide you do not need the actual data because we will construct a simpl
 video of particles undergoing 2D Brownian motion using the (included in the package) Brownian motion simulator. In real world experiments you will have to stream
 the videos either directly from the cameras with the library of choice, or read from the disk. This package does not provide tools for reading the data, so it is up to the user to make this task. You can use imageio_ or any other tool for loading recorded videos.
 
+To proceed you can copy-paste the example below in your python shell. Or, open the source files under each of the plots in this document and run those.
+
 Video processing
 ----------------
 
-Here we will cover some basic video processing functions and data types used in the package.
+Here we will cover some basic video processing functions and data types used in the package. We will demonstrate the use on single-camera video first.
 
 Video data
 ++++++++++
@@ -116,7 +118,6 @@ Secondly, usually in DDM experiments there is a cutoff wavenumber value above wh
    >>> fft = rfft2(video, kimax = 31, kjmax = 31)
 
 Here the resulting fft object is again of the same video data type. We have used two arguments `kimax` and `kjmax` for slicing. The result of this cropping is a video of FFTs, where the shape of each frame (in our case it is a single frame of the multi-frame data type) is (2*kimax+1, kjmax +1). As in uncropped rfft2 function, the zero wavenumber is at element [0,0], element [31,31] are for the wavenumber k = (31,31), element [-31,0] == [62,0] of the cropped fft is the Fourier coefficient of k = (-31,0). 
-
 
 
 Bakground removal
@@ -254,6 +255,20 @@ Here, `x` is a time delay array, `y` is the merged correlation data. The first t
 
    Data was normalized and scaled, so the computed correlation is limited between (0,1). 
 
+You are done, now you can save the data in numpy data format for later use::
+
+   >>> np.save("t.npy", x)
+   >>> np.save("data.npy", y)
+
+If you wish to analyze the data with some other tool (Mathematica, Origin) you will have to google for help on how to import the numpy binary data. Another option is to save as text files. But you have to do it index by index. For instance, to save the (4,8) k-value data, you can do.
+
+.. doctest::
+
+   >>> i, j = 4, 8
+   >>> np.savetxt("t.txt", x)
+   >>> np.savetxt("data_{}_{}.txt".format(i,j), y[i,j])
+
+Now you can use your favorite (python ;) ) tool for data analysis and fitting.
 
 Cross-correlation
 -----------------
@@ -325,6 +340,7 @@ Optionally, you can normalize for flickering effects in fft space, instead of no
  
    >>> from cddm.fft import normalize_fft
    >>> fft = normalize_fft(fft)
+   >>> fft = list(fft) #not really needed if you are going to process fft only once
 
 Again, do this only if you have problems with the stability of the light source.
 
@@ -351,7 +367,7 @@ Note the `period` argument. You must provide the correct effective period of the
 Normalization options
 ---------------------
 
-One important note is on the normalization flags that you can use and the `method` option in the :func:`.multitau.icorr_multi`, :func:`.multitau.iacorr_multi`. By default, computation and normalization is performed using
+One important note is on the normalization flags that you can use and the `method` option in the :func:`.multitau.iccorr_multi` and :func:`.multitau.iacorr_multi` . By default, computation and normalization is performed using
 
 .. doctest:: 
 
@@ -360,23 +376,20 @@ One important note is on the normalization flags that you can use and the `metho
    >>> norm == 3
    True
 
-This way it is possible to normalize the computed data in four different ways.
+This way it is possible to normalize the computed data with the :func:`.multitau.normalize_multi` function in four different ways:
+
+* *baseline* : norm = NORM_BASELINE (norm = 0), here we remove the baseline error introduced by the non-zero background fram, which produces an offset in the correlation data. For this to work, you must provide the background data to the :func:`.multitau.normalize_multi`
+* *compensated* : norm = NORM_COMPENSATED (norm = 1), here we compensate the error introduced at smaller delay times, which is due to non-ergodicity of the data. Basically, we normalize the data as if we calculated the cross-difference function instead of the cross-correlation. This requires one to calculate the delay-dependent squares of the intensities, which slows down the computation
+* *subtracted* : norm = NORM_SUBTRACTED (norm = 2), here we compensate for baseline error and for the linear error introduced by the not-known in advance background data. This requires one to track the delay-dependent sum of the data, which further slows down the computation
+* *subtracted and compensated* : norm = NORM_COMPENSATED | NORM_SUBTRACTED (norm = 3), which does both the subtracted and compensated normalizations.
 
 .. doctest:: 
    
-   >>> data_0 = normalize_multi(data, bg, var, norm = NORM_BASELINE, scale = True) #norm = 0
-   >>> x_0, y_0 = log_merge(*data_0)
-   >>> data_1 = normalize_multi(data, bg, var, norm = NORM_COMPENSATED, scale = True) #norm = 1
-   >>> x_1, y_1 = log_merge(*data_1)
-   >>> data_2 = normalize_multi(data, bg, var, norm = NORM_SUBTRACTED, scale = True) #norm = 2
-   >>> x_2, y_2 = log_merge(*data_2)
-   >>> data_3 = normalize_multi(data, bg, var, norm = NORM_COMPENSATED|NORM_SUBTRACTED, scale = True) #norm = 3
-   >>> x_3, y_3 = log_merge(*data_3)
    >>> i,j = 4,15
-   >>> ax = plt.semilogx(x_0,y_0[i,j], label =  "norm = 0" )
-   >>> ax = plt.semilogx(x_1,y_1[i,j], label =  "norm = 1" )
-   >>> ax = plt.semilogx(x_2,y_2[i,j], label =  "norm = 2" )
-   >>> ax = plt.semilogx(x_3,y_3[i,j], label =  "norm = 3" )
+   >>> for norm in (0,1,2,3):
+   ...    fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
+   ...    x,y = log_merge(fast, slow)
+   ...    ax = plt.semilogx(x,y[i,j], label =  "norm = {}".format(norm) )
    >>> text = plt.xlabel("t")
    >>> text = plt.ylabel("G / Var")
    >>> legend = plt.legend()
@@ -384,10 +397,87 @@ This way it is possible to normalize the computed data in four different ways.
 
 .. plot:: examples/cross_correlate_multi_norm_plot.py
 
-   Normalization mode 2 or 3 work best, but require more intense computations.
+   Normalization mode 3 works best for small time delays, mode 2 works best for large delays and is more noisy at smaller delays.
 
-If you decide from the start which normalization mode are you going to use, you can set this mode 
+If you decide from the start which normalization mode are you going to use, you can set the normalization mode. This may reduce the computational effort in some cases. For instance, the main reason to use modes 2 and 3 is to properly remove the two different background frames from both cameras. Usually, this background frame is not known until the experiment is finished, so the background subtraction is done after the calculation  of the correlation function is performed. However, this requires that we track two extra channels measuring the delay-dependent data sum for each of the camera, or one additional channel measureing the delay-dependent sum of the squares of the data on both cameras. This significantly slows down the computation.
 
+One way to partially overcome this limitation is to use the `auto_background` option and to define a large enough `chunk_size`
+
+.. doctest::
+
+   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, chunk_size = 512, auto_background = True)
+
+This way we have forced the algorithm to work with chunks of data of length 512, and to take the first chunk of data to calculate the background frames that are then used to subtract from the input video. This way we gat a reasonably good estimator of the background, which reduces the need to use the NORM_SUBTRACTED flag for the normalization as shown below.
+
+
+.. doctest:: 
+   
+   >>> i,j = 4,15
+   >>> for norm in (0,1,2,3):
+   ...    fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
+   ...    x,y = log_merge(fast, slow)
+   ...    ax = plt.semilogx(x,y[i,j], label =  "norm = {}".format(norm) )
+   >>> text = plt.xlabel("t")
+   >>> text = plt.ylabel("G / Var")
+   >>> legend = plt.legend()
+   >>> plt.show()
+
+.. plot:: examples/cross_correlate_multi_subtracted.py
+
+   Background frame has been succesfuly subtracted and there isn no real benefit in using the NORM_SUBTRACTED flag (norm = 2 or norm = 3), and we can work with NORM_BASELINE (norm = 0) or NORM_COMPENSATED (norm = 1).
+
+.. note::
+   
+   If background is properly subtracted before the calculation of the correlation function, the output of  `normalize_multi` with norm = 0 and norm = 2 are identical, and the output of `normalize_multi` with norm = 1 and norm = 3 are identical. In the case above, background has not been fully subtracted, so there is still a small difference.
+
+In some experiments, it may be sufficient to work with norm = 0, and you can instead work with::
+
+   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, 
+   ...         norm = NORM_BASELINE, chunk_size = 512, auto_background = True)
+
+which will significantly improve the speed of computation, as there is no need to track the three extra channels. In case you do need the `compensated` normalization, you can do:
+
+   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, 
+   ...         norm = NORM_COMPENSATED, chunk_size = 512, auto_background = True)
+
+This will allow you to normalize other to `baseline` or `compensated`, but the computation is slower because of the two extra channels that need to be calculated.
+
+.. note::
+
+   In non-ergodic systems auto-background subtraction may not be good enough, so you are encouraged to work with norm = 3 (the default) during the calculation, and later decide on the normalization procedure. You should calculate with norm < 3 only if you need to gain the speed, or reduce the memory requirements.
+
+Data analysis
+-------------
+
+Now that we have calculated the correlation function, it is time to do one final step: we need to analyze the data. First, to improve the statistics, it is wise to perform some sort of k-averaging over neighboring wave vectors. We have already use the MultitauViewer to visualize the data and do the averaging, so we can use the viewer to obtain the k-averaged data:
+
+.. doctest:: 
+
+   >>> ok = viewer.set_mask(k = 10, angle = 0, sector = 30)
+   >>> if ok: # if mask is not empty, if valid k-value exist in the mask
+   ...    k = viewer.get_k() #average value of the size of the wave vector
+   ...    x, y = viewer.get_data() #averaged data
+
+You have to do this index by index. Another, better way is to work with the normalized data and use k_select iterator, like:
+
+.. doctest:: 
+
+   >>> from cddm.map import k_select
+   >>> fast, slow = normalize_multi(data, bg, var, scale = True)
+   >>> x,y = log_merge(fast, slow)
+   >>> k_data = k_select(y, angle = 0, sector = 30)
+
+Here, k_data is an iterator of (k_avg, data_avg) elements, where k_avg is the mean size of the wavevector and avg_data is the averaged data. You can save this to disk::
+
+   >>> for (k_avg, data_avg) in k_data:
+   ...    np.savetxt("data_{}.txt".format(k_avg), data_avg)
+  
+
+In the example above we were simulating Brownian motion of particles, so the correlation function decays exponentially, the fitted results are proportional to the square of the wave vector, from where we can obtain the diffusion constant and compare the results with the theoretical prediction. See the source of the plots below for example fitting script if you wish to perform k-averaging and fitting in python.
+
+.. plot:: examples/cross_correlate_k_fit.py
+
+   Here we plot fitted results from the cross-correlation function computed with :func:`.multitau.iccorr_multi`  using subtract_background = False option. For this example, the *norm = 3* datapoint are closest to the theoretically predicted value shown in graph.
 
 .. _imageio: https://github.com/imageio/imageio
 .. _paper: https://doi.org/10.1039/C9SM00121B

@@ -79,8 +79,10 @@ def brownian_walk(x0, n = 1024, shape = (256,256), delta = 1, dt = 1, velocity =
         Defines an average velocity (vi,vj) in pixel coordinates per unit time step
         (when dt = 1).
     """ 
+    
     x = np.asarray(x0,FDTYPE)            
     particles, xy = x.shape
+    #step size
     scale=delta*np.sqrt(dt)
     velocity = np.asarray(velocity, FDTYPE)*dt
     scale = np.asarray(scale, FDTYPE)

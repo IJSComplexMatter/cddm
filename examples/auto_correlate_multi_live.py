@@ -11,19 +11,24 @@ from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
 from cddm.multitau import iacorr_multi, normalize_multi, log_merge
 from cddm.sim import simple_brownian_video
+import numpy as np
+
+from conf import SIZE, NFRAMES,DELTA
+
+
 
 #: this creates a brownian motion multi-frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame,)
-video = simple_brownian_video(range(1024), shape = (512+32,512+32))
+video = simple_brownian_video(range(NFRAMES), shape = (SIZE+32,SIZE+32), delta = DELTA)
 
 #: crop video to selected region of interest 
-video = crop(video, roi = ((0,512), slice(0,512)))
+video = crop(video, roi = ((0,SIZE), (0,SIZE)))
 
 #: create window for multiplication...
-window = blackman((512,512))
+window = blackman((SIZE,SIZE))
 
 #: we must create a video of windows for multiplication
-window_video = ((window,),)*1024
+window_video = ((window,),)*NFRAMES
 
 #:perform the actual multiplication
 video = multiply(video, window_video)
@@ -32,14 +37,14 @@ video = multiply(video, window_video)
 #video = normalize_video(video)
 
 #: perform rfft2 and crop results, to take only first kimax and first kjmax wavenumbers.
-fft = rfft2(video, kimax =37, kjmax = 37)
+fft = rfft2(video, kimax =31, kjmax = 31)
 
 #: you can also normalize each frame with respect to the [0,0] component of the fft
 #: this it therefore equivalent to  normalize_video
 #fft = normalize_fft(fft)
 
 #: now perform auto correlation calculation with default parameters using iterative algorithm
-data, bg, var = iacorr_multi(fft, range(1024))
+data, bg, var = iacorr_multi(fft, range(SIZE))
 
 #: inspect the data
 viewer = MultitauViewer(scale = True)
