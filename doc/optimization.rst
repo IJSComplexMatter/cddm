@@ -37,7 +37,7 @@ Video preview
 
 Video previewing can be done using cv2 (in installed) instead of matplotlib::
 
-   >>> set_cv2(1)
+   >>> cddm.conf.set_cv2(1)
    0
 
 You can set this option in the configuration file (see below).
@@ -74,9 +74,9 @@ FFT library
 
 You can select FFT library ("mkl_fft", "numpy", or "scipy") for rfft2 calculation, and for fit calculations triggered with method = "fft" in the correlation functions calculations with the following::
 
-   >>> dtmm.conf.set_fftlib("mkl_fft")
+   >>> cddm.conf.set_fftlib("mkl_fft")
    'mkl_fft'
-   >>> dtmm.conf.set_rfft2lib("numpy")
+   >>> cddm.conf.set_rfft2lib("numpy")
    'numpy'
 
 Precision
