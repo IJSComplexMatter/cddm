@@ -133,3 +133,8 @@ Module Contents
    Create trigger times for c-ddm experiments based on Eq.8 from the paper
 
 
+.. function:: simple_brownian_video(t1, t2=None, shape=(256, 256), background=200, intensity=5, sigma=5, noise=0, **kw)
+
+   Returns an iterator of DDM or c-DDM video.
+
+

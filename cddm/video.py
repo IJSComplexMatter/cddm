@@ -167,7 +167,7 @@ def crop(video, roi = (slice(None), slice(None))):
         yield tuple((frame[hslice,wslice] for frame in frames))
 
 def subtract(x, y, inplace = False, dtype = None):
-    """Subtracts each of the frames in multi-frame video with a given arrays.
+    """Subtracts  two videos
     
     Parameters
     ----------
@@ -192,6 +192,34 @@ def subtract(x, y, inplace = False, dtype = None):
             yield tuple((np.subtract(frame, w, frame) for w, frame in zip(arrays,frames)))
         else:
             yield tuple((np.asarray(frame - w, dtype = dtype) for w, frame in zip(arrays,frames)))            
+
+def add(x, y, inplace = False, dtype = None):
+    """Adds two videos.
+    
+    Parameters
+    ----------
+    x, y : iterable
+        Input multi-frame iterable object. Each element of the iterable is a tuple
+        of ndarrays (frames)
+    inplace : bool, optional
+        Whether tranformation is performed inplace or not. 
+    dtype : numpy dtype
+        If specifed, determines output dtype. Only valid if inplace == False.
+                
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+
+    for frames, arrays in zip(x,y):
+        if len(frames) != len(arrays):
+            raise ValueError("Number of frames in x and y do not match")
+        if inplace == True:
+            yield tuple((np.add(frame, w, frame) for w, frame in zip(arrays,frames)))
+        else:
+            yield tuple((np.asarray(frame + w, dtype = dtype) for w, frame in zip(arrays,frames)))            
+
 
 def normalize_video(video, inplace = False, dtype = None):
     """Normalizes each frame in video to the mean value (intensity)
@@ -218,7 +246,7 @@ def normalize_video(video, inplace = False, dtype = None):
             yield tuple((np.asarray(frame / frame.mean(), dtype = dtype) for frame in frames))   
 
 def multiply(x,y, inplace = False, dtype = None):
-    """Multiplies each of the frames in multi-frame video with a given array.
+    """Multiplies two videos.
     
     Parameters
     ----------

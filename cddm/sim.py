@@ -222,8 +222,6 @@ def particles_video(particles, t1, shape = (512,512), t2 = None,
                 yield out1,
                 out1 = None     
 
-
-
 def data_trigger(data, indices):
     """A generator that selects data from an iterator 
     at given unique 'trigger' indices
@@ -300,27 +298,12 @@ def create_random_times2(nframes,n = 20):
     t2[mask] = t1[mask]
     return t1, t2 
 
-
-def dual_frame_grabber(t1,t2, shape = (256,256), intensity = 30, sigma = 2, noise = 0, **kw):
-    n = max(t1.max(),t2.max())+1
-    kw["n"] = n
-    kw["shape"] = shape
-    p = brownian_particles(**kw) 
-    return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, intensity = intensity, noise = noise) 
-
-def frame_grabber(nframes, shape = (256,256), intensity = 30, sigma = 2, noise = 0, **kw):
-    kw["n"] = nframes
-    kw["shape"] = shape
-    p = brownian_particles(**kw) 
-    return particles_video(p, shape = shape, sigma = sigma, intensity = intensity, noise = noise) 
-
 def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 200, intensity = 5, sigma = 5, noise = 0, **kw):
+    """Returns an iterator of DDM or c-DDM video."""
+    
     t1 = np.asarray(t1)
     if t2 is None:
-        if t1.ndim == 0:  
-            n = t1
-        else:
-            n = len(t1)
+        n = t1.max()+1
     else:
         t2 = np.asarray(t2)
         n = max(t1.max(),t2.max())+1

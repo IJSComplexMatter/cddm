@@ -92,7 +92,23 @@ Module Contents
 
 .. function:: subtract(x, y, inplace=False, dtype=None)
 
-   Subtracts each of the frames in multi-frame video with a given arrays.
+   Subtracts  two videos
+
+   :param x, y: Input multi-frame iterable object. Each element of the iterable is a tuple
+                of ndarrays (frames)
+   :type x, y: iterable
+   :param inplace: Whether tranformation is performed inplace or not.
+   :type inplace: bool, optional
+   :param dtype: If specifed, determines output dtype. Only valid if inplace == False.
+   :type dtype: numpy dtype
+
+   :returns: **video** -- A multi-frame iterator
+   :rtype: iterator
+
+
+.. function:: add(x, y, inplace=False, dtype=None)
+
+   Adds two videos.
 
    :param x, y: Input multi-frame iterable object. Each element of the iterable is a tuple
                 of ndarrays (frames)
@@ -124,7 +140,7 @@ Module Contents
 
 .. function:: multiply(x, y, inplace=False, dtype=None)
 
-   Multiplies each of the frames in multi-frame video with a given array.
+   Multiplies two videos.
 
    :param x,y: Input multi-frame iterable object. Each element of the iterable is a tuple
                of ndarrays (frames)
