@@ -951,7 +951,6 @@ def iccorr_multi(data, t1, t2 = None, n = 2**5, norm = 3, method = "corr", perio
                         chunk_size = chunk_size,  binning = binning,  method = method, auto_background = auto_background,
                         nlevel = nlevel, norm = norm, stats = stats,mask = mask)):
         if viewer is not None:
-            print(i)
             if i == 0:
                 _VIEWERS["ccorr_multi"] = viewer
             if i%viewer_interval == 0:

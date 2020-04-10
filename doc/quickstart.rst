@@ -20,18 +20,17 @@ Here we will cover some basic video processing functions and data types used in 
 Video data
 ++++++++++
 
-Video processing functions were designed to work on iterables of multi-frame data. Video data is an iterable object that consists of series of tuples, where each tuple holds a single numpy array (for single camera experiments) or a dual frame data (two numpy arrays) representing a cross-ddm experiment using two cameras. To clarify, a valid dual-frame video can be constructed
-using python generators, e.g. for random noise dual_frame video you can do: 
+Video processing functions were designed to work on iterables of multi-frame data. Video data is an iterable object that consists of series of tuples, where each tuple holds a single numpy array (for single camera experiments) or a dual frame data (two numpy arrays) representing a cross-ddm experiment using two cameras. To clarify, a valid dual-frame  out-of-memory video can be constructed using python generators, e.g. for random noise dual_frame video you can do: 
 
 .. doctest::
 
-   >>> video = ((np.random.rand(256,256), np.random.rand(256,256)) for i in range(1024))
+   >>> video = ((np.random.rand(512,512), np.random.rand(512,512)) for i in range(1024))
 
-Here video is a valid video iterable object that can be used to perform the analysis. A valid single-frame video is therefore:
+Here, video is a valid video iterable object that can be used to acquire frames frame-by-frame without needing the data to be read fully into memory, making it possible to analyze long videos. A valid single-frame video is therefore:
 
 .. doctest::
 
-   >>> video = ((np.random.rand(256,256),) for i in range(1024))
+   >>> video = ((np.random.rand(512,512),) for i in range(1024))
 
 Notice the trailing comma to indicate a tuple of length 1. The above video is a multi-frame video holding only a single per element of the `video` iterable object. 
 
@@ -39,15 +38,15 @@ Showing video
 +++++++++++++
 
 For testing we will use a simple simulated video of a Brownian motion of 
-100 particles. Here we will construct a simulation area of shape (256+32,256+32)
-because we will later crop this to (256,256) to avoid mirroring of particles as they
+100 particles. Here we will construct a simulation area of shape (512+32,512+32)
+because we will later crop this to (512,512) to avoid mirroring of particles as they
 touch the boundary of the simulation size because of the mirror boundary conditions implied by the simulation procedure. This way we simulate the real-world boundary effects better.
 
 .. doctest::
 
    >>> from cddm.sim import simple_brownian_video
    >>> t = range(1024) #times at which to trigger the camera.
-   >>> video = simple_brownian_video(t, shape = (256+32,256+32))
+   >>> video = simple_brownian_video(t, shape = (512+32,512+32))
  
 Here we have created a frame iterator of a video of a Brownian motion of spherical particles viewed with a camera triggered with a constant frame rate. Time `t` goes in units of time step, specified by the simulator. To load this into memory we can simply do.
 
@@ -75,12 +74,12 @@ Now we can inspect the video with
 Cropping
 ++++++++
 
-Sometimes you may want to crop data before processing. Cropping is done using pythons slice objects or simply, by specifying the range of values for slicing. For instance to perform slicing of frames of type ``ndarray[0:256,0:256]`` simply do:
+Sometimes you may want to crop data before processing. Cropping is done using pythons slice objects or simply, by specifying the range of values for slicing. For instance to perform slicing of frames of type ``ndarray[0:512,0:512]`` simply do:
 
 .. doctest::
  
    >>> from cddm.video import crop
-   >>> video = crop(video, roi = ((0,256), (0, 256)))
+   >>> video = crop(video, roi = ((0,512), (0, 512)))
 
 Under the hood, the crop function performs array slicing using slice object generated from the provided roi values. See :func:`.video.crop` for details.
 
@@ -88,12 +87,12 @@ Windowing
 +++++++++
 
 A common thing in FFT processing is to apply a window function to the data before we apply FFT. in :mod:`.window` there are several 2D windowing functions that you can use. After you have cropped the data you can apply window. First create window with the shape of our
-frames shape (256,256). Remember, we have already cropped our original data to shape of (256,256)
+frames shape (512,512). Remember, we have already cropped our original data to shape of (512,512)
 
 .. doctest::
  
    >>> from cddm.window import blackman
-   >>> window = blackman((256,256))
+   >>> window = blackman((512,512))
 
 In order to multiply each frame of our video with this window function we must create another video-like object, that has the same length and frame shape as the video we wish to process.
 
@@ -140,7 +139,7 @@ It is important that background removal is performed at some stage, either befor
 
 .. doctest::
 
-   >>> background = np.zeros((256,256))
+   >>> background = np.zeros((512,512))
    >>> background_video = ((background,),) * 1024
    >>> video = subtract(video, background_video)
 
@@ -244,31 +243,33 @@ Normally, you won't work with raw correlation data and you will perform normaliz
    >>> from cddm.multitau import normalize_multi, log_merge
    >>> lin_data, multi_level = normalize_multi(data, bg, var, scale = True)
 
-Here `lin_data` and `multi_level` are numpy arrays of normalized correlation data.  One final step is to merge the multi_level part with the linear part into one continuous log-spaced data.
+Here, `lin_data` and `multi_level` are numpy arrays of normalized correlation data.  One final step is to merge the multi_level part with the linear part into one continuous log-spaced data.
 
 .. doctest::
 
    >>> x, y = log_merge(lin_data, multi_level)
 
-Her, `x` is a time delay array, `y` is the merged correlation data. The first two axes are for the i- and j-indices of the wave vector k = (ki,kj). So to plot the computed correlation function as a function of time for the wavevector k = (4,12), for instance:
+Here, `x` is a time delay array, `y` is the merged correlation data. The first two axes are for the i- and j-indices of the wave vector k = (ki,kj). So to plot the computed correlation function as a function of time for a few wave vectors, for instance:
 
 .. doctest::
 
-   >>> import matplotlib.pyplot as pat
-   >>> ax = plt.semilogx(x,y[4,12])
+   >>> import matplotlib.pyplot as plt
+   >>> for (i,j) in ((4,12),(-6,16), (6,16)):
+   ...     ax = plt.semilogx(x,y[i,j], label =  "k = ({}, {})".format(i,j))
+   >>> legend = plt.legend()
    >>> text = plt.xlabel("time delay")
    >>> text = plt.ylabel("G/Var")
    >>> plt.show()
 
 .. plot:: examples/auto_correlate_multi_data_plot.py
 
-   Data was normalized and scaled, so the computed correlation is limited between (0,1).
+   Data was normalized and scaled, so the computed correlation is limited between (0,1). 
 
 
 Cross-correlation
 -----------------
 
-For cross correlation, the computation is basically the same. Cross-correlation with irregular spaced data can be done in the following way. 
+For cross correlation on randomly-triggered dual-camera system, as demonstrated in the paper_, the computation is basically the same. Cross-correlation with irregular spaced data can be done in the following way. Import the tools needed:
 
 .. doctest::
 
@@ -279,51 +280,101 @@ For cross correlation, the computation is basically the same. Cross-correlation 
    >>> from cddm.multitau import iccorr_multi, normalize_multi, log_merge
    >>> from cddm.sim import simple_brownian_video, create_random_times1
 
-Now but up random time sequence and video of cross-DDM 
+Now set up random time sequence and video of cross-DDM 
 
 .. doctest::
 
    >>> t1, t2 = create_random_times1(1024,n = 16)
-   >>> video = simple_brownian_video(t1,t2, shape = (256+32,256+32))
+   >>> video = simple_brownian_video(t1,t2, shape = (512+32,512+32))
+   >>> video = crop(video, roi = ((0,512), (0,512)))
+
+We will apply some dust particles to each frame in order to simulate different static background 
+on the two cameras. If you working directory is in the `examples` folder you can load dust images::
+
+   >>> dust1 = plt.imread('dust1.png')[...,0] #float normalized to (0,1)
+   >>> dust2 = plt.imread('dust2.png')[...,0]
+   >>> dust = ((dust1,dust2),)*nframes
+   >>> video = multiply(video, dust)
+
+To view the two videos we can again use the VideoViewer
+
+.. doctest::
+
+   >>> video = list(video) 
+   >>> viewer1 = VideoViewer(video, count = 1024, id = 0)
+   >>> viewer1.show()
+   >>> viewer2 = VideoViewer(video, count = 1024, id = 1)
+   >>> viewer2.show()
+
+.. plot:: examples/show_dual_video.py
+
+   Dust particles on the two cameras are different, which result in different background frames.
+
 
 Pre-process video and perform FFT
 
 .. doctest::
 
-   >>> video = crop(video, roi = ((0,256), slice(0,256)))
-   >>> window = blackman((256,256))
+   >>> window = blackman((512,512))
    >>> window_video = ((window,window),)*1024
    >>> video = multiply(video, window_video)
    >>> fft = rfft2(video, kimax =37, kjmax = 37)
 
+Live view
++++++++++
 
-Now perform auto correlation calculation with default parameters using the iterative algorithm
+To show live view of the computed correlation function, we can pass the viewer as an argument to :func:`.multitau.iccorr_multi`:
 
 .. doctest:: 
- 
-   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32)
+   
+   >>> viewer = MultitauViewer(scale = True)
+   >>> viewer.k = 15 #initial mask parameters
+   >>> viewer.sector = 30
+   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, viewer  = viewer)
 
-Note the `period` argument. You must provide the correct effective period of the random triggering of the cross-ddm experiment. Otherwise, data will not be merged and processed correctly. Care must be taken not to mix up this parameter, as there is no way to determine the period from t1, and t2 parameters alone. The `bg` and `var` are now tuples of arrays of means pixel variances of each of the two videos.
-
-.. doctest::
-
-   >>> lin_data, multi_level = normalize_multi(data, bg, var, scale = True)
-   >>> x, y = log_merge(lin_data, multi_level)
+Note the `period` argument. You must provide the correct effective period of the random triggering of the cross-ddm experiment. Otherwise, data will not be merged and processed correctly. Care must be taken not to mix up this parameter, as there is no easy way to determine the period from t1, and t2 parameters alone. The `bg` and `var` are now tuples of arrays of mean pixel and pixel variances of each of the two videos.
 
 
 Normalization options
 ---------------------
 
-One important note is on the normalization flags that you can use in the :func:`.multitau.icorr_multi`, :func:`.multitau.iacorr_multi` and :func:`.multitau.normalize_multi`. By default computation and normalization is performed using
+One important note is on the normalization flags that you can use and the `method` option in the :func:`.multitau.icorr_multi`, :func:`.multitau.iacorr_multi`. By default, computation and normalization is performed using
 
 .. doctest:: 
 
-   >>> from cddm.core import NORM_COMPENSATED, NORM_SUBTRACTED
+   >>> from cddm.core import NORM_COMPENSATED, NORM_SUBTRACTED, NORM_BASELINE
    >>> norm = NORM_COMPENSATED | NORM_SUBTRACTED
    >>> norm == 3
    True
 
+This way it is possible to normalize the computed data in four different ways.
 
+.. doctest:: 
+   
+   >>> data_0 = normalize_multi(data, bg, var, norm = NORM_BASELINE, scale = True) #norm = 0
+   >>> x_0, y_0 = log_merge(*data_0)
+   >>> data_1 = normalize_multi(data, bg, var, norm = NORM_COMPENSATED, scale = True) #norm = 1
+   >>> x_1, y_1 = log_merge(*data_1)
+   >>> data_2 = normalize_multi(data, bg, var, norm = NORM_SUBTRACTED, scale = True) #norm = 2
+   >>> x_2, y_2 = log_merge(*data_2)
+   >>> data_3 = normalize_multi(data, bg, var, norm = NORM_COMPENSATED|NORM_SUBTRACTED, scale = True) #norm = 3
+   >>> x_3, y_3 = log_merge(*data_3)
+   >>> i,j = 4,15
+   >>> ax = plt.semilogx(x_0,y_0[i,j], label =  "norm = 0" )
+   >>> ax = plt.semilogx(x_1,y_1[i,j], label =  "norm = 1" )
+   >>> ax = plt.semilogx(x_2,y_2[i,j], label =  "norm = 2" )
+   >>> ax = plt.semilogx(x_3,y_3[i,j], label =  "norm = 3" )
+   >>> text = plt.xlabel("t")
+   >>> text = plt.ylabel("G / Var")
+   >>> legend = plt.legend()
+   >>> plt.show()
+
+.. plot:: examples/cross_correlate_multi_norm_plot.py
+
+   Normalization mode 2 or 3 work best, but require more intense computations.
+
+If you decide from the start which normalization mode are you going to use, you can set this mode 
 
 
 .. _imageio: https://github.com/imageio/imageio
+.. _paper: https://doi.org/10.1039/C9SM00121B

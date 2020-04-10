@@ -16,20 +16,12 @@ Prior to installing, you should have a working python 2.7 or 3.x environment con
 * numpy
 * matplotlib
 
-To install these it is best to go with one of the python distributions, e.g. `anaconda`_, `canopy`_ or any other python distribution that comes shipped with the above packages. 
+To install these it is best to go with one of the python distributions, e.g. `anaconda`_, or any other python distribution that comes shipped with the above packages. 
 
 .. note::
   
     It is important that you have recent enough version of numba installed.
 
-
-Installing in Canopy
---------------------
-
-After you have downloaded the package, open the canopy code editor and start the Package manager (tools -> Package Manager). Install the above listed packages and then start the
-canopy terminal (tools -> Canopy Terminal) and `cd` to the downloaded source code and run::
-
-    $ python setup.py install
 
 Installing in Anaconda
 ----------------------
@@ -47,5 +39,4 @@ Optionally, for faster FFT computation, you can install `mkl_fft`::
 .. _repository: https://github.com/IJSComplexMatter/cddm
 .. _numba: http://numba.pydata.org
 .. _anaconda: https://www.anaconda.com
-.. _canopy: https://www.enthought.com/product/canopy/
 .. _mkl_fft: https://github.com/IntelPython/mkl_fft

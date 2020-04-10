@@ -14,13 +14,13 @@ from cddm.sim import simple_brownian_video
 
 #: this creates a brownian motion multi-frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame,)
-video = simple_brownian_video(range(1024), shape = (256+32,256+32))
+video = simple_brownian_video(range(1024), shape = (512+32,512+32))
 
 #: crop video to selected region of interest 
-video = crop(video, roi = ((0,256), slice(0,256)))
+video = crop(video, roi = ((0,512), slice(0,512)))
 
 #: create window for multiplication...
-window = blackman((256,256))
+window = blackman((512,512))
 
 #: we must create a video of windows for multiplication
 window_video = ((window,),)*1024
@@ -42,19 +42,19 @@ fft = rfft2(video, kimax =37, kjmax = 37)
 data, bg, var = iacorr_multi(fft, range(1024))
 
 #: inspect the data
-viewer = MultitauViewer(scale = True, norm = 1)
+viewer = MultitauViewer(scale = True)
 viewer.set_data(data, bg, var)
 viewer.set_mask(k = 25, angle = 0, sector = 30)
 viewer.plot()
 viewer.show()
 
 #perform normalization and merge data
-fast, slow = normalize_multi(data, bg, var, norm = 2, scale = True)
+fast, slow = normalize_multi(data, bg, var, scale = True)
 x,y = log_merge(fast, slow)
 
 #: save the normalized data to numpy files
 import numpy as np
-np.save("auto_correlat_multi_live_t.npy",x)
-np.save("auto_correlat_multi_live_data.npy",y)
+np.save("auto_correlate_multi_t.npy",x)
+np.save("auto_correlate_multi_data.npy",y)
 
 
