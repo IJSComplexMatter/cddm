@@ -90,7 +90,7 @@ Module Contents
    Sets verbose level (0-2) used by compute functions.
 
 
-.. function:: set_cv2(level)
+.. function:: set_cv2(ok)
 
    Enable/Disable cv2 rendering.
 
@@ -101,6 +101,11 @@ Module Contents
 
 
 .. function:: set_fftlib(name='numpy.fft')
+
+   Sets fft library. Returns previous setting.
+
+
+.. function:: set_rfft2lib(name='numpy.fft')
 
    Sets fft library. Returns previous setting.
 

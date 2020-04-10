@@ -141,7 +141,6 @@ def is_module_installed(name):
 NUMBA_INSTALLED = is_module_installed("numba")
 MKL_FFT_INSTALLED = is_module_installed("mkl_fft")
 SCIPY_INSTALLED = is_module_installed("scipy")
-PYFFTW_INSTALLED = is_module_installed("pyfftw")
 CV2_INSTALLED = is_module_installed("cv2")
 
 def detect_number_of_cores():
@@ -222,20 +221,10 @@ class CDDMConfig(object):
     """DDMM settings are here. You should use the set_* functions in the
     conf.py module to set these values"""
     def __init__(self):
-        if MKL_FFT_INSTALLED:
-            self.fftlib = "mkl_fft"
-        elif SCIPY_INSTALLED:
-            self.fftlib = "scipy"
-        else:
-            self.fftlib = "numpy"
-        if _readconfig(config.getboolean, "fft", "parallel", False):
-            self.nthreads = _readconfig(config.getint, "fft", "nthreads", 
-                                        detect_number_of_cores())
-        else:
-            self.nthreads = 1
-
+        self.rfft2lib = "numpy"
+        self.fftlib = "numpy"            
         self.verbose = 0
-        self.cv2 = True if CV2_INSTALLED else False
+        self.cv2 = False
         
     def __getitem__(self, item):
         return self.__dict__[item]
@@ -245,9 +234,8 @@ class CDDMConfig(object):
 
 #: a singleton holding user configuration    
 CDDMConfig = CDDMConfig()
-if CDDMConfig.nthreads > 1:
-    disable_mkl_threading()
-    
+ 
+
 def print_config():
     """Prints all compile-time and run-time configurtion parameters and settings."""
     options = {"PRECISION" : PRECISION, 
@@ -263,10 +251,13 @@ def set_verbose(level):
     CDDMConfig.verbose = max(0,int(level))
     return out
 
-def set_cv2(level):
+def set_cv2(ok):
     """Enable/Disable cv2 rendering."""
     out = CDDMConfig.cv2
-    CDDMConfig.cv2 = bool(level)
+    if ok == True and not CV2_INSTALLED:
+        warnings.warn("cv2 is not installed so it can not be used! Please install cv2.")            
+    else:
+        CDDMConfig.cv2 = bool(ok)
     return out
     
 def set_nthreads(num):
@@ -294,6 +285,29 @@ def set_fftlib(name = "numpy.fft"):
         raise ValueError("Unsupported fft library!")
     return out    
 
+def set_rfft2lib(name = "numpy.fft"):
+    """Sets fft library. Returns previous setting."""
+    out, name = CDDMConfig.rfft2lib, str(name) 
+    if name == "mkl_fft":
+        if MKL_FFT_INSTALLED: 
+            CDDMConfig.rfft2lib = name
+        else:
+            warnings.warn("MKL FFT is not installed so it can not be used! Please install mkl_fft.")            
+    elif name == "scipy.fftpack" or name == "scipy":
+        if SCIPY_INSTALLED:
+            CDDMConfig.rfft2lib = "scipy"
+        else:
+            warnings.warn("Scipy is not installed so it can not be used! Please install scipy.") 
+    elif name == "numpy.fft" or name == "numpy":
+        CDDMConfig.rfft2lib = "numpy"
+    else:
+        raise ValueError("Unsupported fft library!")
+    return out    
+
+set_fftlib(_readconfig(config.get, "fft", "fftlib", ("mkl_fft" if MKL_FFT_INSTALLED else "numpy")))
+set_rfft2lib(_readconfig(config.get, "fft", "rfft2lib", "numpy"))
+set_verbose(_readconfig(config.getint, "core", "verbose", 0))
+set_cv2(_readconfig(config.getboolean, "core", "cv2", True if CV2_INSTALLED else False))
 
 import numba
 

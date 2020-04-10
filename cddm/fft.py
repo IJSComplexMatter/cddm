@@ -128,7 +128,7 @@ def _fft2(a, overwrite_x = False):
 
     
 def _rfft2(a, overwrite_x = False):
-    libname = CDDMConfig["fftlib"]
+    libname = CDDMConfig["rfft2lib"]
     cutoff = a.shape[-1]//2 + 1
     if libname == "mkl_fft":
         return mkl_fft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]

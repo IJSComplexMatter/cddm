@@ -13,6 +13,7 @@ Welcome to cddm's documentation!
    introduction
    installation
    quickstart
+   optimization
    autoapi/index
 
 
