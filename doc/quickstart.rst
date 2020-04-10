@@ -101,12 +101,6 @@ In order to multiply each frame of our video with this window function we must c
    >>> window_video = ((window,),)* 1024
    >>> video = multiply(video, window_video)
 
-Optionally, if there are issues with the stability of the intensity of the light source you are using in the experiment, you can normalize each frame with respect to the mean value of the frame. This way you can avoid flickering effects, but you will introduce additional noise because of the randomness of the scattering process (randomness of the scattering intensity). 
-
-.. doctest::
- 
-   >>> from cddm.video import normalize_video
-   >>> video = normalize_video(video)
 
 Performing FFT
 ++++++++++++++
@@ -123,14 +117,7 @@ Secondly, usually in DDM experiments there is a cutoff wavenumber value above wh
 
 Here the resulting fft object is again of the same video data type. We have used two arguments `kimax` and `kjmax` for slicing. The result of this cropping is a video of FFTs, where the shape of each frame (in our case it is a single frame of the multi-frame data type) is (2*kimax+1, kjmax +1). As in uncropped rfft2 function, the zero wavenumber is at element [0,0], element [31,31] are for the wavenumber k = (31,31), element [-31,0] == [62,0] of the cropped fft is the Fourier coefficient of k = (-31,0). 
 
-Optionally, you can normalize for flickering effects in fft space, instead of normalization performed in real space.
 
-.. doctest::
- 
-   >>> from cddm.fft import normalize_fft
-   >>> fft = normalize_fft(fft)
-
-Again, do this only if you have problems with the stability of the light source.
 
 Bakground removal
 +++++++++++++++++
@@ -233,10 +220,12 @@ Here the shape of the data are
 
 By default the size of each level in multilevel data is 16, so we have 16 time delays for each level, and there are 63 times 32 unique k values. The multi_level part of the data has 5 levels, the length of corr_multi varies, and depends on the length of the video. 
 
+
+
 Normalization
 +++++++++++++
 
-Normally, you won't work with raw correlation data and you will perform normalization using:
+There are two or three extra arrays in the lin_data and multi_data tuples. What comes after the count data depends on the normalization procedure and the method that is used in the calculation of the correlation function. Different normalization procedures are implemented and there are different ways to calculate the correlation function. This will be covered in detail later. Normally, you won't work with raw correlation data and you will perform normalization using:
 
 .. doctest::
 
@@ -310,6 +299,16 @@ To view the two videos we can again use the VideoViewer
 
    Dust particles on the two cameras are different, which result in different background frames.
 
+Light flickering
+++++++++++++++++
+
+In cross-DDM if using pulsed light source, and if there are issues with the stability of the intensity of the light source you are using in the experiment, you can normalize each frame with respect to the mean value of the frame. This way you can avoid flickering effects, but you will introduce additional noise because of the randomness of the scattering process (randomness of the scattering intensity). 
+
+.. doctest::
+ 
+   >>> from cddm.video import normalize_video
+   >>> video = normalize_video(video)
+
 
 Pre-process video and perform FFT
 
@@ -319,6 +318,15 @@ Pre-process video and perform FFT
    >>> window_video = ((window,window),)*1024
    >>> video = multiply(video, window_video)
    >>> fft = rfft2(video, kimax =37, kjmax = 37)
+
+Optionally, you can normalize for flickering effects in fft space, instead of normalization performed in real space.
+
+.. doctest::
+ 
+   >>> from cddm.fft import normalize_fft
+   >>> fft = normalize_fft(fft)
+
+Again, do this only if you have problems with the stability of the light source.
 
 Live view
 +++++++++
@@ -331,6 +339,11 @@ To show live view of the computed correlation function, we can pass the viewer a
    >>> viewer.k = 15 #initial mask parameters
    >>> viewer.sector = 30
    >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, viewer  = viewer)
+
+.. plot:: examples/cross_correlate_multi_live.py
+
+   You can see the computation in real-time.
+
 
 Note the `period` argument. You must provide the correct effective period of the random triggering of the cross-ddm experiment. Otherwise, data will not be merged and processed correctly. Care must be taken not to mix up this parameter, as there is no easy way to determine the period from t1, and t2 parameters alone. The `bg` and `var` are now tuples of arrays of mean pixel and pixel variances of each of the two videos.
 
