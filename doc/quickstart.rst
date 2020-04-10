@@ -260,9 +260,7 @@ You are done, now you can save the data in numpy data format for later use::
    >>> np.save("t.npy", x)
    >>> np.save("data.npy", y)
 
-If you wish to analyze the data with some other tool (Mathematica, Origin) you will have to google for help on how to import the numpy binary data. Another option is to save as text files. But you have to do it index by index. For instance, to save the (4,8) k-value data, you can do.
-
-.. doctest::
+If you wish to analyze the data with some other tool (Mathematica, Origin) you will have to google for help on how to import the numpy binary data. Another option is to save as text files. But you have to do it index by index. For instance, to save the (4,8) k-value data, you can do::
 
    >>> i, j = 4, 8
    >>> np.savetxt("t.txt", x)
