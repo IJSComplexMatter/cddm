@@ -17,6 +17,7 @@ SHOW_FITS = False
 colors = ["C{}".format(i) for i in range(10)]
 
 def _g1(x,f,a,b):
+    """g1: exponential decay"""
     return a*np.exp(-f*x) + b
 
 def fit_data(x, data, title = ""):
@@ -25,7 +26,6 @@ def fit_data(x, data, title = ""):
     if SHOW_FITS:
         plt.figure()
     for i, (k, y) in enumerate(data):
-        y = y/y[0]
         try:
             popt,pcov = curve_fit(_g1, x, y, p0 = popt)    
             if SHOW_FITS == True:
