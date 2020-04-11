@@ -17,22 +17,25 @@ class VideoViewer(object):
     ----------
     video : list-like, iterator
         A list of a tuple of 2D arrays or a generator of a tuple of 2D arrays. 
-        If an iterator is provided, you must set 'n' as well. 
+        If an iterator is provided, you must set 'count' as well. 
     count: int
         Length of the video. When this is set it displays only first 'count' frames of the video.
     id : int, optional
         For multi-frame data specifies camera index.
     title : str, optional
         Plot title.
+    kw : options, optional
+        Extra arguments passed directly to imshow function
     """
 
-    def __init__(self, video, count = None, id = 0, title = ""):
+    def __init__(self, video, count = None, id = 0, title = "", **kw):
 
         if count is None:
             try:
                 count = len(video)
             except TypeError:
                 raise Exception("You must specify count!")
+                
         self.id = id
         self.index = 0
         self.video = video
@@ -42,7 +45,9 @@ class VideoViewer(object):
         
         frame = next(iter(video)) #take first frame
         frame = self._prepare_image(frame)
-        self.img = self.ax.imshow(frame, vmin = 0, cmap='gray') 
+        self.img = self.ax.imshow(frame, **kw) 
+        
+        self.fig.colorbar(self.img, ax=self.ax)
 
         self.axframe= plt.axes([0.1, 0.1, 0.7, 0.03])
         self.sframe = Slider(self.axframe, '', 0, count - 1, valinit=0, valstep=1, valfmt='%i')

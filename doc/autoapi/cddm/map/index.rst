@@ -63,6 +63,9 @@ Module Contents
    :type kstep: float, optional
    :param k: If provided, only return at a given k value (and not at all non-zero k values)
    :type k: float or list of floats, optional
+   :param shape: Shape of the original video frame. If shape is not rectangular, it must
+                 be provided.
+   :type shape: tuple
 
    :returns: **out** -- If k s not defined, this is an iterator that yields a tuple of (k_avg, data_avg)
              of actual (mean) k and averaged data. If k is a list of indices, it returns

@@ -12,7 +12,7 @@
 Module Contents
 ---------------
 
-.. py:class:: VideoViewer(video, count=None, id=0, title='')
+.. py:class:: VideoViewer(video, count=None, id=0, title='', **kw)
 
    Bases: :class:`object`
 
@@ -27,6 +27,8 @@ Module Contents
    :type id: int, optional
    :param title: Plot title.
    :type title: str, optional
+   :param kw: Extra arguments passed directly to imshow function
+   :type kw: options, optional
 
    .. method:: show(self)
 

@@ -27,9 +27,9 @@ video = multiply(video, dust)
 #video = list(video)
 
 #: camera 1
-viewer1 = VideoViewer(video, count = nframes, id = 0)
+viewer1 = VideoViewer(video, count = nframes, id = 0, vmin = 0, cmap = "gray")
 viewer1.show()
 
 #: camera 2
-viewer2 = VideoViewer(video, count = nframes, id = 1)
+viewer2 = VideoViewer(video, count = nframes, id = 1, vmin = 0, cmap = "gray")
 viewer2.show()

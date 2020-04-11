@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import cddm.multitau as multitau
+from cddm.core import stats
 from cddm.conf import FDTYPE, CDTYPE
 from cddm.video import fromarrays
 
@@ -17,60 +18,64 @@ class TestMulti(unittest.TestCase):
     
     def test_equivalence_norm_0(self):
         norm = 0
-        data, bg, var = multitau.acorr_multi(self.test_data1, n = 16, norm = norm, stats = True)
+        bg, var = stats(self.test_data1)
+        data = multitau.acorr_multi(self.test_data1, level_size = 16, norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out0 = multitau.log_merge(*data)
-        data, bg, var = multitau.ccorr_multi(self.test_data1,self.test_data1, n = 16, norm = norm, stats = True)
+        data = multitau.ccorr_multi(self.test_data1,self.test_data1, level_size = 16, norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))
         
-        data, bg, var = multitau.iacorr_multi(fromarrays((self.test_data1,)),64, n = 16, norm = norm, stats = True)
+        data, bg, var = multitau.iacorr_multi(fromarrays((self.test_data1,)),count = 64, level_size = 16,  norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))
  
     def test_equivalence_norm_1(self):
         norm = 1
-        data, bg, var = multitau.acorr_multi(self.test_data1, n = 16, norm = norm, stats = True)
+        bg, var = stats(self.test_data1)
+        data= multitau.acorr_multi(self.test_data1, level_size = 16, norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out0 = multitau.log_merge(*data)
-        data, bg, var = multitau.ccorr_multi(self.test_data1,self.test_data1, n = 16, norm = norm, stats = True)
+        data = multitau.ccorr_multi(self.test_data1,self.test_data1, level_size = 16, norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))
         
-        data, bg, var = multitau.iacorr_multi(fromarrays((self.test_data1,)),64, n = 16, norm = norm, stats = True)
+        data,bg,var = multitau.iacorr_multi(fromarrays((self.test_data1,)),count = 64, level_size = 16,  norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))
 
     def test_equivalence_norm_3(self):
         norm = 3
-        data, bg, var = multitau.acorr_multi(self.test_data1, n = 16, norm = norm, stats = True)
+        bg, var = stats(self.test_data1)
+        data = multitau.acorr_multi(self.test_data1, level_size = 16, norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out0 = multitau.log_merge(*data)
-        data, bg, var = multitau.ccorr_multi(self.test_data1,self.test_data1, n = 16, norm = norm, stats = True)
+        data = multitau.ccorr_multi(self.test_data1,self.test_data1, level_size = 16, norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))
         
-        data, bg, var = multitau.iacorr_multi(fromarrays((self.test_data1,)),64, n = 16, norm = norm, stats = True)
+        data,bg,var = multitau.iacorr_multi(fromarrays((self.test_data1,)),count = 64, level_size = 16,   norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))
 
     def test_equivalence_norm_2(self):
         norm = 2
-        data, bg, var = multitau.acorr_multi(self.test_data1, n = 16, norm = norm, stats = True)
+        bg, var = stats(self.test_data1)
+        data = multitau.acorr_multi(self.test_data1, level_size = 16, norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out0 = multitau.log_merge(*data)
-        data, bg, var = multitau.ccorr_multi(self.test_data1,self.test_data1, n = 16, norm = norm, stats = True)
+        data = multitau.ccorr_multi(self.test_data1,self.test_data1, level_size = 16, norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))
         
-        data, bg, var = multitau.iacorr_multi(fromarrays((self.test_data1,)),64, n = 16, norm = norm, stats = True)
+        data,bg,var = multitau.iacorr_multi(fromarrays((self.test_data1,)),count = 64, level_size = 16,  norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))

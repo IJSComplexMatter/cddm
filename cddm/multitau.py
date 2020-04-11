@@ -23,11 +23,10 @@ For time averaging of linear spaced data use:
 * :func:`log_average` to perform both of these in one step.
 """
 
-
 from __future__ import absolute_import, print_function, division
 
 from cddm.core import normalize, ccorr,acorr, NORM_COMPENSATED, NORM_SUBTRACTED
-from cddm.core import _transpose_data, _inspect_cross_arguments,\
+from cddm.core import _transpose_data, _inspect_cross_arguments,_default_norm,\
         _is_aligned, _move_axis_and_align, _inspect_auto_arguments, abs2,\
         reshape_input, reshape_output, thread_frame_shape, reshape_frame
 import numpy as np
@@ -37,22 +36,24 @@ from cddm.print_tools import print_progress,  print_frame_rate, enable_prints, d
 from cddm.print_tools import print1, print2
 import time
 
-
 #: placehold for matplotlib plots so that they are not garbage collected diring live view
 _VIEWERS = {}
 
-BINNING_NONE = 0
+BINNING_SLICE = 0
+"""No binning (select every second element)"""
 BINNING_MEAN = 1
-BINNING_RANDOM = 2
+"""Binning (take mean value)"""
+BINNING_CHOOSE = 2
+"""Binning with random selection"""
 
 @nb.vectorize([F(F,F),C(C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def mean(a,b):
-    """Man value of two data sets."""
+    """Man value"""
     return 0.5 * (a+b)
 
-def bin_data(data, axis = 0, out_axis = None):
+def mean_data(data, axis = 0, out_axis = None):
     """Binning function. Takes data and performs channel binning over a specifed
-    axis. If cepcified, also moves axis to out_axis."""
+    axis. If specified, also moves axis to out_axis."""
     if out_axis is None:
         out_axis = axis
     f = np.moveaxis(data,axis,-1)
@@ -61,18 +62,19 @@ def bin_data(data, axis = 0, out_axis = None):
     f2 = np.moveaxis(f[...,1:n:2],-1,out_axis)
     out = np.empty(f1.shape, f1.dtype)
     return mean (f1, f2, out = out)
-  
-@nb.guvectorize([(C[:],C[:],C[:]),(F[:],F[:],F[:])],"(m),(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def _random_select(data1,data2, out):
-    for i in range(out.shape[0]):
-        r = np.random.rand()
-        if r >= 0.5:
-            out[i] = data1[i]
-        else:
-            out[i] = data2[i]        
 
-def random_select_data(data, axis = 0, out_axis = None):
-    """Instead of binning, this randomly selects data."""
+@nb.vectorize([F(F,F),C(C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def choose(a,b):
+    """Chooses data, randomly"""
+    r = np.random.rand()
+    if r >= 0.5:
+        return a
+    else:
+        return b   
+
+def choose_data(data, axis = 0, out_axis = None):
+    """Instead of binning, this randomly selects data.
+    If specified, also moves axis to out_axis."""
     if out_axis is None:
         out_axis = axis
     f = np.moveaxis(data,axis,-1)
@@ -80,21 +82,17 @@ def random_select_data(data, axis = 0, out_axis = None):
     f1 = np.moveaxis(f[...,0:n-1:2],-1,out_axis)
     f2 = np.moveaxis(f[...,1:n:2],-1,out_axis)
     out = np.empty(f1.shape, f1.dtype)
-    return  _random_select(f1,f2, out)
+    return  choose(f1,f2, out)
 
 def slice_data(data, axis = 0, out_axis = None):
-    """Instead of binning, this only takes every second channel."""
+    """Slices data so that it takes every second channel. If specified, also moves axis to out_axis."""
     if out_axis is None:
         out_axis = axis
     f = np.moveaxis(data,axis,-1)
     return np.moveaxis(f[...,::2],-1,out_axis)
 
-def _default_method_and_binning(method,binning, chunked = False):
+def _default_method_and_binning(method,binning):
     """inspects validity of mode and binning and sets binning default if not specified"""
-    if chunked == True:
-        supported = (BINNING_MEAN,BINNING_NONE, BINNING_RANDOM)
-    else:
-        supported = (BINNING_MEAN,BINNING_NONE)
     if method is None:
         method = "corr"
     
@@ -103,21 +101,26 @@ def _default_method_and_binning(method,binning, chunked = False):
             binning =  BINNING_MEAN
     elif method  == "diff":
         if binning is None:
-            binning =  BINNING_NONE
+            binning =  BINNING_SLICE
     else:
         raise ValueError("Unknown method, must be 'corr', 'diff' or 'fft'")
+    if method == "diff":
+        supported = (BINNING_CHOOSE,BINNING_SLICE)
+    else:
+        supported = (BINNING_MEAN,BINNING_SLICE, BINNING_CHOOSE)
+
     if binning not in supported:
-        ValueError("Binning mode not supported for method {}".format(method))
+        raise ValueError("Binning mode {} not supported for method '{}'".format(binning,method))
     return method, binning
             
-def _get_binning_function(method, binning):
-    """returns binning function and binning mode"""
+def _get_binning_function(binning):
+    """returns binning function"""
     if binning == BINNING_MEAN:
-        _bin = bin_data
-    elif binning == BINNING_NONE:
+        _bin = mean_data
+    elif binning == BINNING_SLICE:
         _bin = slice_data   
-    elif binning == BINNING_RANDOM:
-        _bin = random_select_data
+    elif binning == BINNING_CHOOSE:
+        _bin = choose_data
     return _bin
 
 def _determine_lengths(length, n, period, nlevel):
@@ -133,8 +136,8 @@ def _determine_lengths(length, n, period, nlevel):
     assert nlevel >= 0
     return n_fast, n_slow, nlevel
 
-def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, n = 2**5, 
-                         binning = None,  nlevel = None, norm = 0, method = "corr", align = False, thread_divisor = None):
+def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, level_size = 2**4, 
+                         binning = None,  nlevel = None, norm = None, method = None, align = False, thread_divisor = None):
     """Implements multiple tau algorithm for cross(auto)-correlation(difference) calculation.
     """
     #initial time for computation time computation
@@ -143,14 +146,16 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, n =
     cross = False if f2 is None else True
     
     method, binning = _default_method_and_binning(method, binning)
-    _bin = _get_binning_function(method, binning)
+    _bin = _get_binning_function(binning)
+    
+    norm = _default_norm(norm, method, cross)
     
     correlate = True if method in ("corr","fft") else False
         
     if cross:
-        f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n, None)
+        f1,f2,t1,t2,axis,level_size = _inspect_cross_arguments(f1,f2,t1,t2,axis,level_size, None)
     else:
-        f1,t1,axis,n = _inspect_auto_arguments(f1,t1,axis,n, None)
+        f1,t1,axis,level_size = _inspect_auto_arguments(f1,t1,axis,level_size, None)
     
     #reshape input data for faster threaded execution.
     f1, kshape = reshape_input(f1, axis = axis, thread_divisor = thread_divisor)
@@ -170,7 +175,7 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, n =
     
     length = f1.shape[axis]
     
-    n_fast, n_slow, nlevel = _determine_lengths(length,n,period,nlevel)
+    n_fast, n_slow, nlevel = _determine_lengths(length,level_size,period,nlevel)
     
     if correlate == True:
         #we need to track square of the signal
@@ -179,17 +184,16 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, n =
     else:
         f1s,f2s = None,None
 
-    print1("Computing {}...".format(method))
-    
+    print1("Computing {}...".format("cross-correlation")) if cross else print1("Computing {}...".format("auto-correlation"))
+
     print2("   * period         : {}".format(period))
-    print2("   * n              : {}".format(n))
+    print2("   * level_size     : {}".format(level_size))
     print2("   * binning        : {}".format(binning))
     print2("   * method         : {}".format(method))
-    print2("   * nlevel           : {}".format(nlevel))
+    print2("   * nlevel         : {}".format(nlevel))
     print2("   * norm           : {}".format(norm))
     print2("   * align          : {}".format(align))
     print2("   * thread_divisor : {}".format(thread_divisor))
-    
     
     print_progress(0, 100)        
     v = disable_prints()
@@ -272,8 +276,8 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, n =
     return tuple((reshape_output(o, kshape) for o in out))
 
 
-def ccorr_multi(f1,f2, t1 = None,t2 = None,  n = 2**5, norm = 1, method = "corr", align = False, axis = 0,
-                period = 1, binning = None,  nlevel = None,  thread_divisor = None, stats = False):
+def ccorr_multi(f1,f2, t1 = None, t2 = None,  level_size = 2**4, norm = None, method = None, align = False, axis = 0,
+                period = 1, binning = None,  nlevel = None,  thread_divisor = None):
     """Multitau version of :func:`.core.ccorr`
         
     Parameters
@@ -288,7 +292,7 @@ def ccorr_multi(f1,f2, t1 = None,t2 = None,  n = 2**5, norm = 1, method = "corr"
     t2 : array-like, optional
         Array of integers defining frame times of the second data. If not provided, 
         regular time-spaced data is assumed.  
-    n : int, optional
+    level_size : int, optional
         If provided, determines the length of the output.
     norm : int, optional
         Specifies normalization procedure 0,1,2, or 3 (default).
@@ -314,37 +318,29 @@ def ccorr_multi(f1,f2, t1 = None,t2 = None,  n = 2**5, norm = 1, method = "corr"
         must be a divisor of the total size of the frame. Using this may speed 
         up computation in some cases because of better memory alignment and
         cache sizing.
-    stats : bool
-        Whether to return stats as well.
         
     Returns
     -------
-    fast, slow : lin_data, multilevel_data
-        A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-        data.
+    lin, multi : ccorr_type, ccorr_type
+        A tuple of linear (short delay) data and multilevel (large delay) data
+        See :func:`.core.ccorr` for definition of ccorr_type
     """
-    out = _compute_multi(f1,f2, t1,t2, axis = axis, period = period, n = n, align = align,
+    return _compute_multi(f1,f2, t1,t2, axis = axis, period = period, level_size = level_size, align = align,
                          binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor)
-    
-    if stats == True:
-        f1,f2 = np.asarray(f1), np.asarray(f2)
-        #calculate video statistics (mean and variance) as well and return them
-        out =  out, (f1.mean(axis), f2.mean(axis)), (f1.var(axis), f2.var(axis))
-    return out
 
-def acorr_multi(f, t = None,  n = 2**5, norm = 1, method = "corr", align = False, axis = 0,
-                period = 1, binning = None,  nlevel = None,  thread_divisor = None, stats = False):
-    """Multitau version of :func:`.core.ccorr`
+def acorr_multi(f, t = None,  level_size = 2**4, norm = None, method = None, align = False, axis = 0,
+                period = 1, binning = None,  nlevel = None,  thread_divisor = None):
+    """Multitau version of :func:`.core.acorr`
         
     Parameters
     ----------
     f : array-like
-        A complex ND array of the data.
+        A complex ND array
     t : array-like, optional
         Array of integers defining frame times of the data. If not provided, 
         regular time-spaced data is assumed.
-    n : int, optional
-        If provided, determines the length of the output. 
+    level_size : int, optional
+        If provided, determines the length of the output.
     norm : int, optional
         Specifies normalization procedure 0,1,2, or 3 (default).
     method : str, optional
@@ -372,22 +368,14 @@ def acorr_multi(f, t = None,  n = 2**5, norm = 1, method = "corr", align = False
         
     Returns
     -------
-    fast, slow : lin_data, multilevel_data
-        A tuple of linear_data (same as from acorr function) and a tuple of multilevel
-        data.
-    """   
+    lin, multi : acorr_type, acorr_type
+        A tuple of linear (short delay) data and multilevel (large delay) data
+        See :func:`.core.acorr` for definition of acorr_type
+    """
     
-    out = _compute_multi(f, t1 = t, axis = axis, period = period, n = n, align = align,
+    return _compute_multi(f, t1 = t, axis = axis, period = period, level_size = level_size, align = align,
                          binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor)
     
-    if stats == True:
-        f = np.asarray(f)
-        #calculate video statistics (mean and variance) as well and return them
-        out =  out, f.mean(axis), f.var(axis)
-
-    return out
-
-
 @nb.jit([(C[:],C[:],F[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _add_stats_vec(x, out1, out2):
     for j in range(x.shape[0]):
@@ -412,10 +400,11 @@ def _add_data1(i,x, out, binning = True):
         if (i+1) % (2**j) == 0:
             index_low = (i//(2**j)) % (chunk_size)
             
-            if binning == True:
+            if binning == BINNING_MEAN:
                 x = mean(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:])
+            elif binning == BINNING_CHOOSE:
+                x = choose(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:])
             else:
-                out[j,...,index_low,:] = x
                 out[j,...,index_low,:] = x
             
             index_top = index_low
@@ -436,11 +425,12 @@ def _add_data2(i,x1, x2, out1, out2, binning = True):
         if (i+1) % (2**j) == 0:
             index_low = (i//(2**j)) % (chunk_size)
             
-            #x1 = np.add(x1, out1[j-1,...,index_top-1,:], out = out1[j,...,index_low,:])
-            #x2 = np.add(x2, out2[j-1,...,index_top-1,:], out = out2[j,...,index_low,:])
-            if binning == True:
+            if binning == BINNING_MEAN:
                 x1 = mean(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
                 x2 = mean(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
+            elif binning == BINNING_CHOOSE:
+                x1 = choose(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
+                x2 = choose(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
             else:
                 out1[j,...,index_low,:] = x1
                 out2[j,...,index_low,:] = x2
@@ -465,61 +455,70 @@ def _get_frames(d, cross = False, mask = None):
         x2 = None
     return x1, x2
 
-def _default_chunk_size(chunk_size, count, n):
-    if n > count:
-        raise ValueError("'n' parameter is larger than 'count'")
+def _default_chunk_size(chunk_size, count, level_size):
+    if level_size > count:
+        raise ValueError("'level_size' parameter is larger than 'count'")
     if chunk_size is None:
+        #start with count
         chunk_size = count
-        while (chunk_size//2) >= n and chunk_size > 128: 
+        while (chunk_size//2) >= level_size and chunk_size > 128: 
             chunk_size = chunk_size//2
 
     if chunk_size > count:
         raise ValueError("'chunk_size' is larger than 'count'")
-    if chunk_size < n:
-        raise ValueError("'chunk_size' is smaller than 'n'")
+    if chunk_size < level_size:
+        raise ValueError("'chunk_size' is smaller than 'level_size'")
     return chunk_size
 
-
-def _inspect_t1_t2_count(t1,t2,count):
+def _inspect_t1_t2_count(t1,t2,count,data):
     if t1 is None:
+        if count is None:
+            try:
+                count = len(data)
+            except TypeError:
+                raise ValueError("You must define `count`")
         t1 = np.arange(int(count))
     else:
         t1 = np.asarray(t1)  
     if count is None:
         count = len(t1)
-    t2 = np.asarray(t2) if t2 is not None else t1   
+    count = int(count)
+    t2 = np.asarray(t2) if t2 is not None else t1 
+    if count > len(t1):
+        raise ValueError("`count` is too large for given time arrays")
     if len(t1) != len(t2):
-        raise ValueError("time arrays do not match in length")
+        raise ValueError("Lengths of time arrays do not match")
     return t1,t2,count
 
-def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16, 
+def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16, 
                         chunk_size = None,  binning = None, method = "corr", count = None,
                         auto_background = False, nlevel = None,  norm = 0,
                         stats = False, thread_divisor = None, mode = "full", mask = None):
     t0 = time.time()
     
-    method, binning = _default_method_and_binning(method,binning, chunked = True)
-    t1,t2, count = _inspect_t1_t2_count(t1,t2,count)
+    if mode not in ("full", "chunk"):
+        raise ValueError("Unknown mode '{}'".format(mode))
+    
+    method, binning = _default_method_and_binning(method,binning)
+    t1,t2, count = _inspect_t1_t2_count(t1,t2,count,data)
     correlate = False if method == "diff" else True
         
-    n = int(n)
+    level_size = int(level_size)
    
-    chunk_size = _default_chunk_size(chunk_size,len(t1),n)
+    chunk_size = _default_chunk_size(chunk_size,count,level_size)
     
     half_chunk_size = chunk_size
     chunk_size = 2* half_chunk_size #this will be the actual chunk size of data, split into two halfs
+       
+    if level_size > half_chunk_size: 
+        raise ValueError("`chunk_size` must be even and greater or equal to `level_size`")
     
-    try:    
-        assert n <= half_chunk_size 
-    except AssertionError:
-        raise ValueError("chunk_size must be even and greater or equalt to n")
-    
-    n_fast = period * n
-    n_slow = n
+    n_fast = int(period) * level_size
+    n_slow = level_size
     
     n_decades = 0
     while count//(chunk_size * 2**(n_decades)) > 0:
-        n_decades += 1     
+        n_decades += 1  
     
     nframes = int(2**(n_decades-1) * chunk_size) #int in case n_decades = 0
     
@@ -527,7 +526,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
         print("WARNING: chunk_size not compatible with the length of the input data, data length cropped to {}".format(nframes))
     
     n_decades_max = 0
-    while nframes// (2**(n_decades_max)) >= n:
+    while nframes// (2**(n_decades_max)) >= level_size:
         n_decades_max += 1 
              
     if nlevel is None:
@@ -537,33 +536,20 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
         if n_decades < 1:
             raise ValueError("Invalid nlevel")
         nlevel = min(int(nlevel),n_decades_max -1)
-        
+              
     t_slow = np.arange(nframes)
         
-    print1("Computing {}...".format(method))
-    
-    print2("   * length         : {}".format(nframes))
-    print2("   * period         : {}".format(period))
-    print2("   * chunk_size     : {}".format(chunk_size))
-    print2("   * n              : {}".format(n))
-    print2("   * binning        : {}".format(binning))
-    print2("   * method         : {}".format(method))
-    print2("   * auto_background: {}".format(auto_background))
-    print2("   * nlevel           : {}".format(nlevel))
-    print2("   * norm           : {}".format(norm))
-    print2("   * stats          : {}".format(stats))
-    
-    print_progress(0, nframes)
-    
-    cross = None
+    cross = None    
+    i = 0 #initialize to zero, in case iterator is empty
     
     for i,d in enumerate(data):
         if i == nframes:
+            print("break")
             break
         #determine if it is cross-data (double element) or auto-data (single element)
         if cross is None:
             cross = True if len(d) == 2 and isinstance(d, tuple) else False
-            
+                
         #first and second frame or masked frames, x2 is None if cross = False
         x1, x2 = _get_frames(d, cross, mask)
 
@@ -571,6 +557,28 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
             #do initialization
             original_shape = x1.shape
             shape = thread_frame_shape(original_shape, thread_divisor)
+
+            norm = _default_norm(norm, method, cross)
+            
+            print1("Computing {}...".format("cross-correlation")) if cross else print1("Computing {}...".format("auto-correlation"))
+            
+            print2("   * length          : {}".format(nframes))
+            print2("   * count           : {}".format(count))
+            print2("   * period          : {}".format(period))
+            print2("   * chunk_size      : {}".format(half_chunk_size))
+            print2("   * level_size      : {}".format(level_size))
+            print2("   * binning         : {}".format(binning))
+            print2("   * method          : {}".format(method))
+            print2("   * auto_background : {}".format(auto_background))
+            print2("   * nlevel          : {}".format(nlevel))
+            print2("   * norm            : {}".format(norm))
+            print2("   * mode            : {}".format(mode))
+            print2("   * mask            : {}".format(mask is not None))
+            print2("   * thread_divisor  : {}".format(thread_divisor))
+            print2("   * stats           : {}".format(stats))
+            
+            print_progress(0, nframes)
+
             
             fast_shape = shape[0:-1] + (n_fast,) + shape[-1:]
             
@@ -581,7 +589,6 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
                 m1_fast = np.zeros(fast_shape, CDTYPE)
                 m1_fast = _transpose_data(m1_fast)                  
                 m2_fast = np.zeros(fast_shape, CDTYPE) if cross  == True else None
-                #set m2_fast to m1_fast so that we do not return None.
                 m2_fast = _transpose_data(m2_fast) if cross  == True else None
             else:
                 m1_fast, m2_fast = None, None
@@ -620,8 +627,11 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
                 
             count_slow = np.zeros((nlevel, n_slow,),IDTYPE)
             
-            data_shape = (n_decades,) + shape[0:-1] + (chunk_size,) + shape[-1:]
-            
+            if n_decades > 0:
+                data_shape = (n_decades,) + shape[0:-1] + (chunk_size,) + shape[-1:]
+            else:
+                data_shape = (1,) + shape[0:-1] + (half_chunk_size,) + shape[-1:]
+
             fdata1 = np.empty(data_shape, CDTYPE)
             fdata2 = np.empty(data_shape, CDTYPE) if cross  == True else None
             
@@ -690,7 +700,6 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
                     _add_data1(i,abs2(x1),sq1,binning)                
                 
         if i % (half_chunk_size) == half_chunk_size -1: 
-            
 
             ichunk = i//half_chunk_size
             
@@ -718,8 +727,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
                 np.divide(sum2, _divisor , out_bg2) if cross else None
                 np.divide(sqsum1, _divisor , out_var1)
                 np.divide(sqsum2, _divisor , out_var2)  if cross else None
-                np.subtract(out_var1, np.abs(out_bg1)**2, out_var1)
-                np.subtract(out_var2, np.abs(out_bg2)**2, out_var2)  if cross else None
+                np.subtract(out_var1, abs2(out_bg1), out_var1)
+                np.subtract(out_var2, abs2(out_bg2), out_var2)  if cross else None
                                
             f1s = sq1[0,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None
             f2s = sq2[0,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate and cross else None
@@ -787,25 +796,6 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
                         acorr(fdata1[j,...,fstart1:fstop1,:],fs = f1s, axis = -2, norm = norm, n = n_slow, aout = out, method = method)
         
                     if istart2 >= 0 and mode == "full":
-#                        f1s = sq1[j,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None
-#                        
-#                        
-#                        f2s = sq2[j,...,fstart2:fstop2,:] if norm & NORM_COMPENSATED and correlate and cross else None                          
-#                        
-#                        if cross:
-#                            ccorr(fdata1[j,...,fstart1:fstop1,:],fdata2[j,...,fstart2:fstop2,:], t_slow[istart1:istop1], t_slow[istart2:istop2],f1s = f1s, f2s = f2s, n = n_slow,axis = -2, norm = norm, aout = out, method = method)
-#                        else:
-#                            #we are ussing ccorr function to simulate acorr on offset data
-#                            #normalization will not work properly, so set norm to 0 
-#                            ccorr(fdata1[j,...,fstart1:fstop1,:],fdata1[j,...,fstart2:fstop2,:], t_slow[istart1:istop1], t_slow[istart2:istop2],f1s = f1s, f2s = f1s, n = n_slow,axis = -2, norm = 0, aout = out, method = method)
-#    
-#                            
-#                        f1s = sq1[j,...,fstart2:fstop2,:] if norm & NORM_COMPENSATED and correlate and cross else None
-#                        f2s = sq2[j,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate and cross else None  
-#                        
-#                        if cross:
-#                            ccorr(fdata1[j,...,fstart2:fstop2,:],fdata2[j,...,fstart1:fstop1,:], t_slow[istart2:istop2], t_slow[istart1:istop1],f1s = f1s, f2s = f2s, n = n_slow,axis = -2, norm = norm, aout = out, method = method)
-#                
                         f1s = sq1[j,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None
                         
                         if cross:
@@ -845,7 +835,11 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
 
             else:
                 yield tuple((reshape_output(o, original_shape,mask) for o in out))
-                
+    
+    if i < nframes-1:
+        print (i)
+        raise ValueError("Data iterator too short.") 
+         
     verbosity = disable_prints()
     
     #process rest of the data
@@ -855,13 +849,10 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
     if norm & NORM_COMPENSATED and correlate:
         sq1 = sq1[-1]
         sq2 = sq2[-1] if cross else None
-    
-    if binning == True:
-        _bin = bin_data
-    else:
-        _bin = slice_data    
-    
-    for j in range(n_decades,nlevel+1):
+        
+    _bin = _get_binning_function(binning)
+         
+    for j in range(max(n_decades,1),nlevel+1):
         f1 = _bin(f1,-2)
         f2 = _bin(f2,-2) if cross else None
         sq1 = _bin(sq1,-2) if norm & NORM_COMPENSATED and correlate else None
@@ -887,32 +878,31 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, n = 16,
     else:
         yield tuple((reshape_output(o, original_shape,mask) for o in out))
 
-
-def iccorr_multi(data, t1 = None, t2 = None, n = 2**4, norm = 3, method = "corr", count = None, period = 1,
+def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = 3, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
                  auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
-    """Iterative version of :func:`.core.ccorr`
+    """Iterative version of :func:`.ccorr_multi`
         
     Parameters
     ----------
     data : iterable
         An iterable object, iterating over dual-frame ndarray data.
     t1 : array-like, optional
-        Array of integers defining frame times of the first data. Either this or 
-        count must be defined. If not defined, regular-spaced data is assumed.
+        Array of integers defining frame times of the first data.  If not defined, 
+        regular-spaced data is assumed.
     t2 : array-like, optional
-        Array of integers defining frame times of the second data. If not provided
-        it is same as t1.
-    n : int, optional
-        If provided, determines the length of the output.
+        Array of integers defining frame times of the second data. If t1 is defined,
+        you must define t2 as well.
+    level_size : int, optional
+        If provided, determines the length of the multi_level data.
     norm : int, optional
         Specifies normalization procedure 0,1,2, or 3 (default).
     method : str, optional
         Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on 
         the rest of the input parameters.
     count : int, optional
-        If given it defines how many elements of the data to process. If not given,
-        count is set to len(t1)
+        If given, it defines how many elements of the data to process. If not given,
+        count is set to len(t1) if that is not specified, it is set to len(data).  
     period : int, optional
         Period of the irregular-spaced random triggering sequence. For regular
         spaced data, this should be set to 1 (deefault).
@@ -939,7 +929,7 @@ def iccorr_multi(data, t1 = None, t2 = None, n = 2**4, norm = 3, method = "corr"
     mode : str
         Either "full" or "partial". With mode = "full", output of this function 
         is identical to the output of :func:`ccorr_multi`. With mode = "partial", 
-        cross correlation between neigbouring chunks is not computed.
+        cross correlation between neighbouring chunks is not computed.
     mask : ndarray, optional
         If specifed, computation is done only over elements specified by the mask.
         The rest of elements are not computed, np.nan values are written to output
@@ -949,14 +939,19 @@ def iccorr_multi(data, t1 = None, t2 = None, n = 2**4, norm = 3, method = "corr"
         
     Returns
     -------
-    fast, slow : lin_data, multilevel_data
-        A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-        data.
+    (lin, multi), bg, var : (ccorr_type, ccorr_type), ndarray, ndarray
+        A tuple of linear (short delay) data and multilevel (large delay) data,
+        background and variance data. See :func:`.core.ccorr` for definition 
+        of ccorr_type
+    lin, multi : ccorr_type, ccorr_type
+        If `stats` == False
     """
+    if (t1 is None and t2 is not None) or (t2 is None and t1 is not None):
+        raise ValueError("Both `t1` and `t2` arguments must be provided")
     
-    for i, data in enumerate(_compute_multi_iter(data, t1, t2, period = period, n = n , 
+    for i, data in enumerate(_compute_multi_iter(data, t1, t2, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count, auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats,mask = mask)):
+                        nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["ccorr_multi"] = viewer
@@ -966,34 +961,32 @@ def iccorr_multi(data, t1 = None, t2 = None, n = 2**4, norm = 3, method = "corr"
                     viewer.plot()
                 else:
                     viewer.set_data(data)
-                    viewer.plot()
-              
+                    viewer.plot()             
     return data
 
 
-
-def iacorr_multi(data, t = None,  n = 2**4, norm = 3, method = "corr", count = None, period = 1,
+def iacorr_multi(data, t = None, level_size = 2**4, norm = 3, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
                  auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
-    """Iterative version of :func:`.core.ccorr`
+    """Iterative version of :func:`.acorr_multi`
         
     Parameters
     ----------
     data : iterable
         An iterable object, iterating over dual-frame ndarray data.
     t : array-like, optional
-        Array of integers defining frame times of the first data. Either this or 
-        count must be defined. If not defined, regular-spaced data is assumed.
-    n : int, optional
-        If provided, determines the length of the output.
+        Array of integers defining frame times of the first data. If not defined, 
+        regular-spaced data is assumed.
+    level_size : int, optional
+        If provided, determines the length of the multi_level data.
     norm : int, optional
         Specifies normalization procedure 0,1,2, or 3 (default).
     method : str, optional
         Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on 
         the rest of the input parameters.
     count : int, optional
-        If given it defines how many elements of the data to process. If not given,
-        count is set to len(t1)
+        If given, it defines how many elements of the data to process. If not given,
+        count is set to len(t1) if that is not specified, it is set to len(data).  
     period : int, optional
         Period of the irregular-spaced random triggering sequence. For regular
         spaced data, this should be set to 1 (deefault).
@@ -1018,9 +1011,9 @@ def iacorr_multi(data, t = None,  n = 2**4, norm = 3, method = "corr", count = N
         A positive integer, defines how frequently are plots updated 1 for most 
         frequent, higher numbers for less frequent updates. 
     mode : str
-        Either "full" or "partial". With mode = "full", output of this function 
-        is identical to the output of :func:`ccorr_multi`. With mode = "partial", 
-        cross correlation between neigbouring chunks is not computed.
+        Either "full" or "chunk". With mode = "full", output of this function 
+        is identical to the output of :func:`ccorr_multi`. With mode = "chunk", 
+        cross correlation between neighbouring chunks is not computed.
     mask : ndarray, optional
         If specifed, computation is done only over elements specified by the mask.
         The rest of elements are not computed, np.nan values are written to output
@@ -1030,13 +1023,16 @@ def iacorr_multi(data, t = None,  n = 2**4, norm = 3, method = "corr", count = N
         
     Returns
     -------
-    fast, slow : lin_data, multilevel_data
-        A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-        data.
+    (lin, multi), bg, var : (acorr_type, acorr_type), ndarray, ndarray
+        A tuple of linear (short delay) data and multilevel (large delay) data,
+        background and variance data. See :func:`.core.acorr` for definition 
+        of acorr_type
+    lin, multi : acorr_type, acorr_type
+        If `stats` == False
     """
-    for i, data in enumerate(_compute_multi_iter(data, t, None, period = period, n = n , 
+    for i, data in enumerate(_compute_multi_iter(data, t, None, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count,auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats)):
+                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["acorr_multi"] = viewer
@@ -1157,47 +1153,47 @@ def log_average(data, size = 16):
     x, y : ndarray, ndarray
         Time and log-spaced data arrays.
     """
+    size = int(size)
     print1("Log-averaging...")
     print2("   * size : {}".format(size))
     ldata = multilevel(data, size*2)
     return merge_multilevel(ldata)
 
-def log_merge(cfast, cslow):
+def log_merge(lin,multi):
     """Merges normalized multi-tau data.
     
     You must first normalize with :func:`normalize_multi` before merging!
     This function performs a multilevel split on the fast (linear) data and
-    m erges that with the multilevel slow data into a continuous log-spaced
+    merges that with the multilevel slow data into a continuous log-spaced
     data.
     
     Parameters
     ----------
-    cfast : ndarray
-        Fast part of the dataset
-    cslow : ndarray
-        Slow part of the dataset
+    lin : ndarray
+        Linear data
+    multi : ndarray
+        Multilevel data
         
     Returns
     -------
     x, y : ndarray, ndarray
         Time and log-spaced data arrays.
     """
-    nfast = cfast.shape[-1]
-    nslow = cslow.shape[-1]
+    nfast = lin.shape[-1]
+    nslow = multi.shape[-1]
     period = nfast // nslow
     if nfast % nslow != 0:
         raise ValueError("Fast and slow data are not compatible")
     #level = int(np.log2(period))
     #assert 2**level == period
     #n = cfast.shape[-1] // (2**level)
-    ldata = multilevel(cfast, nslow)
+    ldata = multilevel(lin, nslow)
     xfast, cfast = merge_multilevel(ldata, mode = "full")
-    xslow, cslow = merge_multilevel(cslow, mode = "half")
+    xslow, cslow = merge_multilevel(multi, mode = "half")
     t = np.concatenate((xfast, period * xslow), axis = -1)
     cc = np.concatenate((cfast, cslow), axis = -1)
     return t, cc
     
-
 def normalize_multi(*args, **kwargs):
     """A multitau version of :func:`.core.normalize`.
     

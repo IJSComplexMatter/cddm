@@ -379,15 +379,11 @@ def _move_axis_and_align(f, axis, new_axis = -2, align = False):
 
 def _inspect_cross_arguments(f1,f2,t1,t2,axis,n, aout, dtype = CDTYPE):
     """Inspects and returns processed input arguments for cross_* functions"""
-    if t1 is None:
-        if t2 is not None:
-            raise ValueError("t1 not provided.")
-    else:
+    if (t1 is None and t2 is not None) or (t2 is None and t1 is not None):
+        raise ValueError("You must define both `t1` and `t2`")
+    elif t1 is not None:
         t1 = np.asarray(t1, I64DTYPE)
-        if t2 is None:
-            t2 = t1
-        else:
-            t2 = np.asarray(t2, I64DTYPE)
+        t2 = np.asarray(t2, I64DTYPE)
         
     axis = int(axis)
                 
@@ -563,9 +559,13 @@ def thread_frame_shape(shape, thread_divisor = None):
     new_shape = shape
     if thread_divisor is not None:
         total = reduce((lambda x, y: x * y), new_shape)
-        new_shape = (thread_divisor, total//thread_divisor)
+        try:
+            new_shape = (thread_divisor, total//int(thread_divisor))
+        except ValueError:
+            raise ValueError("Invalid `thread_divisor`")
+        
         if total != new_shape[0] * new_shape[1]:
-            raise ValueError("thread_divosor incompatible with input array's shape")
+            raise ValueError("`thread_divisor` incompatible with input array's shape")
     return new_shape 
             
 def reshape_input(f, axis = 0, thread_divisor = None, mask = None):
@@ -1266,7 +1266,18 @@ def _default_method(method, n):
         raise ValueError("Unknown method")
     return method
 
-def acorr(f, t = None, fs = None,  n = None,  norm = NORM_COMPENSATED, 
+def _default_norm(norm, method, cross = True):
+    if method == "diff":
+        supported = (1,3) if cross else (1,)
+    else:
+        supported = (0,1,2,3)
+    if norm is None:
+        norm = supported[-1]
+    if norm not in supported:
+        raise ValueError("Norm {} not supported for method '{}'".format(norm,method))
+    return norm
+
+def acorr(f, t = None, fs = None,  n = None,  norm = None, 
            method = None, align = False, axis = 0, aout = None):  
     """Computes auto-correlation of the input signals of regular or irregular 
     time - spaced data.
@@ -1285,7 +1296,8 @@ def acorr(f, t = None, fs = None,  n = None,  norm = NORM_COMPENSATED,
         If provided, determines the length of the output. Note that 'aout' parameter
         takes precedence over 'n'.
     norm : int, optional
-        Specifies normalization procedure 0,1,2, or 3 (default).
+        Specifies normalization procedure 0,1,2, or 3. Default to 3, except for 
+        'diff' method where it default to 1.
     method : str, optional
         Either 'fft' , 'corr' or 'diff'. If not given it is chosen automatically based on 
         the rest of the input parameters.
@@ -1311,17 +1323,14 @@ def acorr(f, t = None, fs = None,  n = None,  norm = NORM_COMPENSATED,
 
     method = _default_method(method, n)
     print1("Computing {}...".format(method))
+    norm = _default_norm(norm, method, cross = False)
     
     correlate = False if method == "diff" else True
     
     if method == "diff":
         cor, count, _, _ = (None,)*4 if aout is None else aout 
-        if norm not in (1,):
-            raise ValueError("Normalization mode must be 1 for method '{}'.".format(method))
     else:
         cor, count, sq, ds, _ = (None,)*5 if aout is None else aout 
-        if norm not in (0,1,2,3):
-            raise ValueError("Normalization mode must be 0, 1, 2 or 3 for method '{}'.".format(method))
 
     f,t,axis,n = _inspect_auto_arguments(f,t,axis,n, cor)
     
@@ -1380,7 +1389,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = NORM_COMPENSATED,
         return cor, count, sq, ds, None
  
 def ccorr(f1,f2,t1 = None, t2 = None,  n = None, 
-          norm = NORM_COMPENSATED|NORM_SUBTRACTED,  method = None, 
+          norm = None,  method = None, 
           align = False, axis = 0, f1s = None, f2s = None, aout = None):  
     """Computes cross-correlation of the input signals of regular or irregular 
     time - spaced data.
@@ -1453,17 +1462,14 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
     
     method = _default_method(method, n)
     print1("Computing {}...".format(method))
+    norm = _default_norm(norm, method, cross = True)
     
     correlate = False if method == "diff" else True
     
     if method == "diff":
         cor, count, ds1, ds2 = (None,)*4 if aout is None else aout 
-        if norm not in (0,1,2,3):
-            raise ValueError("Normalization mode must be 1 or 3 for method '{}'.".format(method))
     else:
         cor, count, sq, ds1, ds2 = (None,)*5 if aout is None else aout 
-        if norm not in (0,1,2,3):
-            raise ValueError("Normalization mode must be 0, 1, 2 or 3 for method '{}'.".format(method))
 
     f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n,cor)
     
@@ -1536,13 +1542,11 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         return cor, count, sq, ds1, ds2
     
 
-def iccorr(data, t1 = None, t2 = None, n = 2**5, norm = 0, method = "corr", 
+def iccorr(data, t1 = None, t2 = None, n = 2**5, norm = 0, method = "corr", count = None,
                 chunk_size = None, thread_divisor = None,  
-                auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = False):
+                auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
     """Iterative version of :func:`ccorr`.
     
-    
-        
     Parameters
     ----------
     data : iterable
@@ -1560,6 +1564,9 @@ def iccorr(data, t1 = None, t2 = None, n = 2**5, norm = 0, method = "corr",
     method : str, optional
         Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on 
         the rest of the input parameters.
+    count : int, optional
+        If given, it defines how many elements of the data to process. If not given,
+        count is set to len(t1) if that is not specified, it is set to len(data).     
     chunk_size : int
         Length of data chunk. 
     thread_divisor : int, optional
@@ -1588,20 +1595,23 @@ def iccorr(data, t1 = None, t2 = None, n = 2**5, norm = 0, method = "corr",
         
     Returns
     -------
-    fast, slow : lin_data, multilevel_data
-        A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-        data.
+    ccorr_data, bg, var : ccorr_type, ndarray, ndarray
+        Ccorr data, background and variance data. See :func:`ccorr` for definition 
+        of accorr_type
+    ccorr_data : ccorr_type
+        If `stats` == False
     """
-    t1 = len(data) if t1 is None else t1
-    n = len(data)//2 if n is None else int(n)
-    chunk_size = n * 2 if chunk_size is None else int(chunk_size)
+    
+    if (t1 is None and t2 is not None) or (t2 is None and t1 is not None):
+        raise ValueError("Both `t1` and `t2` arguments must be provided")
+    
     period = 1
     nlevel = 0
     #in order to prevent circular import we import it here
     from cddm.multitau import _compute_multi_iter, _VIEWERS
 
-    for i, mdata in enumerate(_compute_multi_iter(data, t1, t2, period = period , n = n , 
-                        chunk_size = chunk_size,   method = method, auto_background = auto_background, nlevel = nlevel, 
+    for i, mdata in enumerate(_compute_multi_iter(data, t1, t2, period = period , level_size = n , 
+                        chunk_size = chunk_size,   method = method, count = count, auto_background = auto_background, nlevel = nlevel, 
                         norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats)):
         if stats == True:
             (data, dummy), bg, var = mdata
@@ -1623,9 +1633,9 @@ def iccorr(data, t1 = None, t2 = None, n = 2**5, norm = 0, method = "corr",
     else:
         return data
 
-def iacorr(data, t = None, n = None, norm = 0, method = "corr", 
+def iacorr(data, t = None, n = None, norm = 0, method = "corr", count = None,
                 chunk_size = None, thread_divisor = None,  
-                auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = False):
+                auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
     """Iterative version of :func:`ccorr`
         
     Parameters
@@ -1645,6 +1655,9 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr",
         the rest of the input parameters.
     chunk_size : int
         Length of data chunk. 
+    count : int, optional
+        If given, it defines how many elements of the data to process. If not given,
+        count is set to len(t1) if that is not specified, it is set to len(data).  
     thread_divisor : int, optional
         If specified, input frame is reshaped to 2D with first axis of length
         specified with the argument. It defines how many treads are run. This
@@ -1671,21 +1684,20 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr",
         
     Returns
     -------
-    fast, slow : lin_data, multilevel_data
-        A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-        data.
+    acorr_data, bg, var : acorr_type, ndarray, ndarray
+        Acorr data, background and variance data. See :func:`acorr` for definition 
+        of acorr_type
+    acorr_data : acorr_type
+        If `stats` == False
     """
-    t = len(data) if t is None else t
-    n = len(data) if n is None else n
-    chunk_size = n if chunk_size is None else int(chunk_size)
+
     period = 1
-    n = n
     nlevel = 0
     #in order to prevent circular import we import it here
     from cddm.multitau import _compute_multi_iter, _VIEWERS
 
-    for i, mdata in enumerate(_compute_multi_iter(data, t, period = period , n = n , 
-                        chunk_size = chunk_size,   method = method, auto_background = auto_background, nlevel = nlevel, 
+    for i, mdata in enumerate(_compute_multi_iter(data, t, period = period , level_size = n , 
+                        chunk_size = chunk_size,   method = method,  count = count, auto_background = auto_background, nlevel = nlevel, 
                         norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats)):
         if stats == True:
             (data, dummy), bg, var = mdata
@@ -1946,9 +1958,12 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     if scale == True:
         _scale_factor = _variance2offset(variance,mask)
     
-    print2("   * norm : {}".format(norm))
-    print2("   * scale : {}".format(scale))
-    print2("   * mode : {}".format(mode))
+    print2("   * background : {}".format(background is not None))
+    print2("   * variance   : {}".format(variance is not None))
+    print2("   * norm       : {}".format(norm))
+    print2("   * scale      : {}".format(scale))
+    print2("   * mode       : {}".format(mode))
+    print2("   * mask       : {}".format(mask is not None))
 
     count = data[1]
     

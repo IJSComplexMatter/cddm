@@ -287,7 +287,7 @@ class TestIcorr(unittest.TestCase):
             data = core.ccorr(test_data1, test_data2,n = 8, norm = 1, method = method)
             out1 = core.normalize(data, bg, var)
             vid = fromarrays((test_data1, test_data2))
-            data = core.iccorr(vid, len(test_data1), chunk_size = 16,n = 8, norm = 1, method = method)
+            data = core.iccorr(vid, count = len(test_data1),chunk_size = 16,n = 8, norm = 1, method = method)
             out2 = core.normalize(data, bg, var)  
             self.assertTrue(np.allclose(out1, out2))              
 

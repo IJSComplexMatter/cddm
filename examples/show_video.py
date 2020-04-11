@@ -21,5 +21,5 @@ video = simple_brownian_video(range(1024), shape = (512,512))
 #video, = asarrays(video)
 
 #: VideoViewer either expects a multi_frame iterator, or a numpy array
-viewer = VideoViewer(video, count =1024)
+viewer = VideoViewer(video, count =1024, vmin = 0, cmap = "gray")
 viewer.show()

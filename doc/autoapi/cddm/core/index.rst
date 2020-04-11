@@ -419,7 +419,7 @@ Module Contents
    :rtype: (ndarray, ndarray), (ndarray, ndarray)
 
 
-.. function:: acorr(f, t=None, fs=None, n=None, norm=NORM_COMPENSATED, method=None, align=False, axis=0, aout=None)
+.. function:: acorr(f, t=None, fs=None, n=None, norm=None, method=None, align=False, axis=0, aout=None)
 
    Computes auto-correlation of the input signals of regular or irregular
    time - spaced data.
@@ -435,7 +435,8 @@ Module Contents
    :param n: If provided, determines the length of the output. Note that 'aout' parameter
              takes precedence over 'n'.
    :type n: int, optional
-   :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
+   :param norm: Specifies normalization procedure 0,1,2, or 3. Default to 3, except for
+                'diff' method where it default to 1.
    :type norm: int, optional
    :param method: Either 'fft' , 'corr' or 'diff'. If not given it is chosen automatically based on
                   the rest of the input parameters.
@@ -455,7 +456,7 @@ Module Contents
              * **(diff, count, _, _)** (*(ndarray, ndarray, NoneType, NoneType)*) -- Computed difference data for 'diff' method.
 
 
-.. function:: ccorr(f1, f2, t1=None, t2=None, n=None, norm=NORM_COMPENSATED | NORM_SUBTRACTED, method=None, align=False, axis=0, f1s=None, f2s=None, aout=None)
+.. function:: ccorr(f1, f2, t1=None, t2=None, n=None, norm=None, method=None, align=False, axis=0, f1s=None, f2s=None, aout=None)
 
    Computes cross-correlation of the input signals of regular or irregular
    time - spaced data.
@@ -518,7 +519,7 @@ Module Contents
    provided 'aout' arrays.
 
 
-.. function:: iccorr(data, t1=None, t2=None, n=2**5, norm=0, method='corr', chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=False)
+.. function:: iccorr(data, t1=None, t2=None, n=2**5, norm=0, method='corr', count=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=False)
 
    Iterative version of :func:`ccorr`.
 
@@ -539,6 +540,9 @@ Module Contents
    :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
                   the rest of the input parameters.
    :type method: str, optional
+   :param count: If given, it defines how many elements of the data to process. If not given,
+                 count is set to len(t1) if that is not specified, it is set to len(data).
+   :type count: int, optional
    :param chunk_size: Length of data chunk.
    :type chunk_size: int
    :param thread_divisor: If specified, input frame is reshaped to 2D with first axis of length
@@ -570,7 +574,7 @@ Module Contents
    :rtype: lin_data, multilevel_data
 
 
-.. function:: iacorr(data, t=None, n=None, norm=0, method='corr', chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=False)
+.. function:: iacorr(data, t=None, n=None, norm=0, method='corr', count=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=False)
 
    Iterative version of :func:`ccorr`
 
@@ -589,6 +593,9 @@ Module Contents
    :type method: str, optional
    :param chunk_size: Length of data chunk.
    :type chunk_size: int
+   :param count: If given, it defines how many elements of the data to process. If not given,
+                 count is set to len(t1) if that is not specified, it is set to len(data).
+   :type count: int, optional
    :param thread_divisor: If specified, input frame is reshaped to 2D with first axis of length
                           specified with the argument. It defines how many treads are run. This
                           must be a divisor of the total size of the frame. Using this may speed

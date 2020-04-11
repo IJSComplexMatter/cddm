@@ -150,16 +150,6 @@ def _k_select(data, k, indexmap, kmap):
     else:
         #no k values
         return None
-    
-class KMask(object):
-    kmap = None
-    anglemap = None
-    def __init__(self, kisize, kjsize, shape = None):
-        self.kmap, self.anglemap = rfft2_kangle(kisize, kjsize,shape)
-    
-    def get(self):
-        pass
-
 
 def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None):
     """k-selection and k-averaging of normalized (and merged) correlation data.
@@ -179,6 +169,9 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None):
         Defines an approximate k step in pixel units
     k : float or list of floats, optional
         If provided, only return at a given k value (and not at all non-zero k values)
+    shape : tuple
+        Shape of the original video frame. If shape is not rectangular, it must
+        be provided.
         
     Returns
     -------

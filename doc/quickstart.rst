@@ -64,7 +64,7 @@ Now we can inspect the video using tools found in :mod:`.viewer`
 .. doctest::
  
    >>> from cddm.viewer import VideoViewer
-   >>> viewer = VideoViewer(video, count = 1024)
+   >>> viewer = VideoViewer(video, count = 1024, vmin = 0, cmap = "gray")
    >>> viewer.show()
 
 .. plot:: examples/show_video.py
@@ -296,9 +296,9 @@ To view the two videos we can again use the VideoViewer
 .. doctest::
 
    >>> video = list(video) 
-   >>> viewer1 = VideoViewer(video, count = 1024, id = 0)
+   >>> viewer1 = VideoViewer(video, count = 1024, id = 0, vmin = 0, cmap = "gray")
    >>> viewer1.show()
-   >>> viewer2 = VideoViewer(video, count = 1024, id = 1)
+   >>> viewer2 = VideoViewer(video, count = 1024, id = 1, vmin = 0, cmap = "gray")
    >>> viewer2.show()
 
 .. plot:: examples/show_dual_video.py
@@ -469,7 +469,7 @@ In the examples in this guide we were simulating Brownian motion of particles, s
 
 .. plot:: examples/cross_correlate_k_fit.py
 
-   Here we plot fitted results from the cross-correlation function computed with :func:`.multitau.iccorr_multi`  using subtract_background = False option. For this example, the *norm = 3* datapoint are closest to the theoretically predicted value shown in graph.
+   Results from the fitting of the cross-correlation function computed with :func:`.multitau.iccorr_multi` using subtract_background = False option. For this example, the *norm = 3* datapoint are closest to the theoretically predicted value shown in graph with the black line.
 
 As can be seen, normalization with *norm = 3* appears to work best with this data. For further details and examples, you are encouraged to browse the source, API reference and examples.
 

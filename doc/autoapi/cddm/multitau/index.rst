@@ -33,28 +33,52 @@
 Module Contents
 ---------------
 
+.. data:: BINNING_SLICE
+   :annotation: = 0
+
+   No binning (select every second element)
+
+
+.. data:: BINNING_MEAN
+   :annotation: = 1
+
+   Binning (take mean value)
+
+
+.. data:: BINNING_CHOOSE
+   :annotation: = 2
+
+   Binning with random selection
+
+
 .. function:: mean(a, b)
 
-   Man value of two data sets.
+   Man value
 
 
-.. function:: bin_data(data, axis=0, out_axis=None)
+.. function:: mean_data(data, axis=0, out_axis=None)
 
    Binning function. Takes data and performs channel binning over a specifed
-   axis. If cepcified, also moves axis to out_axis.
+   axis. If specified, also moves axis to out_axis.
 
 
-.. function:: random_select_data(data, axis=0, out_axis=None)
+.. function:: choose(a, b)
+
+   Chooses data, randomly
+
+
+.. function:: choose_data(data, axis=0, out_axis=None)
 
    Instead of binning, this randomly selects data.
+   If specified, also moves axis to out_axis.
 
 
 .. function:: slice_data(data, axis=0, out_axis=None)
 
-   Instead of binning, this only takes every second channel.
+   Slices data so that it takes every second channel. If specified, also moves axis to out_axis.
 
 
-.. function:: ccorr_multi(f1, f2, t1=None, t2=None, n=2**5, norm=1, method='corr', align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None, stats=False)
+.. function:: ccorr_multi(f1, f2, t1=None, t2=None, level_size=2**4, norm=None, method=None, align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None)
 
    Multitau version of :func:`.core.ccorr`
 
@@ -68,8 +92,8 @@ Module Contents
    :param t2: Array of integers defining frame times of the second data. If not provided,
               regular time-spaced data is assumed.
    :type t2: array-like, optional
-   :param n: If provided, determines the length of the output.
-   :type n: int, optional
+   :param level_size: If provided, determines the length of the output.
+   :type level_size: int, optional
    :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
    :type norm: int, optional
    :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
@@ -94,25 +118,23 @@ Module Contents
                           up computation in some cases because of better memory alignment and
                           cache sizing.
    :type thread_divisor: int, optional
-   :param stats: Whether to return stats as well.
-   :type stats: bool
 
-   :returns: **fast, slow** -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
+   :returns: **lin, multi** -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
              data.
    :rtype: lin_data, multilevel_data
 
 
-.. function:: acorr_multi(f, t=None, n=2**5, norm=1, method='corr', align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None, stats=False)
+.. function:: acorr_multi(f, t=None, level_size=2**4, norm=None, method=None, align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None)
 
-   Multitau version of :func:`.core.ccorr`
+   Multitau version of :func:`.core.acorr`
 
-   :param f: A complex ND array of the data.
+   :param f: A complex ND array
    :type f: array-like
    :param t: Array of integers defining frame times of the data. If not provided,
              regular time-spaced data is assumed.
    :type t: array-like, optional
-   :param n: If provided, determines the length of the output.
-   :type n: int, optional
+   :param level_size: If provided, determines the length of the output.
+   :type level_size: int, optional
    :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
    :type norm: int, optional
    :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
@@ -138,32 +160,32 @@ Module Contents
                           cache sizing.
    :type thread_divisor: int, optional
 
-   :returns: **fast, slow** -- A tuple of linear_data (same as from acorr function) and a tuple of multilevel
+   :returns: **lin, multi** -- A tuple of linear_data (same as from acorr function) and a tuple of multilevel
              data.
    :rtype: lin_data, multilevel_data
 
 
-.. function:: iccorr_multi(data, t1=None, t2=None, n=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
+.. function:: iccorr_multi(data, t1=None, t2=None, level_size=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
-   Iterative version of :func:`.core.ccorr`
+   Iterative version of :func:`.ccorr_multi`
 
    :param data: An iterable object, iterating over dual-frame ndarray data.
    :type data: iterable
-   :param t1: Array of integers defining frame times of the first data. Either this or
-              count must be defined. If not defined, regular-spaced data is assumed.
+   :param t1: Array of integers defining frame times of the first data.  If not defined,
+              regular-spaced data is assumed.
    :type t1: array-like, optional
-   :param t2: Array of integers defining frame times of the second data. If not provided
-              it is same as t1.
+   :param t2: Array of integers defining frame times of the second data. If t1 is defined,
+              you must define t2 as well.
    :type t2: array-like, optional
-   :param n: If provided, determines the length of the output.
-   :type n: int, optional
+   :param level_size: If provided, determines the length of the multi_level data.
+   :type level_size: int, optional
    :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
    :type norm: int, optional
    :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
                   the rest of the input parameters.
    :type method: str, optional
-   :param count: If given it defines how many elements of the data to process. If not given,
-                 count is set to len(t1)
+   :param count: If given, it defines how many elements of the data to process. If not given,
+                 count is set to len(t1) if that is not specified, it is set to len(data).
    :type count: int, optional
    :param period: Period of the irregular-spaced random triggering sequence. For regular
                   spaced data, this should be set to 1 (deefault).
@@ -190,7 +212,7 @@ Module Contents
    :type viewer_interval: int, optional
    :param mode: Either "full" or "partial". With mode = "full", output of this function
                 is identical to the output of :func:`ccorr_multi`. With mode = "partial",
-                cross correlation between neigbouring chunks is not computed.
+                cross correlation between neighbouring chunks is not computed.
    :type mode: str
    :param mask: If specifed, computation is done only over elements specified by the mask.
                 The rest of elements are not computed, np.nan values are written to output
@@ -199,29 +221,29 @@ Module Contents
    :param stats: Whether to return stats as well.
    :type stats: bool
 
-   :returns: **fast, slow** -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-             data.
-   :rtype: lin_data, multilevel_data
+   :returns: * **lin, multi** (*lin_data, multilevel_data*) -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
+               data.
+             * **(lin, multi), bg, var** (*(lin_data, multilevel_data), ndarray, ndarray*) -- If `stats` == True, it also returns background and variance arrays.
 
 
-.. function:: iacorr_multi(data, t=None, n=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
+.. function:: iacorr_multi(data, t=None, level_size=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
-   Iterative version of :func:`.core.ccorr`
+   Iterative version of :func:`.acorr_multi`
 
    :param data: An iterable object, iterating over dual-frame ndarray data.
    :type data: iterable
-   :param t: Array of integers defining frame times of the first data. Either this or
-             count must be defined. If not defined, regular-spaced data is assumed.
+   :param t: Array of integers defining frame times of the first data. If not defined,
+             regular-spaced data is assumed.
    :type t: array-like, optional
-   :param n: If provided, determines the length of the output.
-   :type n: int, optional
+   :param level_size: If provided, determines the length of the multi_level data.
+   :type level_size: int, optional
    :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
    :type norm: int, optional
    :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
                   the rest of the input parameters.
    :type method: str, optional
-   :param count: If given it defines how many elements of the data to process. If not given,
-                 count is set to len(t1)
+   :param count: If given, it defines how many elements of the data to process. If not given,
+                 count is set to len(t1) if that is not specified, it is set to len(data).
    :type count: int, optional
    :param period: Period of the irregular-spaced random triggering sequence. For regular
                   spaced data, this should be set to 1 (deefault).
@@ -246,9 +268,9 @@ Module Contents
    :param viewer_interval: A positive integer, defines how frequently are plots updated 1 for most
                            frequent, higher numbers for less frequent updates.
    :type viewer_interval: int, optional
-   :param mode: Either "full" or "partial". With mode = "full", output of this function
-                is identical to the output of :func:`ccorr_multi`. With mode = "partial",
-                cross correlation between neigbouring chunks is not computed.
+   :param mode: Either "full" or "chunk". With mode = "full", output of this function
+                is identical to the output of :func:`ccorr_multi`. With mode = "chunk",
+                cross correlation between neighbouring chunks is not computed.
    :type mode: str
    :param mask: If specifed, computation is done only over elements specified by the mask.
                 The rest of elements are not computed, np.nan values are written to output
@@ -257,9 +279,9 @@ Module Contents
    :param stats: Whether to return stats as well.
    :type stats: bool
 
-   :returns: **fast, slow** -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-             data.
-   :rtype: lin_data, multilevel_data
+   :returns: * **lin, multi** (*lin_data, multilevel_data*) -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
+               data.
+             * **(lin, multi), bg, var** (*(lin_data, multilevel_data), ndarray, ndarray*) -- If `stats` == True, it also returns background and variance arrays.
 
 
 .. function:: convolve(a, out)
@@ -311,19 +333,19 @@ Module Contents
    :rtype: ndarray, ndarray
 
 
-.. function:: log_merge(cfast, cslow)
+.. function:: log_merge(lin, multi)
 
    Merges normalized multi-tau data.
 
    You must first normalize with :func:`normalize_multi` before merging!
    This function performs a multilevel split on the fast (linear) data and
-   m erges that with the multilevel slow data into a continuous log-spaced
+   merges that with the multilevel slow data into a continuous log-spaced
    data.
 
-   :param cfast: Fast part of the dataset
-   :type cfast: ndarray
-   :param cslow: Slow part of the dataset
-   :type cslow: ndarray
+   :param lin: Linear data
+   :type lin: ndarray
+   :param multi: Multilevel data
+   :type multi: ndarray
 
    :returns: **x, y** -- Time and log-spaced data arrays.
    :rtype: ndarray, ndarray
