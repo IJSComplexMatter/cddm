@@ -1818,6 +1818,14 @@ def _norm_from_cdiff_data(data, norm = None):
         else:
             raise ValueError("Normalization mode incompatible with input data.")
 
+def _default_norm_from_data(data, method, norm = None):
+    if method == "corr":
+        norm = _norm_from_ccorr_data(data, norm)
+    else:
+        norm = _norm_from_cdiff_data(data, norm)
+    return norm
+    
+
 def _diff2corr(data, variance, mask):
     offset = _variance2offset(variance, mask)        
     data *= (-0.5)
@@ -1949,11 +1957,8 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     mode = _inspect_mode(mode)
     
     #determine default normalization if not specified by user
-    if method == "corr":
-        norm = _norm_from_ccorr_data(data, norm)
-    else:
-        norm = _norm_from_cdiff_data(data, norm)
-    
+    norm = _default_norm_from_data(data, method, norm)
+
     # scale factor for normalization 
     if scale == True:
         _scale_factor = _variance2offset(variance,mask)

@@ -2,10 +2,10 @@
     
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button
+from matplotlib.widgets import Slider, Button, RadioButtons
 from cddm.map import rfft2_kangle,  sector_indexmap
 from cddm.multitau import normalize_multi, log_merge, log_average
-from cddm.core import normalize
+from cddm.core import normalize, _default_norm_from_data, _method_from_data
 from cddm.print_tools import disable_prints, enable_prints
 from cddm.decorators import doc_inherit, skip_runtime_error
 
@@ -218,6 +218,11 @@ class DataViewer(object):
         self.im = self.ax2.imshow(np.fft.fftshift(self.graph,0), 
             extent=[0,self.graph.shape[1],self.graph.shape[0]//2+1,-self.graph.shape[0]//2-1])
        
+        method = _method_from_data(self.data[0])#multitau data.. so take only the first element
+        self.norm = _default_norm_from_data(self.data[0],method,self.norm)
+        
+        self.rax = plt.axes([0.48, 0.7, 0.15, 0.15])
+        self.radio = RadioButtons(self.rax,("norm 0","norm 1","norm 2","norm 3"), active = self.norm, activecolor = "gray")
 
         self.kax = plt.axes([0.1, 0.15, 0.65, 0.03])
         self.kindex = Slider(self.kax, "k",0,int(self.kmap.max()),valinit = self.k, valfmt='%i')
@@ -227,10 +232,18 @@ class DataViewer(object):
 
         self.sectorax = plt.axes([0.1, 0.05, 0.65, 0.03])
         self.sectorindex = Slider(self.sectorax, "sector",0,180,valinit = self.sector, valfmt='%.2f') 
-                                  
+        
+        
         def update(val):
+            try:
+                method = _method_from_data(self.data[0])
+                self.norm = _default_norm_from_data(self.data[0],method,int(self.radio.value_selected[-1]))
+            except ValueError:
+                self.radio.set_active(self.norm)
             self.set_mask(int(round(self.kindex.val)),self.angleindex.val,self.sectorindex.val, self.kstep)
             self.plot()
+            
+        self.radio.on_clicked(update)
             
         self.kindex.on_changed(update)
         self.angleindex.on_changed(update)

@@ -156,7 +156,7 @@ def draw_psf(im, points, intensity, sigma):
         h,w = int(h0), int(w0) 
         for i0 in range(h-size,h+size+1):
             for j0 in range(w -size, w+size+1):
-                p = psf_gauss(i0,h0,j0,w0,sigma,intensity)
+                p = psf_gauss(i0,h0,j0,w0,sigma*(1-0.1 + 0.2*np.random.rand()),intensity)
                 #j = j0 % width
                 #i = i0 % height
                 

@@ -54,7 +54,7 @@ k_3, rate_3 = load_and_fit(3)
 
 plt.figure()  
 
-k_1, rate_1 = k_1[:-2], rate_1[:-2] #remove high wavenumber data
+#k_1, rate_1 = k_1[:-2], rate_1[:-2] #remove high wavenumber data
 
 plt.plot((k_1**2),rate_1,"o", color = colors[0],fillstyle='none', label = "norm = 1")
 plt.plot(k_2**2,rate_2,"o", color = colors[1],fillstyle='none', label = "norm = 2")
