@@ -19,7 +19,7 @@ Module Contents
    A matplotlib-based video viewer.
 
    :param video: A list of a tuple of 2D arrays or a generator of a tuple of 2D arrays.
-                 If an iterator is provided, you must set 'n' as well.
+                 If an iterator is provided, you must set 'count' as well.
    :type video: list-like, iterator
    :param count: Length of the video. When this is set it displays only first 'count' frames of the video.
    :type count: int
@@ -37,16 +37,13 @@ Module Contents
 
 
 
-.. py:class:: DataViewer(norm=None, scale=False, semilogx=True, shape=None, size=None)
+.. py:class:: DataViewer(semilogx=True, shape=None, mask=None)
 
    Bases: :class:`object`
 
-   Shows correlation data in plot. You need to hold reference to this object, otherwise it will not work in interactive mode.
+   Plots normalized correlation data. You need to hold reference to this object,
+   otherwise it will not work in interactive mode.
 
-   :param norm: Normalization constant used in normalization
-   :type norm: int, optional
-   :param scale: Scale constant used in normalization.
-   :type scale: bool, optional
    :param semilogx: Whether plot data with semilogx or not.
    :type semilogx: bool
    :param shape: Original frame shape. For non-rectangular you must provide this so
@@ -55,20 +52,16 @@ Module Contents
    :param size: If specified, perform log_averaging of data with provided size parameter.
                 If not given, no averaging is performed.
    :type size: int, optional
+   :param mask: A boolean array indicating which data elements were computed.
+   :type mask: ndarray, optional
 
-   .. method:: set_data(self, data, background=None, variance=None)
+   .. method:: set_data(self, data, t=None)
 
 
       Sets correlation data.
 
-      :param data: A data tuple (as computed by ccorr, cdiff, adiff, acorr functions)
-      :type data: tuple
-      :param background: Background data for normalization. For adiff, acorr functions this
-                         is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
-      :type background: tuple or ndarray
-      :param variance: Variance data for normalization. For adiff, acorr functions this
-                       is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
-      :type variance: tuple or ndarray
+      :param data: Normalized data.
+      :type data: ndarray
 
 
    .. method:: get_data(self)
@@ -76,7 +69,7 @@ Module Contents
 
       Returns computed k-averaged data and time
 
-      :returns: **x, y** -- Time, data tuple of ndarrays.
+      :returns: **x, y** -- Time, data ndarrays.
       :rtype: ndarray, ndarray
 
 
@@ -117,21 +110,61 @@ Module Contents
 
 
 
-.. py:class:: MultitauViewer(norm=None, scale=False, semilogx=True, shape=None)
+.. py:class:: CorrViewer(semilogx=True, shape=None, size=None, norm=None, scale=False, mask=None)
 
    Bases: :class:`cddm.viewer.DataViewer`
 
-   Shows multitau data in plot. You need to hold reference to this object,
+   Plots raw correlation data. You need to hold reference to this object,
    otherwise it will not work in interactive mode.
 
-   :param norm: Normalization constant used in normalization
-   :type norm: int, optional
-   :param scale: Scale constant used in normalization.
-   :type scale: bool, optional
    :param semilogx: Whether plot data with semilogx or not.
    :type semilogx: bool
    :param shape: Original frame shape. For non-rectangular you must provide this so
                  to define k step.
    :type shape: tuple of ints, optional
+   :param size: If specified, perform log_averaging of data with provided size parameter.
+                If not given, no averaging is performed.
+   :type size: int, optional
+   :param norm: Normalization constant used in normalization
+   :type norm: int, optional
+   :param scale: Scale constant used in normalization.
+   :type scale: bool, optional
+   :param mask: A boolean array indicating which data elements were computed.
+   :type mask: ndarray, optional
+
+   .. method:: set_data(self, data, background=None, variance=None)
+
+
+      Sets correlation data.
+
+      :param data: A data tuple (as computed by ccorr, cdiff, adiff, acorr functions)
+      :type data: tuple
+      :param background: Background data for normalization. For adiff, acorr functions this
+                         is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+      :type background: tuple or ndarray
+      :param variance: Variance data for normalization. For adiff, acorr functions this
+                       is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+      :type variance: tuple or ndarray
+
+
+
+.. py:class:: MultitauViewer(semilogx=True, shape=None, norm=None, scale=False, mask=None)
+
+   Bases: :class:`cddm.viewer.CorrViewer`
+
+   Shows multitau data in plot. You need to hold reference to this object,
+   otherwise it will not work in interactive mode.
+
+   :param semilogx: Whether plot data with semilogx or not.
+   :type semilogx: bool
+   :param shape: Original frame shape. For non-rectangular you must provide this so
+                 to define k step.
+   :type shape: tuple of ints, optional
+   :param norm: Normalization constant used in normalization
+   :type norm: int, optional
+   :param scale: Scale constant used in normalization.
+   :type scale: bool, optional
+   :param mask: A boolean array indicating which data elements were computed.
+   :type mask: ndarray, optional
 
 

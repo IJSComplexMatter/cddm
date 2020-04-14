@@ -5,17 +5,22 @@ Demonstrates how to compute fft of videos and the compute auto correlation
 function with the out-of-memory version of the multitau algorithm.
 """
 
-from cddm.viewer import MultitauViewer
-from cddm.video import multiply, normalize_video, crop
+from cddm.viewer import DataViewer, CorrViewer
+from cddm.video import multiply, normalize_video, crop, asarrays
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
+from cddm.core import acorr, normalize, stats
+from cddm.multitau import log_average
 from cddm.multitau import iacorr_multi, normalize_multi, log_merge
-from cddm.sim import simple_brownian_video
+from cddm.sim import simple_brownian_video, seed, numba_seed
 import numpy as np
 
 from conf import SIZE, NFRAMES,DELTA
 
 
+#set seeds so that all experiments are on ssame dataset
+seed(0)
+numba_seed(0)
 
 #: this creates a brownian motion multi-frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame,)
@@ -43,23 +48,27 @@ fft = rfft2(video, kimax =31, kjmax = 31)
 #: this it therefore equivalent to  normalize_video
 #fft = normalize_fft(fft)
 
+#load int numpy array
+fft_array, = asarrays(fft, NFRAMES)
+
 #: now perform auto correlation calculation with default parameters using iterative algorithm
-data, bg, var = iacorr_multi(fft, range(SIZE))
+data = acorr(fft_array)
+bg, var = stats(fft_array)
+
+#perform normalization and merge data
+data_lin = normalize(data, bg, var, scale = True)
 
 #: inspect the data
-viewer = MultitauViewer(scale = True)
-viewer.set_data(data, bg, var)
+viewer = DataViewer()
+viewer.set_data(data_lin)
 viewer.set_mask(k = 25, angle = 0, sector = 30)
 viewer.plot()
 viewer.show()
 
-#perform normalization and merge data
-fast, slow = normalize_multi(data, bg, var, scale = True)
-x,y = log_merge(fast, slow)
+x,y = log_average(data_lin)
 
 #: save the normalized data to numpy files
-import numpy as np
-np.save("auto_correlate_multi_t.npy",x)
-np.save("auto_correlate_multi_data.npy",y)
+np.save("auto_correlate_t.npy",x)
+np.save("auto_correlate_data.npy",y)
 
 

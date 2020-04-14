@@ -78,7 +78,7 @@ Module Contents
    Slices data so that it takes every second channel. If specified, also moves axis to out_axis.
 
 
-.. function:: ccorr_multi(f1, f2, t1=None, t2=None, level_size=2**4, norm=None, method=None, align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None)
+.. function:: ccorr_multi(f1, f2, t1=None, t2=None, level_size=2**4, norm=None, method=None, align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None, mask=None)
 
    Multitau version of :func:`.core.ccorr`
 
@@ -119,12 +119,12 @@ Module Contents
                           cache sizing.
    :type thread_divisor: int, optional
 
-   :returns: **lin, multi** -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-             data.
-   :rtype: lin_data, multilevel_data
+   :returns: **lin, multi** -- A tuple of linear (short delay) data and multilevel (large delay) data
+             See :func:`.core.ccorr` for definition of ccorr_type
+   :rtype: ccorr_type, ccorr_type
 
 
-.. function:: acorr_multi(f, t=None, level_size=2**4, norm=None, method=None, align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None)
+.. function:: acorr_multi(f, t=None, level_size=2**4, norm=None, method=None, align=False, axis=0, period=1, binning=None, nlevel=None, thread_divisor=None, mask=None)
 
    Multitau version of :func:`.core.acorr`
 
@@ -160,9 +160,9 @@ Module Contents
                           cache sizing.
    :type thread_divisor: int, optional
 
-   :returns: **lin, multi** -- A tuple of linear_data (same as from acorr function) and a tuple of multilevel
-             data.
-   :rtype: lin_data, multilevel_data
+   :returns: **lin, multi** -- A tuple of linear (short delay) data and multilevel (large delay) data
+             See :func:`.core.acorr` for definition of acorr_type
+   :rtype: acorr_type, acorr_type
 
 
 .. function:: iccorr_multi(data, t1=None, t2=None, level_size=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
@@ -221,9 +221,10 @@ Module Contents
    :param stats: Whether to return stats as well.
    :type stats: bool
 
-   :returns: * **lin, multi** (*lin_data, multilevel_data*) -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-               data.
-             * **(lin, multi), bg, var** (*(lin_data, multilevel_data), ndarray, ndarray*) -- If `stats` == True, it also returns background and variance arrays.
+   :returns: * **(lin, multi), bg, var** (*(ccorr_type, ccorr_type), ndarray, ndarray*) -- A tuple of linear (short delay) data and multilevel (large delay) data,
+               background and variance data. See :func:`.core.ccorr` for definition
+               of ccorr_type
+             * **lin, multi** (*ccorr_type, ccorr_type*) -- If `stats` == False
 
 
 .. function:: iacorr_multi(data, t=None, level_size=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
@@ -279,9 +280,10 @@ Module Contents
    :param stats: Whether to return stats as well.
    :type stats: bool
 
-   :returns: * **lin, multi** (*lin_data, multilevel_data*) -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-               data.
-             * **(lin, multi), bg, var** (*(lin_data, multilevel_data), ndarray, ndarray*) -- If `stats` == True, it also returns background and variance arrays.
+   :returns: * **(lin, multi), bg, var** (*(acorr_type, acorr_type), ndarray, ndarray*) -- A tuple of linear (short delay) data and multilevel (large delay) data,
+               background and variance data. See :func:`.core.acorr` for definition
+               of acorr_type
+             * **lin, multi** (*acorr_type, acorr_type*) -- If `stats` == False
 
 
 .. function:: convolve(a, out)
@@ -317,7 +319,7 @@ Module Contents
    :rtype: ndarray, ndarray
 
 
-.. function:: log_average(data, size=16)
+.. function:: log_average(data, size=8)
 
    Performs log average of normalized linear-spaced data.
 
@@ -325,8 +327,8 @@ Module Contents
 
    :param data: Input array of linear-spaced data
    :type data: array
-   :param size: Sampling length. Number of data points per each doubling of time.
-                Any number is valid.
+   :param size: Sampling size. Number of data points per each doubling of time.
+                Any positive number is valid.
    :type size: int
 
    :returns: **x, y** -- Time and log-spaced data arrays.

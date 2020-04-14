@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from conf import SIZE, NFRAMES, DELTA
 
-
 n = 16
+PERIOD = 2*n
 #random time according to Eq.7 from the SoftMatter paper
 t1, t2 = create_random_times1(NFRAMES,n = n)
 
@@ -45,31 +45,33 @@ video = multiply(video, window_video)
 #video = normalize_video(video)
 
 #: perform rfft2 and crop results, to take only first kimax and first kjmax wavenumbers.
-fft = rfft2(video, kimax =61, kjmax = 61)
+fft = rfft2(video, kimax =31, kjmax = 31)
 
 #: you can also normalize each frame with respect to the [0,0] component of the fft
 #: this it therefore equivalent to  normalize_video
 #fft = normalize_fft(fft)
 
-#we will show live calculation with the viewer
-viewer = MultitauViewer(scale = True, norm = 2)
+if __name__ == "__main__":
 
-#initial mask parameters
-viewer.k = 15
-viewer.sector = 30
-
-#: now perform auto correlation calculation with default parameters and show live
-data, bg, var = iccorr_multi(fft, t1, t2, period = 2*n, level_size = 32, viewer = viewer, norm = 2)
-
-#perform normalization and merge data
-fast, slow = normalize_multi(data, bg, var,  scale = True)
-x,y = log_merge(fast, slow)
-
-#: save the normalized data to numpy files
-for norm in (0,1,2,3):
-    fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
+    #we will show live calculation with the viewer
+    viewer = MultitauViewer(scale = True)
+    
+    #initial mask parameters
+    viewer.k = 15
+    viewer.sector = 30
+    
+    #: now perform auto correlation calculation with default parameters and show live
+    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, level_size = 32, viewer = viewer)
+    
+    #perform normalization and merge data
+    fast, slow = normalize_multi(data, bg, var,  scale = True)
     x,y = log_merge(fast, slow)
-    np.save("cross_correlate_multi_norm_{}_t.npy".format(norm),x)
-    np.save("cross_correlate_multi_norm_{}_data.npy".format(norm),y)
-
-
+    
+    #: save the normalized data to numpy files
+    for norm in (0,1,2,3):
+        fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
+        x,y = log_merge(fast, slow)
+        np.save("cross_correlate_multi_norm_{}_t.npy".format(norm),x)
+        np.save("cross_correlate_multi_norm_{}_data.npy".format(norm),y)
+    
+    viewer.show()

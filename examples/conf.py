@@ -10,3 +10,9 @@ NFRAMES = 1024
 DELTA = 2
 #: diffusion constant
 D = 0.5*(DELTA*2*np.pi/SIZE)**2
+
+KIMAX = 31
+KJMAX = 31
+
+KISIZE = KIMAX*2+1
+KJSIZE = KJMAX+1

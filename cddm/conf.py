@@ -142,6 +142,8 @@ NUMBA_INSTALLED = is_module_installed("numba")
 MKL_FFT_INSTALLED = is_module_installed("mkl_fft")
 SCIPY_INSTALLED = is_module_installed("scipy")
 CV2_INSTALLED = is_module_installed("cv2")
+PYQTGRAPH_INSTALLED = is_module_installed("pyqtgraph")
+PYFFTW_INSTALLED = is_module_installed("pyfftw")
 
 def detect_number_of_cores():
     """
@@ -224,7 +226,7 @@ class CDDMConfig(object):
         self.rfft2lib = "numpy"
         self.fftlib = "numpy"            
         self.verbose = 0
-        self.cv2 = False
+        self.showlib = "matplotlib"
         
     def __getitem__(self, item):
         return self.__dict__[item]
@@ -251,13 +253,20 @@ def set_verbose(level):
     CDDMConfig.verbose = max(0,int(level))
     return out
 
-def set_cv2(ok):
-    """Enable/Disable cv2 rendering."""
-    out = CDDMConfig.cv2
-    if ok == True and not CV2_INSTALLED:
-        warnings.warn("cv2 is not installed so it can not be used! Please install cv2.")            
+def set_showlib(name):
+    """Set library for live video view"""
+    out = CDDMConfig.showlib
+
+    if name not in ("matplotlib", "cv2", "pyqtgraph"):
+        raise ValueError("Unsupported library")    
+
+    if name == "cv2" and not CV2_INSTALLED:
+        warnings.warn("cv2 is not installed so it can not be used!")            
+    elif name == "pyqtgraph" and not PYQTGRAPH_INSTALLED:
+        warnings.warn("pyqtgraph is not installed so it can not be used!") 
     else:
-        CDDMConfig.cv2 = bool(ok)
+        CDDMConfig.showlib = name  
+    
     return out
     
 def set_nthreads(num):
@@ -273,14 +282,19 @@ def set_fftlib(name = "numpy.fft"):
         if MKL_FFT_INSTALLED: 
             CDDMConfig.fftlib = name
         else:
-            warnings.warn("MKL FFT is not installed so it can not be used! Please install mkl_fft.")            
+            warnings.warn("`mkl_fft` is not installed so it can not be used!")            
     elif name == "scipy.fftpack" or name == "scipy":
         if SCIPY_INSTALLED:
             CDDMConfig.fftlib = "scipy"
         else:
-            warnings.warn("Scipy is not installed so it can not be used! Please install scipy.") 
+            warnings.warn("`scipy` is not installed so it can not be used!") 
     elif name == "numpy.fft" or name == "numpy":
         CDDMConfig.fftlib = "numpy"
+    elif name == "pyfftw":
+        if PYFFTW_INSTALLED:
+            CDDMConfig.fftlib = "pyfftw"
+        else:
+            warnings.warn("`pyfftw` is not installed so it can not be used!")            
     else:
         raise ValueError("Unsupported fft library!")
     return out    
@@ -292,12 +306,18 @@ def set_rfft2lib(name = "numpy.fft"):
         if MKL_FFT_INSTALLED: 
             CDDMConfig.rfft2lib = name
         else:
-            warnings.warn("MKL FFT is not installed so it can not be used! Please install mkl_fft.")            
+            warnings.warn("`mkl_fft` is not installed so it can not be used!")            
     elif name == "scipy.fftpack" or name == "scipy":
         if SCIPY_INSTALLED:
             CDDMConfig.rfft2lib = "scipy"
         else:
-            warnings.warn("Scipy is not installed so it can not be used! Please install scipy.") 
+            warnings.warn("`scipy` is not installed so it can not be used!") 
+    elif name == "pyfftw":
+        if PYFFTW_INSTALLED:
+            CDDMConfig.rfft2lib = "pyfftw"
+        else:
+            warnings.warn("`pyfftw` is not installed so it can not be used!") 
+
     elif name == "numpy.fft" or name == "numpy":
         CDDMConfig.rfft2lib = "numpy"
     else:
@@ -307,7 +327,7 @@ def set_rfft2lib(name = "numpy.fft"):
 set_fftlib(_readconfig(config.get, "fft", "fftlib", ("mkl_fft" if MKL_FFT_INSTALLED else "numpy")))
 set_rfft2lib(_readconfig(config.get, "fft", "rfft2lib", "numpy"))
 set_verbose(_readconfig(config.getint, "core", "verbose", 0))
-set_cv2(_readconfig(config.getboolean, "core", "cv2", True if CV2_INSTALLED else False))
+set_showlib(_readconfig(config.get, "core", "showlib", "cv2" if CV2_INSTALLED else "matplotlib"))
 
 import numba
 

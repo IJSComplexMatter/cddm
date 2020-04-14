@@ -14,40 +14,6 @@
 Module Contents
 ---------------
 
-.. function:: show_fft(video, id=0, clip=None, title=None)
-
-   Show fft
-
-   :param video: A multi-frame iterator
-   :type video: iterator
-   :param id: Frame index
-   :type id: int
-   :param clip: Clipping value. If not given, it is determined automatically.
-   :type clip: float, optional
-   :param title: Unique title of the video. You can use :func:`.video.figure_title`
-                 to create a unique name.
-   :type title: str, optional
-
-   :returns: **video** -- A multi-frame iterator
-   :rtype: iterator
-
-
-.. function:: show_fftdiff(video, clip=None, title=None)
-
-   Show fft difference video
-
-   :param video: A multi-frame iterator
-   :type video: iterator
-   :param clip: Clipping value. If not given, it is determined automatically.
-   :type clip: float, optional
-   :param title: Unique title of the video. You can use :func:`figure_title``
-                 a to produce unique name.
-   :type title: str, optional
-
-   :returns: **video** -- A multi-frame iterator
-   :rtype: iterator
-
-
 .. function:: rfft2(video, kimax=None, kjmax=None, overwrite_x=False)
 
    A generator that performs rfft2 on a sequence of multi-frame data.

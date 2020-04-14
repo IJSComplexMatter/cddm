@@ -137,7 +137,7 @@ def _determine_lengths(length, n, period, nlevel):
     return n_fast, n_slow, nlevel
 
 def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, level_size = 2**4, 
-                         binning = None,  nlevel = None, norm = None, method = None, align = False, thread_divisor = None):
+                         binning = None,  nlevel = None, norm = None, method = None, align = False, thread_divisor = None, mask = None):
     """Implements multiple tau algorithm for cross(auto)-correlation(difference) calculation.
     """
     #initial time for computation time computation
@@ -158,9 +158,9 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
         f1,t1,axis,level_size = _inspect_auto_arguments(f1,t1,axis,level_size, None)
     
     #reshape input data for faster threaded execution.
-    f1, kshape = reshape_input(f1, axis = axis, thread_divisor = thread_divisor)
+    f1, kshape = reshape_input(f1, axis = axis, thread_divisor = thread_divisor, mask = mask)
     if cross:
-        f2, kshape = reshape_input(f2, axis = axis, thread_divisor = thread_divisor)
+        f2, kshape = reshape_input(f2, axis = axis, thread_divisor = thread_divisor, mask = mask)
 
     new_axis = -2 if f1.ndim > 1 else -1    
 
@@ -194,6 +194,8 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     print2("   * norm           : {}".format(norm))
     print2("   * align          : {}".format(align))
     print2("   * thread_divisor : {}".format(thread_divisor))
+    print2("   * mask           : {}".format(mask is not None))
+
     
     print_progress(0, 100)        
     v = disable_prints()
@@ -273,11 +275,11 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     print_frame_rate(length, t0)
     
     #reshape back to original data shape
-    return tuple((reshape_output(o, kshape) for o in out))
+    return tuple((reshape_output(o, kshape, mask = mask) for o in out))
 
 
 def ccorr_multi(f1,f2, t1 = None, t2 = None,  level_size = 2**4, norm = None, method = None, align = False, axis = 0,
-                period = 1, binning = None,  nlevel = None,  thread_divisor = None):
+                period = 1, binning = None,  nlevel = None,  thread_divisor = None, mask = None):
     """Multitau version of :func:`.core.ccorr`
         
     Parameters
@@ -326,10 +328,10 @@ def ccorr_multi(f1,f2, t1 = None, t2 = None,  level_size = 2**4, norm = None, me
         See :func:`.core.ccorr` for definition of ccorr_type
     """
     return _compute_multi(f1,f2, t1,t2, axis = axis, period = period, level_size = level_size, align = align,
-                         binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor)
+                         binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask)
 
 def acorr_multi(f, t = None,  level_size = 2**4, norm = None, method = None, align = False, axis = 0,
-                period = 1, binning = None,  nlevel = None,  thread_divisor = None):
+                period = 1, binning = None,  nlevel = None,  thread_divisor = None, mask = None):
     """Multitau version of :func:`.core.acorr`
         
     Parameters
@@ -374,7 +376,7 @@ def acorr_multi(f, t = None,  level_size = 2**4, norm = None, method = None, ali
     """
     
     return _compute_multi(f, t1 = t, axis = axis, period = period, level_size = level_size, align = align,
-                         binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor)
+                         binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask)
     
 @nb.jit([(C[:],C[:],F[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _add_stats_vec(x, out1, out2):
@@ -544,7 +546,6 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
     
     for i,d in enumerate(data):
         if i == nframes:
-            print("break")
             break
         #determine if it is cross-data (double element) or auto-data (single element)
         if cross is None:
@@ -1032,7 +1033,7 @@ def iacorr_multi(data, t = None, level_size = 2**4, norm = 3, method = "corr", c
     """
     for i, data in enumerate(_compute_multi_iter(data, t, None, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count,auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor)):
+                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor, mask = mask)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["acorr_multi"] = viewer
@@ -1073,7 +1074,9 @@ def multilevel(data, level_size = 16):
         Multilevel data array. Shape of this data depends on the length of the original
         data and the provided parameter
     """
-    size = level_size
+    size = int(level_size)
+    if size < 2:
+        raise ValueError("level_size must be greater than 1")
     #determine multitau level (number of decades)
     level = 0
     while size * 2**(level) < data.shape[-1]:
@@ -1091,7 +1094,8 @@ def multilevel(data, level_size = 16):
         #missing data... fill nans
         if n_sliced != size:
             out[l,...,n_sliced:] = np.nan
-        data = convolve(data)[...,::2]
+        if l != level:
+            data = convolve(data)[...,::2]
     return out
 
 def merge_multilevel(data, mode = "full"):
@@ -1135,7 +1139,7 @@ def merge_multilevel(data, mode = "full"):
     else:
         raise ValueError("Unknown merging mode")
         
-def log_average(data, size = 16):
+def log_average(data, size = 8):
     """Performs log average of normalized linear-spaced data.
     
     You must first normalize with :func:`.core.normalize` before averaging!
@@ -1145,8 +1149,8 @@ def log_average(data, size = 16):
     data : array
         Input array of linear-spaced data
     size : int
-        Sampling length. Number of data points per each doubling of time.
-        Any number is valid.
+        Sampling size. Number of data points per each doubling of time.
+        Any positive number is valid.
         
     Returns
     -------
@@ -1154,6 +1158,8 @@ def log_average(data, size = 16):
         Time and log-spaced data arrays.
     """
     size = int(size)
+    if size < 1:
+        raise ValueError("`size` must be greater than 0")
     print1("Log-averaging...")
     print2("   * size : {}".format(size))
     ldata = multilevel(data, size*2)

@@ -10,12 +10,22 @@ There are also function for real-time display of videos for real-time analysis.
 import numpy as np
 import matplotlib.pyplot as plt
 import time   
-from cddm.conf import CDDMConfig, CV2_INSTALLED,  FDTYPE
+from cddm.conf import CDDMConfig, CV2_INSTALLED,  FDTYPE, PYQTGRAPH_INSTALLED
 from cddm.print_tools import print_progress, print1, print_frame_rate
 from queue import Queue
+from cddm.fft import _rfft2
 
 if CV2_INSTALLED:
     import cv2
+    
+if PYQTGRAPH_INSTALLED:
+    import pyqtgraph as pg
+    #from pyqtgraph.Qt import QtGui
+    #try:
+    #    app
+    #except NameError:
+    #    app = QtGui.QApplication([])
+    
     
 def fromarrays(arrays):
     """Creates a multi-frame iterator from given list of arrays.
@@ -127,7 +137,7 @@ def asmemmaps(basename, video, count = None):
  
 
 def crop(video, roi = (slice(None), slice(None))):
-    """Crops each frame in video 
+    """Crops each frame in the video. 
     
     Parameters
     ----------
@@ -167,7 +177,7 @@ def crop(video, roi = (slice(None), slice(None))):
         yield tuple((frame[hslice,wslice] for frame in frames))
 
 def subtract(x, y, inplace = False, dtype = None):
-    """Subtracts  two videos
+    """Subtracts two videos.
     
     Parameters
     ----------
@@ -222,7 +232,7 @@ def add(x, y, inplace = False, dtype = None):
 
 
 def normalize_video(video, inplace = False, dtype = None):
-    """Normalizes each frame in video to the mean value (intensity)
+    """Normalizes each frame in the video to the mean value (intensity).
     
     Parameters
     ----------
@@ -280,12 +290,18 @@ class ImageShow():
     
     fig = None
     
-    def __init__(self, title = "video"):
+    def __init__(self, title = "video", norm_func = lambda x : x):
         self.title = title
+        self._prepare_image = norm_func
     
-    def _prepare_image(self,im):
-        return im
-    
+    def _pg_imshow(self,im):
+        im = self._prepare_image(im)
+        if self.fig is None:
+            self.im = pg.image(im, title = self.title)
+            self.fig = self.im.window()
+        else:
+            self.im.setImage(im)
+ 
     def _mpl_imshow(self,im):
         if self.fig is None:
             self.fig = plt.figure()
@@ -316,23 +332,31 @@ class ImageShow():
         im : ndarray
             A 2D array 
         """
-        if CDDMConfig.cv2 == True:
+        if CDDMConfig.showlib == "cv2":
             self._cv_imshow(im)
+        elif CDDMConfig.showlib == "pyqtgraph":
+            self._pg_imshow(im)
         else:
             self._mpl_imshow(im)
             
     def __del__(self):
-        if CDDMConfig.cv2 == True:
+        if CDDMConfig.showlib == "cv2":
             cv2.destroyWindow(self.fig)
+        elif CDDMConfig.showlib == "pyqtgraph":
+            self.fig.destroy()
         else:
-            plt.close()       
+            plt.close(self.fig)       
     
 def pause(i = 1):
     """Pause in milliseconds needed to update matplotlib or opencv figures"""
-    if CDDMConfig.cv2 == False:
-        plt.pause(i/1000.)  
-    else:
+    if CDDMConfig.showlib == "cv2":
         cv2.waitKey(int(i))
+    elif CDDMConfig.showlib == "matplotlib":
+        plt.pause(i/1000.)
+    else:  
+        app.processEvents()
+        
+        
 
 #placehold for imshow figures        
 _FIGURES = {}
@@ -396,7 +420,60 @@ def figure_title(name):
     i = len(_FIGURES)+1
     return "Fig.{}: {}".format(i, name)
 
-def show_video(video, id = 0, title = None):
+def norm_rfft2(clip = None, mode = "real"):
+    """Returns a frame normalizing function for :func:`show_video`"""
+    clip = clip
+    
+    def _clip_fft(im):
+        im = _rfft2(im)
+        if mode == "real":
+            im = im.real
+        elif mode == "imag":
+            im = im.imag
+        elif mode != "abs":
+            raise ValueError("Wrong mode")
+        im = np.abs(im)
+        if clip is None:
+            im[0,0] = 0
+            clip_factor = im.max()
+        else:
+            clip_factor = clip
+            
+        im = im/clip_factor
+        im = im.clip(0,1)    
+        return np.fft.fftshift(im,0)  
+    return _clip_fft
+
+def show_fft(video, id = 0, title = None, clip = None, mode = "real"):
+    """Show fft of the video.
+    
+    Parameters
+    ----------
+    video : iterator
+        A multi-frame iterator
+    id : int
+        Frame index
+    title : str, optional
+        Unique title of the video. You can use :func:`.video.figure_title`
+        to create a unique name.
+    clip : float, optional
+        Clipping value. If not given, it is determined automatically.
+    mode : str
+        What to display, "real", "imag" or "abs"
+    
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    
+    """
+    if title is None:
+        title = figure_title("fft - camera {}".format(id))
+    norm_func = norm_rfft2(clip, mode)
+    return show_video(video, id = id, title = title, norm_func = norm_func)
+               
+
+def show_video(video, id = 0, title = None, norm_func = lambda x : x.real):
     """Returns a video and performs image live video show.
     This works in connection with :func:`play` that does the actual display.
     
@@ -409,6 +486,10 @@ def show_video(video, id = 0, title = None):
     title : str
         Unique title of the video. You can use :func:`figure_title`
         a to produce unique name.
+    norm_func : callable
+        Normalization function that takes a single argument (array) and returns
+        a single element (array). Can be used to apply custom normalization 
+        function to the image before it is shown.
     
     Returns
     -------
@@ -418,7 +499,7 @@ def show_video(video, id = 0, title = None):
     if title is None:
         title = figure_title("video - camera {}".format(id))
 
-    viewer = ImageShow(title)
+    viewer = ImageShow(title, norm_func)
     queue = Queue(1)
     _FIGURES[title] = (viewer, queue)
     
@@ -446,7 +527,7 @@ def show_diff(video, title = None):
     """
     
     if title is None:
-        title = figure_title("diff".format(id))
+        title = figure_title("difference video")
 
     viewer = ImageShow(title)
     queue = Queue(1)
@@ -454,8 +535,10 @@ def show_diff(video, title = None):
     
     for frames in video:
         if queue.empty():
-            m = 2* max(frames[0].max(),frames[1].max())
-            im = frames[0]/m - frames[1]/m + 0.5
+            x,y = frames
+            x,y = x.real, y.real
+            m = 2* max(x.max(),y.max())
+            im = x/m - y/m + 0.5
             queue.put(im,block = False)
         yield frames    
 
@@ -467,10 +550,11 @@ def random_video(shape = (512,512), count = 256, dtype = FDTYPE, max_value = 1.,
 
         
 if __name__ == '__main__':
-    #from cddm.conf import set_cv2
-    #set_cv2(False)
+
     import cddm.conf
     cddm.conf.set_verbose(2)
+    #
+    cddm.conf.set_showlib("pyqtgraph")
     
     #example how to use show_video and play
     video = random_video(count = 256, dual = True)

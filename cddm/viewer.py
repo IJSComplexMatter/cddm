@@ -153,15 +153,13 @@ class VideoViewer(object):
         plt.show()
         
 
+
 class DataViewer(object):
-    """Shows correlation data in plot. You need to hold reference to this object, otherwise it will not work in interactive mode.
+    """Plots normalized correlation data. You need to hold reference to this object, 
+    otherwise it will not work in interactive mode.
 
     Parameters
     ----------
-    norm : int, optional
-        Normalization constant used in normalization
-    scale : bool, optional
-        Scale constant used in normalization.
     semilogx : bool
         Whether plot data with semilogx or not.
     shape : tuple of ints, optional
@@ -170,12 +168,11 @@ class DataViewer(object):
     size : int, optional
         If specified, perform log_averaging of data with provided size parameter.
         If not given, no averaging is performed.
-
+    mask : ndarray, optional
+        A boolean array indicating which data elements were computed.
     """
     fig = None
     data = None
-    background = None
-    variance = None
     mask = None
     kmap = None
     anglemap = None
@@ -185,17 +182,15 @@ class DataViewer(object):
     sector = 5
     kstep = 1
     
-    def __init__(self, norm = None, scale = False, semilogx = True,  shape = None, size = None):
-        self.norm  = norm
-        self.scale = scale
+    def __init__(self, semilogx = True, shape = None, mask = None):
         self.semilogx = semilogx
         self.shape = shape
-        self.size = size
+        self.computed_mask = mask
         
     def _init_map(self):
         self.kmap, self.anglemap = rfft2_kangle(self.kisize, self.kjsize, self.shape)
         self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
-        
+     
     def _init_fig(self):
         if self.data is None:
             raise ValueError("You must first set data to plot!")
@@ -214,16 +209,9 @@ class DataViewer(object):
         
         self._max_graph_value = max_graph_value
         
-        
         self.im = self.ax2.imshow(np.fft.fftshift(self.graph,0), 
             extent=[0,self.graph.shape[1],self.graph.shape[0]//2+1,-self.graph.shape[0]//2-1])
        
-        method = _method_from_data(self.data[0])#multitau data.. so take only the first element
-        self.norm = _default_norm_from_data(self.data[0],method,self.norm)
-        
-        self.rax = plt.axes([0.48, 0.7, 0.15, 0.15])
-        self.radio = RadioButtons(self.rax,("norm 0","norm 1","norm 2","norm 3"), active = self.norm, activecolor = "gray")
-
         self.kax = plt.axes([0.1, 0.15, 0.65, 0.03])
         self.kindex = Slider(self.kax, "k",0,int(self.kmap.max()),valinit = self.k, valfmt='%i')
 
@@ -233,41 +221,32 @@ class DataViewer(object):
         self.sectorax = plt.axes([0.1, 0.05, 0.65, 0.03])
         self.sectorindex = Slider(self.sectorax, "sector",0,180,valinit = self.sector, valfmt='%.2f') 
         
-        
         def update(val):
-            try:
-                method = _method_from_data(self.data[0])
-                self.norm = _default_norm_from_data(self.data[0],method,int(self.radio.value_selected[-1]))
-            except ValueError:
-                self.radio.set_active(self.norm)
             self.set_mask(int(round(self.kindex.val)),self.angleindex.val,self.sectorindex.val, self.kstep)
             self.plot()
-            
-        self.radio.on_clicked(update)
             
         self.kindex.on_changed(update)
         self.angleindex.on_changed(update)
         self.sectorindex.on_changed(update)
-        
-        
-    def set_data(self, data, background = None, variance = None):
+              
+    def set_data(self, data, t = None):
         """Sets correlation data.
         
         Parameters
         ----------
-        data : tuple
-            A data tuple (as computed by ccorr, cdiff, adiff, acorr functions)
-        background : tuple or ndarray
-            Background data for normalization. For adiff, acorr functions this
-            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
-        variance : tuple or ndarray
-            Variance data for normalization. For adiff, acorr functions this
-            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        data : ndarray
+            Normalized data.
         """
+        self.kisize, self.kjsize = data.shape[:-1]
         self.data = data
-        self.background = background
-        self.variance = variance
-        self.kisize, self.kjsize = data[0].shape[:-1]
+        t =  np.asarray(t) if t is not None else np.arange(data.shape[-1])
+        if len(t) != data.shape[-1]:
+            raise ValueError("Wrong time array length")
+        else:
+            self.t = t
+        
+    def _get_avg_data(self):
+        return self.t, self.data[...,self.mask,:].mean(-2)
         
     def get_data(self):
         """Returns computed k-averaged data and time
@@ -275,21 +254,14 @@ class DataViewer(object):
         Returns
         -------
         x, y : ndarray, ndarray
-            Time, data tuple of ndarrays.
+            Time, data ndarrays.
         """
         if self.data is None:
             raise ValueError("No data, you must first set data.")
         if self.mask is None:
             raise ValueError("Mask not specified, you must first set mask.")
-            
-        data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
-        if self.size is not None:
-            t, data = log_average(data, self.size)
-            avg_data = data.mean(0) 
-        else:
-            avg_data = data.mean(0)
-            t = np.arange(len(avg_data))
-        return t, avg_data
+        
+        return self._get_avg_data()
     
     def get_k(self):
         """Returns average k value of current data."""
@@ -323,7 +295,9 @@ class DataViewer(object):
         if self.kmap is None:
             self._init_map()
         self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
-        self.mask = (self.indexmap == int(self.k))
+        self.mask = (self.indexmap == int(self.k)) 
+        if self.computed_mask is not None:
+            self.mask = self.mask & self.computed_mask
         return self.mask.any()
         
     def plot(self):
@@ -363,29 +337,121 @@ class DataViewer(object):
         """Shows plot."""
         plt.show()
         #self.fig.show()
-    
-class MultitauViewer(DataViewer):
-    """Shows multitau data in plot. You need to hold reference to this object, 
+
+class CorrViewer(DataViewer):
+    """Plots raw correlation data. You need to hold reference to this object, 
     otherwise it will not work in interactive mode.
-    
+
     Parameters
     ----------
-    norm : int, optional
-        Normalization constant used in normalization
-    scale : bool, optional
-        Scale constant used in normalization.
     semilogx : bool
         Whether plot data with semilogx or not.
     shape : tuple of ints, optional
         Original frame shape. For non-rectangular you must provide this so
         to define k step.
+    size : int, optional
+        If specified, perform log_averaging of data with provided size parameter.
+        If not given, no averaging is performed.
+    norm : int, optional
+        Normalization constant used in normalization
+    scale : bool, optional
+        Scale constant used in normalization.
+    mask : ndarray, optional
+        A boolean array indicating which data elements were computed.
     """
-    def __init__(self, norm = None, scale = False, semilogx = True,  shape = None):
+    background = None
+    variance = None
+    
+    def __init__(self, semilogx = True,  shape = None, size = None, norm = None, scale = False, mask = None):
+        self.norm  = norm
+        self.scale = scale
+        self.semilogx = semilogx
+        self.shape = shape
+        self.size = size
+        self.computed_mask = mask
+        
+    def set_norm(self, value):
+        method = _method_from_data(self.data)
+        self.norm = _default_norm_from_data(self.data,method,value)      
+        
+    def _init_fig(self):
+        super()._init_fig()
+        
+        self.set_norm(self.norm)
+        
+        self.rax = plt.axes([0.48, 0.7, 0.15, 0.15])
+        self.radio = RadioButtons(self.rax,("norm 0","norm 1","norm 2","norm 3"), active = self.norm, activecolor = "gray")
+        
+        def update(val):
+            try:
+                self.set_norm(int(self.radio.value_selected[-1]))
+            except ValueError:
+                self.radio.set_active(self.norm)
+            self.set_mask(int(round(self.kindex.val)),self.angleindex.val,self.sectorindex.val, self.kstep)
+            self.plot()
+            
+        self.radio.on_clicked(update)
+
+    def set_data(self, data, background = None, variance = None):
+        """Sets correlation data.
+        
+        Parameters
+        ----------
+        data : tuple
+            A data tuple (as computed by ccorr, cdiff, adiff, acorr functions)
+        background : tuple or ndarray
+            Background data for normalization. For adiff, acorr functions this
+            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        variance : tuple or ndarray
+            Variance data for normalization. For adiff, acorr functions this
+            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        """
+        self.data = data
+        self.background = background
+        self.variance = variance
+        self.kisize, self.kjsize = data[0].shape[:-1]
+        
+    def _get_avg_data(self):
+        data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
+        
+        if self.size is not None:
+            t, data = log_average(data, self.size)
+        else:
+            t = np.arange(len(data))
+        
+        return t, data.mean(-2)
+    
+            
+class MultitauViewer(CorrViewer):
+    """Shows multitau data in plot. You need to hold reference to this object, 
+    otherwise it will not work in interactive mode.
+    
+    Parameters
+    ----------
+    semilogx : bool
+        Whether plot data with semilogx or not.
+    shape : tuple of ints, optional
+        Original frame shape. For non-rectangular you must provide this so
+        to define k step.
+    norm : int, optional
+        Normalization constant used in normalization
+    scale : bool, optional
+        Scale constant used in normalization.
+    mask : ndarray, optional
+        A boolean array indicating which data elements were computed.
+    """
+    def __init__(self,  semilogx = True,  shape = None, norm = None, scale = False, mask = None):
 
         self.norm  = norm
         self.scale = scale
         self.semilogx = semilogx
         self.shape = shape
+        self.computed_mask = mask
+        
+    @doc_inherit
+    def set_norm(self, value):
+        method = _method_from_data(self.data[0])
+        self.norm = _default_norm_from_data(self.data[0],method,value)  
         
     @doc_inherit
     def set_data(self, data, background = None, variance = None):
@@ -393,20 +459,13 @@ class MultitauViewer(DataViewer):
         self.background = background
         self.variance = variance
         self.kisize, self.kjsize = data[0][0].shape[:-1]
-    
-    @doc_inherit    
-    def get_data(self):
-        if self.data is None:
-            raise ValueError("No data, you must first set data.")
-        if self.mask is None:
-            raise ValueError("Mask not specified, you must first set mask.")
-            
+        
+    def _get_avg_data(self):
         data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
         t, data = log_merge(*data)
-        avg_data = data.mean(0) 
+        avg_data = data.mean(-2) 
         return t, avg_data
         
-
        
 if __name__ == "__main__":
     video = (np.random.randn(256,256) for i in range(256))

@@ -72,3 +72,9 @@ Module Contents
    :rtype: ndarray
 
 
+.. function:: plot_windows(shape=(256, 256), alpha=0.5, sigma=0.4)
+
+   Plots all windows with a given shape, alpha (for tukey), sigma (for gaussian)
+   values
+
+

@@ -17,9 +17,9 @@ import numpy as np
 import numba as nb
 import math
 
-from cddm.conf import U8,F,I,FDTYPE, NUMBA_TARGET, NUMBA_PARALLEL 
+from cddm.conf import U8,F,I,FDTYPE, NUMBA_TARGET, NUMBA_PARALLEL , NUMBA_CACHE, NUMBA_FASTMATH
 
-@nb.vectorize([F(F,F,F)], target = NUMBA_TARGET)
+@nb.vectorize([F(F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def mirror(x,x0,x1):
     """transforms coordinate x by flooring in the interval of [x0,x1]
     It performs x0 + (x-x0)%(x1-x0)"""
@@ -51,13 +51,13 @@ def numba_seed(value):
         print("WARNING: Numba seed not effective. Seeding only works with NUMBA_TARGET = 'cpu'")
     np.random.seed(value)
                           
-@nb.vectorize([F(F,F,F)], target = NUMBA_TARGET)        
+@nb.vectorize([F(F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)        
 def make_step(x,scale, velocity):
     """Performs random particle step from a given initial position x."""
     return x + np.random.randn()*scale + velocity   
 
 
-def brownian_walk(x0, n = 1024, shape = (256,256), delta = 1, dt = 1, velocity = 0.):
+def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, velocity = 0.):
     """Returns an brownian walk iterator.
      
     Given the initial coordinates x0, it callculates and yields next n coordinates.
@@ -67,7 +67,7 @@ def brownian_walk(x0, n = 1024, shape = (256,256), delta = 1, dt = 1, velocity =
     ----------
     x0 : array-like
         A list of initial coordinates (i, j) of particles (in pixel units)
-    n : int
+    count : int
         Number of simulation steps
     shape : (int,int)
         Shape of the simulation region in pixels
@@ -92,17 +92,17 @@ def brownian_walk(x0, n = 1024, shape = (256,256), delta = 1, dt = 1, velocity =
     x = mirror(x,x1,x2) #make sure we start in the box
     
     
-    for i in range(n):
+    for i in range(count):
         yield x
         x = make_step(x,scale, velocity) 
         x = mirror(x,x1,x2)
         
-def brownian_particles(n = 500, shape = (256,256),particles = 100, delta = 1, dt = 1,velocity = 0., x0 = None):
+def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1, dt = 1,velocity = 0., x0 = None):
     """Creates coordinates of multiple brownian particles.
     
     Parameters
     ----------
-    n : int
+    count : int
         Number of steps to calculate
     shape : (int,int)
         Shape of the box
@@ -121,42 +121,45 @@ def brownian_particles(n = 500, shape = (256,256),particles = 100, delta = 1, dt
         x0 = np.asarray(x0,FDTYPE)
         if x0.ndim == 1 and particles == 1:
             x0 = x0[None,:]
-            
-    
+ 
     v0 = np.zeros_like(x0)
     v0[:,:] = velocity
-    for data in brownian_walk(x0,n,shape,delta,dt,v0):
+    for data in brownian_walk(x0,count,shape,delta,dt,v0):
         yield data
              
-GAUSSN = 1/np.sqrt(2*np.pi)
-
-@nb.jit([U8(I,F,I,F,F,U8)],nopython = True)
+@nb.jit([U8(I,F,I,F,F,U8)],nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def psf_gauss(x,x0,y,y0,sigma,intensity):
     """Gaussian point-spread function. This is used to calculate pixel value
     for a given pixel coordinate x,y and particle position x0,y0."""
     return intensity*math.exp(-0.5*((x-x0)**2+(y-y0)**2)/(sigma**2))
                  
-@nb.jit(["uint8[:,:],float64[:,:],uint8"], nopython = True)                
+@nb.jit(["uint8[:,:],float64[:,:],uint8[:]"], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
 def draw_points(im, points, intensity):
     """Draws pixels to image from a given points array"""
     data = points
-    particles = len(data)
-    for j in range(particles):
-        im[int(data[j,0]),int(data[j,1])] = im[int(data[j,0]),int(data[j,1])] + intensity 
+    nparticles = len(data)
+    assert points.shape[1] == 2
+    assert nparticles == len(intensity)
+    for j in range(nparticles):
+        im[int(data[j,0]),int(data[j,1])] = im[int(data[j,0]),int(data[j,1])] + intensity[j] 
     return im   
         
-@nb.jit([U8[:,:](U8[:,:],F[:,:],U8,F)], nopython = True, parallel = NUMBA_PARALLEL)                
+@nb.jit([U8[:,:](U8[:,:],F[:,:],U8[:],F[:])], nopython = True, parallel = NUMBA_PARALLEL, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
 def draw_psf(im, points, intensity, sigma):
     """Draws psf to image from a given points array"""
+    assert points.shape[1] == 2
+    nparticles = len(points)
+    assert nparticles == len(intensity)
+    assert nparticles == len(sigma)
     height, width = im.shape
-    particles = len(points)
-    size = int(round(3*sigma))
-    for k in nb.prange(particles):
+    
+    size = int(round(3*sigma.max()))
+    for k in nb.prange(nparticles):
         h0,w0  = points[k,0], points[k,1]
         h,w = int(h0), int(w0) 
         for i0 in range(h-size,h+size+1):
             for j0 in range(w -size, w+size+1):
-                p = psf_gauss(i0,h0,j0,w0,sigma*(1-0.1 + 0.2*np.random.rand()),intensity)
+                p = psf_gauss(i0,h0,j0,w0,sigma[k],intensity[k])
                 #j = j0 % width
                 #i = i0 % height
                 
@@ -176,7 +179,6 @@ def draw_psf(im, points, intensity, sigma):
                 im[i,j] = im[i,j] + p
     return im  
 
- 
 def particles_video(particles, t1, shape = (512,512), t2 = None, 
                  background = 0, intensity = 10, sigma = None, noise = 0.):
     """Creates brownian particles video"""
@@ -184,6 +186,7 @@ def particles_video(particles, t1, shape = (512,512), t2 = None,
     background = np.zeros(shape = shape,dtype = "uint8") + background
     height, width = shape
     
+        
     out1 = None
     out2 = None
     
@@ -197,9 +200,19 @@ def particles_video(particles, t1, shape = (512,512), t2 = None,
             im = np.add(im, n, im)
 
         if sigma is None:
-            im = draw_points(im, data, intensity)
+            _int = np.asarray(intensity, "uint8")
+            if _int.ndim == 0:
+                _int = np.asarray([intensity] * len(data), "uint8")
+            im = draw_points(im, data, _int)
         else:
-            im = draw_psf(im, data, intensity, sigma)
+            _int = np.asarray(intensity, "uint8")
+            if _int.ndim == 0:
+                _int = np.asarray([intensity] * len(data), "uint8")
+            _sigma = np.asarray(sigma,FDTYPE)
+            if _sigma.ndim == 0:
+                _sigma = np.asarray([sigma] * len(data),FDTYPE)
+            
+            im = draw_psf(im, data, _int, _sigma)
         return im
     
     
@@ -249,10 +262,10 @@ def data_trigger(data, indices):
                 break
             
 
-def test_plot(n = 5000, particles = 2):
+def test_plot(count = 5000, particles = 2):
     """Brownian particles usage example. Track 2 particles"""
     import matplotlib.pyplot as plt 
-    x = np.array([x for x in brownian_particles(n = n, particles = particles)])
+    x = np.array([x for x in brownian_particles(count = count, particles = particles)])
     plt.figure()
     
     for i in range(particles): 
@@ -300,14 +313,13 @@ def create_random_times2(nframes,n = 20):
 
 def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 200, intensity = 5, sigma = 5, noise = 0, **kw):
     """Returns an iterator of DDM or c-DDM video."""
-    
     t1 = np.asarray(t1)
     if t2 is None:
-        n = t1.max()+1
+        count = t1.max()+1
     else:
         t2 = np.asarray(t2)
-        n = max(t1.max(),t2.max())+1
-    kw["n"] = n
+        count = max(t1.max(),t2.max())+1
+    kw["count"] = count 
     kw["shape"] = shape
     p = brownian_particles(**kw) 
     return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, noise = noise) 

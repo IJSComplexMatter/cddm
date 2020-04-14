@@ -10,7 +10,7 @@ which should install the package, provided that all requirements are met.
 Requirements
 ------------
 
-Prior to installing, you should have a working python 2.7 or 3.x environment consisting of:
+Prior to installing, you should have a working python 3.x environment consisting of:
 
 * numba
 * numpy
@@ -21,6 +21,11 @@ To install these it is best to go with one of the python distributions, e.g. `an
 .. note::
   
     It is important that you have recent enough version of numba installed.
+
+Optionally, instead of using matplotlib, for faster visualization of videos in real-time, you may use one of these two libraries:
+
+* cv2
+* pyqtgraph
 
 
 Installing in Anaconda

@@ -65,7 +65,7 @@ Module Contents
 
 .. function:: crop(video, roi=(slice(None), slice(None)))
 
-   Crops each frame in video
+   Crops each frame in the video.
 
    :param video: Input multi-frame iterable object. Each element of the iterable is a tuple
                  of ndarrays (frames)
@@ -92,7 +92,7 @@ Module Contents
 
 .. function:: subtract(x, y, inplace=False, dtype=None)
 
-   Subtracts  two videos
+   Subtracts two videos.
 
    :param x, y: Input multi-frame iterable object. Each element of the iterable is a tuple
                 of ndarrays (frames)
@@ -124,7 +124,7 @@ Module Contents
 
 .. function:: normalize_video(video, inplace=False, dtype=None)
 
-   Normalizes each frame in video to the mean value (intensity)
+   Normalizes each frame in the video to the mean value (intensity).
 
    :param video: Input multi-frame iterable object. Each element of the iterable is a tuple
                  of ndarrays (frames)
@@ -154,7 +154,7 @@ Module Contents
    :rtype: iterator
 
 
-.. py:class:: ImageShow(title='video')
+.. py:class:: ImageShow(title='video', norm_func=lambda x: x)
 
    A simple interface for video visualization using matplotlib or opencv.
 
@@ -214,7 +214,32 @@ Module Contents
    Generate a unique figure title
 
 
-.. function:: show_video(video, id=0, title=None)
+.. function:: norm_rfft2(clip=None, mode='real')
+
+   Returns a frame normalizing function for :func:`show_video`
+
+
+.. function:: show_fft(video, id=0, title=None, clip=None, mode='real')
+
+   Show fft of the video.
+
+   :param video: A multi-frame iterator
+   :type video: iterator
+   :param id: Frame index
+   :type id: int
+   :param title: Unique title of the video. You can use :func:`.video.figure_title`
+                 to create a unique name.
+   :type title: str, optional
+   :param clip: Clipping value. If not given, it is determined automatically.
+   :type clip: float, optional
+   :param mode: What to display, "real", "imag" or "abs"
+   :type mode: str
+
+   :returns: **video** -- A multi-frame iterator
+   :rtype: iterator
+
+
+.. function:: show_video(video, id=0, title=None, norm_func=lambda x: x.real)
 
    Returns a video and performs image live video show.
    This works in connection with :func:`play` that does the actual display.
@@ -226,6 +251,10 @@ Module Contents
    :param title: Unique title of the video. You can use :func:`figure_title`
                  a to produce unique name.
    :type title: str
+   :param norm_func: Normalization function that takes a single argument (array) and returns
+                     a single element (array). Can be used to apply custom normalization
+                     function to the image before it is shown.
+   :type norm_func: callable
 
    :returns: **video** -- A multi-frame iterator
    :rtype: iterator

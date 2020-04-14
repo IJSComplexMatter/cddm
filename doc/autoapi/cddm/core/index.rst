@@ -160,8 +160,8 @@ Module Contents
    :type t2: array-like, optional
    :param axis: For multi-dimensional arrays this defines computation axis (0 by default)
    :type axis: int, optional
-   :param n: Maximum time delay of the output array. If not given, input data length
-             is chosen.
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'.
    :type n: int, optional
    :param align: Specifies whether data is aligned in memory first, before computation takes place.
                  This may speed up computation in some cases (large n). Note that this requires
@@ -195,8 +195,8 @@ Module Contents
    :type t2: array-like, optional
    :param axis: For multi-dimensional arrays this defines computation axis (0 by default)
    :type axis: int, optional
-   :param n: Maximum time delay of the output array. If not given, input data length
-             is chosen.
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'.
    :type n: int, optional
    :param align: Specifies whether data is aligned in memory first, before computation takes place.
                  This may speed up computation in some cases (large n). Note that this requires
@@ -225,8 +225,8 @@ Module Contents
    :type t: array-like, optional
    :param axis: For multi-dimensional arrays this defines computation axis (0 by default)
    :type axis: int, optional
-   :param n: Maximum time delay of the output array. If not given, input data length
-             is chosen.
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'.
    :type n: int, optional
    :param align: Specifies whether data is aligned in memory first, before computation takes place.
                  This may speed up computation in some cases (large n). Note that this requires
@@ -255,8 +255,8 @@ Module Contents
    :type t: array-like, optional
    :param axis: For multi-dimensional arrays this defines computation axis (0 by default)
    :type axis: int, optional
-   :param n: Maximum time delay of the output array. If not given, input data length
-             is chosen.
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'.
    :type n: int, optional
    :param align: Specifies whether data is aligned in memory first, before computation takes place.
                  This may speed up computation in some cases (large n). Note that this requires
@@ -283,7 +283,8 @@ Module Contents
    :param t2: Second time array. If it is a scalar, assume regular spaced data of length
               specified by t2. If not given, t1 data is taken.
    :type t2: array_like or None
-   :param n: The length of the output (max time delay - 1).
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'.
    :type n: int, optional
    :param aout: If provided, this must be zero-initiated output array to which data is
                 added. If defeined, this takes precedence over the 'n' parameter.
@@ -304,7 +305,8 @@ Module Contents
 
    :param t: Time array. If it is a scalar, assume regular spaced data of length specified by 't'
    :type t: array_like or int
-   :param n: The length of the output (max time delay - 1).
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'.
    :type n: int, optional
    :param aout: If provided, this must be zero-initiated output array to which data is
                 added. If defeined, this takes precedence over the 'n' parameter.
@@ -333,8 +335,8 @@ Module Contents
    :type t2: array-like, optional
    :param axis: For multi-dimensional arrays this defines computation axis (0 by default)
    :type axis: int, optional
-   :param n: Maximum time delay of the output array. If not given, input data length
-             is chosen.
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'.
    :type n: int, optional
    :param align: Specifies whether data is aligned in memory first, before computation takes place.
                  This may speed up computation in some cases (large n). Note that this requires
@@ -372,8 +374,8 @@ Module Contents
    :type t2: array-like, optional
    :param axis: For multi-dimensional arrays this defines computation axis (0 by default)
    :type axis: int, optional
-   :param n: Maximum time delay of the output array. If not given, input data length
-             is chosen.
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'.
    :type n: int, optional
    :param align: Specifies whether data is aligned in memory first, before computation takes place.
                  This may speed up computation in some cases (large n). Note that this requires
@@ -432,8 +434,8 @@ Module Contents
    :param t: Array of integers defining frame times of the data. If not provided,
              regular time-spaced data is assumed.
    :type t: array-like, optional
-   :param n: If provided, determines the length of the output. Note that 'aout' parameter
-             takes precedence over 'n'.
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'
    :type n: int, optional
    :param norm: Specifies normalization procedure 0,1,2, or 3. Default to 3, except for
                 'diff' method where it default to 1.
@@ -474,8 +476,8 @@ Module Contents
    :param t2: Array of integers defining frame times of the second data. If not provided,
               regular time-spaced data is assumed.
    :type t2: array-like, optional
-   :param n: If provided, determines the length of the output. Note that 'aout' parameter
-             takes precedence over 'n'.
+   :param n: Determines the length of the output (max time delay - 1 by default).
+             Note that 'aout' parameter takes precedence over 'n'
    :type n: int, optional
    :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
    :type norm: int, optional
@@ -519,11 +521,9 @@ Module Contents
    provided 'aout' arrays.
 
 
-.. function:: iccorr(data, t1=None, t2=None, n=2**5, norm=0, method='corr', count=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=False)
+.. function:: iccorr(data, t1=None, t2=None, n=None, norm=0, method='corr', count=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
    Iterative version of :func:`ccorr`.
-
-
 
    :param data: An iterable object, iterating over dual-frame ndarray data.
    :type data: iterable
@@ -533,8 +533,8 @@ Module Contents
    :param t2: Array of integers defining frame times of the second data. If not provided,
               regular time-spaced data is assumed.
    :type t2: array-like, optional
-   :param n: Determines the length of the output.
-   :type n: int, required
+   :param n: Determines the length of the output (max time delay - 1 by default).
+   :type n: int, optional
    :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
    :type norm: int, optional
    :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
@@ -569,12 +569,12 @@ Module Contents
    :param stats: Whether to return stats as well.
    :type stats: bool
 
-   :returns: **fast, slow** -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-             data.
-   :rtype: lin_data, multilevel_data
+   :returns: * **ccorr_data, bg, var** (*ccorr_type, ndarray, ndarray*) -- Ccorr data, background and variance data. See :func:`ccorr` for definition
+               of accorr_type
+             * **ccorr_data** (*ccorr_type*) -- If `stats` == False
 
 
-.. function:: iacorr(data, t=None, n=None, norm=0, method='corr', count=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=False)
+.. function:: iacorr(data, t=None, n=None, norm=0, method='corr', count=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
    Iterative version of :func:`ccorr`
 
@@ -583,9 +583,8 @@ Module Contents
    :param t: Array of integers defining frame times of the data. If it is a scalar
              it defines the length of the input data
    :type t: int or array-like, optional
-   :param n: Determines the length of the output. Maximum value is half of the input
-             length.
-   :type n: int, required
+   :param n: Determines the length of the output (max time delay - 1 by default).
+   :type n: int, optional
    :param norm: Specifies normalization procedure 0,1,2, or 3 (default).
    :type norm: int, optional
    :param method: Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on
@@ -620,9 +619,9 @@ Module Contents
    :param stats: Whether to return stats as well.
    :type stats: bool
 
-   :returns: **fast, slow** -- A tuple of linear_data (same as from ccorr function) and a tuple of multilevel
-             data.
-   :rtype: lin_data, multilevel_data
+   :returns: * **acorr_data, bg, var** (*acorr_type, ndarray, ndarray*) -- Acorr data, background and variance data. See :func:`acorr` for definition
+               of acorr_type
+             * **acorr_data** (*acorr_type*) -- If `stats` == False
 
 
 .. function:: take_data(data, mask)

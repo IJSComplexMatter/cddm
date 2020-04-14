@@ -606,11 +606,12 @@ def reshape_input(f, axis = 0, thread_divisor = None, mask = None):
     new_shape.insert(axis, n)
     return f.reshape(new_shape), tuple(shape)
 
-def reshape_frame(frame, shape, mask = None):    
+def reshape_frame(frame, shape, mask = None): 
     x = frame.reshape(shape)
     if mask is not None:
         out = np.empty(mask.shape, x.dtype)
         out[mask] = x
+        out[np.logical_not(mask)] = np.nan
         return out
     else:
         return x
@@ -643,7 +644,8 @@ def reshape_output(data, shape, mask = None):
 
     """
     def _reshape(i,x):
-        if i != 1 and x is not None:
+        #if not count data
+        if i != 1 and x is not None: 
             x = x.reshape(shape)
             if mask is not None:
                 out = np.empty(x.shape[0:-2] + mask.shape + (x.shape[-1],), x.dtype)
@@ -654,7 +656,10 @@ def reshape_output(data, shape, mask = None):
                 return x
         else:
             return x
-    shape = data[0].shape[0:-3] + tuple(shape) + (data[0].shape[-1],) 
+    if mask is None:
+        shape = data[0].shape[0:-3] + tuple(shape) + (data[0].shape[-1],) 
+    else:
+        shape = data[0].shape[0:-2] + tuple(shape) + (data[0].shape[-1],) 
     return tuple((_reshape(i,x) for (i,x) in enumerate(data)))
 
 def cross_correlate(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = False,aout = None):
@@ -676,8 +681,8 @@ def cross_correlate(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = Fal
     axis : int, optional
        For multi-dimensional arrays this defines computation axis (0 by default)
     n : int, optional
-       Maximum time delay of the output array. If not given, input data length
-       is chosen.
+       Determines the length of the output (max time delay - 1 by default). 
+       Note that 'aout' parameter takes precedence over 'n'.
     align : bool, optional
        Specifies whether data is aligned in memory first, before computation takes place.
        This may speed up computation in some cases (large n). Note that this requires
@@ -746,8 +751,8 @@ def cross_difference(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = Fa
     axis : int, optional
        For multi-dimensional arrays this defines computation axis (0 by default)
     n : int, optional
-       Maximum time delay of the output array. If not given, input data length
-       is chosen.
+       Determines the length of the output (max time delay - 1 by default). 
+       Note that 'aout' parameter takes precedence over 'n'.
     align : bool, optional
        Specifies whether data is aligned in memory first, before computation takes place.
        This may speed up computation in some cases (large n). Note that this requires
@@ -810,8 +815,8 @@ def auto_correlate(f, t = None, axis = 0, n = None, align = False, aout = None):
     axis : int, optional
        For multi-dimensional arrays this defines computation axis (0 by default)
     n : int, optional
-       Maximum time delay of the output array. If not given, input data length
-       is chosen.
+       Determines the length of the output (max time delay - 1 by default). 
+       Note that 'aout' parameter takes precedence over 'n'.
     align : bool, optional
        Specifies whether data is aligned in memory first, before computation takes place.
        This may speed up computation in some cases (large n). Note that this requires
@@ -874,8 +879,8 @@ def auto_difference(f, t = None, axis = 0, n = None, align = False, aout = None)
     axis : int, optional
        For multi-dimensional arrays this defines computation axis (0 by default)
     n : int, optional
-       Maximum time delay of the output array. If not given, input data length
-       is chosen.
+       Determines the length of the output (max time delay - 1 by default). 
+       Note that 'aout' parameter takes precedence over 'n'.
     align : bool, optional
        Specifies whether data is aligned in memory first, before computation takes place.
        This may speed up computation in some cases (large n). Note that this requires
@@ -960,16 +965,17 @@ def cross_count(t1,t2 = None, n = None, aout = None):
     Parameters
     ----------
     t1 : array_like or int
-        First time array. If it is a scalar, assume regular spaced data of length 
-        specified by t1.
+       First time array. If it is a scalar, assume regular spaced data of length 
+       specified by t1.
     t2 : array_like or None
-        Second time array. If it is a scalar, assume regular spaced data of length 
-        specified by t2. If not given, t1 data is taken.
+       Second time array. If it is a scalar, assume regular spaced data of length 
+       specified by t2. If not given, t1 data is taken.
     n : int, optional
-        The length of the output (max time delay - 1).
+       Determines the length of the output (max time delay - 1 by default). 
+       Note that 'aout' parameter takes precedence over 'n'.
     aout : ndarray, optional
-        If provided, this must be zero-initiated output array to which data is
-        added. If defeined, this takes precedence over the 'n' parameter.
+       If provided, this must be zero-initiated output array to which data is
+       added. If defeined, this takes precedence over the 'n' parameter.
        
     Examples
     --------
@@ -1001,7 +1007,8 @@ def auto_count(t, n = None, aout = None):
     t : array_like or int
         Time array. If it is a scalar, assume regular spaced data of length specified by 't'
     n : int, optional
-        The length of the output (max time delay - 1).
+        Determines the length of the output (max time delay - 1 by default). 
+        Note that 'aout' parameter takes precedence over 'n'.
     aout : ndarray, optional
         If provided, this must be zero-initiated output array to which data is
         added. If defeined, this takes precedence over the 'n' parameter.
@@ -1041,8 +1048,8 @@ def cross_sum(f, t = None, t_other = None, axis = 0, n = None, align = False, ao
     axis : int, optional
         For multi-dimensional arrays this defines computation axis (0 by default)
     n : int, optional
-        Maximum time delay of the output array. If not given, input data length
-        is chosen.
+        Determines the length of the output (max time delay - 1 by default). 
+        Note that 'aout' parameter takes precedence over 'n'.
     align : bool, optional
         Specifies whether data is aligned in memory first, before computation takes place.
         This may speed up computation in some cases (large n). Note that this requires
@@ -1131,8 +1138,8 @@ def auto_sum(f, t = None, axis = 0, n = None, align = False, aout = None):
     axis : int, optional
         For multi-dimensional arrays this defines computation axis (0 by default)
     n : int, optional
-        Maximum time delay of the output array. If not given, input data length
-        is chosen.
+        Determines the length of the output (max time delay - 1 by default). 
+        Note that 'aout' parameter takes precedence over 'n'.
     align : bool, optional
         Specifies whether data is aligned in memory first, before computation takes place.
         This may speed up computation in some cases (large n). Note that this requires
@@ -1293,8 +1300,8 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
         Array of integers defining frame times of the data. If not provided, 
         regular time-spaced data is assumed.
     n : int, optional
-        If provided, determines the length of the output. Note that 'aout' parameter
-        takes precedence over 'n'.
+        Determines the length of the output (max time delay - 1 by default). 
+        Note that 'aout' parameter takes precedence over 'n'
     norm : int, optional
         Specifies normalization procedure 0,1,2, or 3. Default to 3, except for 
         'diff' method where it default to 1.
@@ -1410,8 +1417,8 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         Array of integers defining frame times of the second data. If not provided, 
         regular time-spaced data is assumed.  
     n : int, optional
-        If provided, determines the length of the output. Note that 'aout' parameter
-        takes precedence over 'n'.
+        Determines the length of the output (max time delay - 1 by default). 
+        Note that 'aout' parameter takes precedence over 'n'
     norm : int, optional
         Specifies normalization procedure 0,1,2, or 3 (default).
     method : str, optional
@@ -1542,7 +1549,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         return cor, count, sq, ds1, ds2
     
 
-def iccorr(data, t1 = None, t2 = None, n = 2**5, norm = 0, method = "corr", count = None,
+def iccorr(data, t1 = None, t2 = None, n = None, norm = 0, method = "corr", count = None,
                 chunk_size = None, thread_divisor = None,  
                 auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
     """Iterative version of :func:`ccorr`.
@@ -1557,8 +1564,8 @@ def iccorr(data, t1 = None, t2 = None, n = 2**5, norm = 0, method = "corr", coun
     t2 : array-like, optional
         Array of integers defining frame times of the second data. If not provided, 
         regular time-spaced data is assumed.  
-    n : int, required
-        Determines the length of the output.
+    n : int, optional
+        Determines the length of the output (max time delay - 1 by default). 
     norm : int, optional
         Specifies normalization procedure 0,1,2, or 3 (default).
     method : str, optional
@@ -1645,9 +1652,8 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr", count = None,
     t : int or array-like, optional
         Array of integers defining frame times of the data. If it is a scalar
         it defines the length of the input data
-    n : int, required
-        Determines the length of the output. Maximum value is half of the input 
-        length.
+    n : int, optional
+        Determines the length of the output (max time delay - 1 by default). 
     norm : int, optional
         Specifies normalization procedure 0,1,2, or 3 (default).
     method : str, optional
@@ -1897,9 +1903,14 @@ def take_data(data, mask):
 
 def _method_from_data(data):
     try:
-        return "corr" if len(data) == 5 else "diff" 
+        if len(data) == 5:
+            return "corr" 
+        elif len(data) == 4:
+            return "diff"
+        else:
+            1/0
     except:
-        raise ValueError("Invalid data type")
+        raise ValueError("Not a valid correlation data")
         
 def _inspect_mode(mode):
     if mode in ("corr","diff"):

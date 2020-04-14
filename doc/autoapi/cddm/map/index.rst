@@ -46,7 +46,7 @@ Module Contents
    :type shape: (int,int)
 
 
-.. function:: k_select(data, angle, sector=5, kstep=1, k=None, shape=None)
+.. function:: k_select(data, angle, sector=5, kstep=1, k=None, shape=None, mask=None)
 
    k-selection and k-averaging of normalized (and merged) correlation data.
 
@@ -66,6 +66,8 @@ Module Contents
    :param shape: Shape of the original video frame. If shape is not rectangular, it must
                  be provided.
    :type shape: tuple
+   :param mask: A boolean array indicating which data elements were computed.
+   :type mask: ndarray
 
    :returns: **out** -- If k s not defined, this is an iterator that yields a tuple of (k_avg, data_avg)
              of actual (mean) k and averaged data. If k is a list of indices, it returns

@@ -5,9 +5,7 @@ This module defines several functions for fft processing  of multi-frame data.
 """
 
 import numpy as np
-from cddm.video import ImageShow, _FIGURES, play, figure_title
-from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED
-from queue import Queue
+from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED, PYFFTW_INSTALLED,  detect_number_of_cores
 
 #from multiprocessing.pool import ThreadPool
 
@@ -16,82 +14,14 @@ if MKL_FFT_INSTALLED == True:
     
 if SCIPY_INSTALLED == True:
     import scipy.fftpack as spfft
+    
+if PYFFTW_INSTALLED :
+   import pyfftw.interfaces as fftw
+   import pyfftw
+   fftw.cache.enable()
+   pyfftw.config.NUM_THREADS = detect_number_of_cores()
 
-def show_fft(video, id = 0, clip = None, title = None):
-    """Show fft
-    
-    Parameters
-    ----------
-    video : iterator
-        A multi-frame iterator
-    id : int
-        Frame index
-    clip : float, optional
-        Clipping value. If not given, it is determined automatically.
-    title : str, optional
-        Unique title of the video. You can use :func:`.video.figure_title`
-        to create a unique name.
-    
-    Returns
-    -------
-    video : iterator
-        A multi-frame iterator
-    
-    """
-    if title is None:
-        title = figure_title("fft - camera {}".format(id))
-    viewer = ImageShow(title)
-    queue = Queue(1)
-    _FIGURES[title] = (viewer, queue)
-    
-    for frames in video:
-        if queue.empty():
-            im = _clip_fft(frames[id],clip)
-            queue.put(im, block = False)
-        yield frames
-        
-def _clip_fft(im, clip = None):
-    im = np.abs(im)
-    if clip is None:
-        im[0,0] = 0
-        clip = im.max()
-        
-    im = im/clip
-    im = im.clip(0,1)    
-    return np.fft.fftshift(im,0)
 
-def show_fftdiff(video, clip = None, title = None):
-    """Show fft difference video
-    
-    Parameters
-    ----------
-    video : iterator
-        A multi-frame iterator
-    clip : float, optional
-        Clipping value. If not given, it is determined automatically.
-    title : str, optional
-        Unique title of the video. You can use :func:`figure_title``
-        a to produce unique name.
-    
-    Returns
-    -------
-    video : iterator
-        A multi-frame iterator
-    
-    """
-    if title is None:
-        title = figure_title("FFT diff")
-    viewer = ImageShow(title)
-    queue = Queue(1)
-    _FIGURES[title] = (viewer, queue)
-    
-    for frames in video:
-        if queue.empty():
-            im = frames[1]-frames[0]
-            im = _clip_fft(im,clip)
-            queue.put(im, block = False)
-        yield frames
-        
 
 def _fft(a, overwrite_x = False):
     libname = CDDMConfig["fftlib"]
@@ -101,8 +31,8 @@ def _fft(a, overwrite_x = False):
         return spfft.fft(a, overwrite_x = overwrite_x)
     elif libname == "numpy":
         return np.fft.fft(a) 
-    else:#default implementation is numpy fft
-        return np.fft.fft(a)
+    elif libname == "pyfftw":
+        return fftw.scipy_fftpack.fft(a, overwrite_x = overwrite_x)
 
 def _ifft(a, overwrite_x = False):
     libname = CDDMConfig["fftlib"]
@@ -110,10 +40,10 @@ def _ifft(a, overwrite_x = False):
         return mkl_fft.ifft(a, overwrite_x = overwrite_x)
     elif libname == "scipy":
         return spfft.ifft(a, overwrite_x = overwrite_x)
+    elif libname == "pyfftw":
+        return fftw.scipy_fftpack.ifft(a, overwrite_x = overwrite_x)
     elif libname == "numpy":
         return np.fft.ifft(a) 
-    else:#default implementation is numpy ifft
-        return np.fft.ifft(a)
 
 def _fft2(a, overwrite_x = False):
     libname = CDDMConfig["fftlib"]
@@ -123,9 +53,8 @@ def _fft2(a, overwrite_x = False):
         return spfft.fft2(a, overwrite_x = overwrite_x)
     elif libname == "numpy":
         return np.fft.fft2(a) 
-    else:#default implementation is numpy fft2
-        return np.fft.fft2(a)
-
+    elif libname == "pyfftw":
+        return fftw.scipy_fftpack.fft2(a, overwrite_x = overwrite_x)
     
 def _rfft2(a, overwrite_x = False):
     libname = CDDMConfig["rfft2lib"]
@@ -136,8 +65,8 @@ def _rfft2(a, overwrite_x = False):
         return spfft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]
     elif libname == "numpy":
         return np.fft.rfft2(a.real) #force real in case input is complex
-    else:#default implementation is numpy fft2
-        return np.fft.fft2(a)[...,0:cutoff]     
+    elif libname == "pyfftw":
+        return fftw.numpy_fft.rfft2(a.real) #force real in case input is complex 
 
         
 def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
@@ -230,18 +159,17 @@ def normalize_fft(video, inplace = False, dtype = None):
             yield tuple((np.divide(frame, frame[0,0], frame) for frame in frames))
         else:
             yield tuple((np.asarray(frame / frame[0,0], dtype = dtype) for frame in frames))   
-
-
         
 if __name__ == "__main__":
     import cddm.conf
-    cddm.conf.set_fftlib("numpy")
-    from cddm.video import random_video, show_diff, show_video
-    video = random_video(dual = True)
-    video = show_video(video,0)
-    video = show_diff(video)
-    video = rfft2(video,63,63)
+
+    from cddm.video import random_video, show_diff, show_video, show_fft, play
+    video = random_video(dual = True, shape = (512,256))
+    #video = show_video(video,0)
+    #video = show_diff(video)
     video = show_fft(video,0)
+    #video = rfft2(video,63,63)
+    
     
     for frames in play(video, fps = 20):
         pass

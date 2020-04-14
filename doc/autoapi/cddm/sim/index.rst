@@ -44,7 +44,7 @@ Module Contents
    Performs random particle step from a given initial position x.
 
 
-.. function:: brownian_walk(x0, n=1024, shape=(256, 256), delta=1, dt=1, velocity=0.0)
+.. function:: brownian_walk(x0, count=1024, shape=(256, 256), delta=1, dt=1, velocity=0.0)
 
    Returns an brownian walk iterator.
 
@@ -53,8 +53,8 @@ Module Contents
 
    :param x0: A list of initial coordinates (i, j) of particles (in pixel units)
    :type x0: array-like
-   :param n: Number of simulation steps
-   :type n: int
+   :param count: Number of simulation steps
+   :type count: int
    :param shape: Shape of the simulation region in pixels
    :type shape: (int,int)
    :param delta: Defines an average step in pixel coordinates (when dt = 1).
@@ -66,12 +66,12 @@ Module Contents
    :type velocity: (float,float)
 
 
-.. function:: brownian_particles(n=500, shape=(256, 256), particles=100, delta=1, dt=1, velocity=0.0, x0=None)
+.. function:: brownian_particles(count=500, shape=(256, 256), particles=100, delta=1, dt=1, velocity=0.0, x0=None)
 
    Creates coordinates of multiple brownian particles.
 
-   :param n: Number of steps to calculate
-   :type n: int
+   :param count: Number of steps to calculate
+   :type count: int
    :param shape: Shape of the box
    :type shape: (int,int)
    :param particles: Number of particles in the box
@@ -118,7 +118,7 @@ Module Contents
    [1, 4, 7]
 
 
-.. function:: test_plot(n=5000, particles=2)
+.. function:: test_plot(count=5000, particles=2)
 
    Brownian particles usage example. Track 2 particles
 

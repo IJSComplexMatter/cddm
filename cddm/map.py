@@ -3,6 +3,7 @@ Data mapping and k-averaging functions.
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 #from cddm.conf import F64,I64,U16, U16DTYPE, F, I, FDTYPE, I64DTYPE,F64DTYPE, NUMBA_CACHE
 
@@ -139,8 +140,10 @@ def rfft2_kangle(kisize = None, kjsize = None, shape = None):
     x2, y2  = x**2, y**2
     return (x2 + y2)**0.5 , np.arctan2(-y,x)  
 
-def _k_select(data, k, indexmap, kmap):
+def _k_select(data, k, indexmap, kmap, computed_mask):
     mask = (indexmap == int(round(k)))
+    if computed_mask is not None:
+        mask = mask & computed_mask
     ks = kmap[mask]
     if len(ks) > 0:
         #at least one k value exists
@@ -150,8 +153,21 @@ def _k_select(data, k, indexmap, kmap):
     else:
         #no k values
         return None
+    
+def k_indexmap(kisize,kjsize, angle = 0, sector = 5, kstep = 1., shape = None):
+    kmap, anglemap = rfft2_kangle(kisize, kjsize,shape)
+    indexmap = sector_indexmap(kmap, anglemap, angle, sector, kstep) 
+    return indexmap
 
-def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None):
+def plot_indexmap(graph, ax = None):
+    extent=[0,graph.shape[1],graph.shape[0]//2+1,-graph.shape[0]//2-1]
+    if ax is None:
+        return plt.imshow(np.fft.fftshift(graph,0), extent = extent)
+    else:
+        return ax.imshow(np.fft.fftshift(graph,0), extent = extent)
+
+
+def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask = None):
     """k-selection and k-averaging of normalized (and merged) correlation data.
     
     This function takes (...,i,j,n) correlation data and performs k-based selection
@@ -172,6 +188,8 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None):
     shape : tuple
         Shape of the original video frame. If shape is not rectangular, it must
         be provided.
+    mask : ndarray
+        A boolean array indicating which data elements were computed.
         
     Returns
     -------
@@ -191,11 +209,11 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None):
         kdim = indexmap.max() + 1
         k = np.arange(kdim)
     try:
-        iterator = (_k_select(data, kk, indexmap, kmap) for kk in k)
+        iterator = (_k_select(data, kk, indexmap, kmap, mask) for kk in k)
         return tuple((data for data in iterator if data is not None))       
     except TypeError:
         #not iterable
-        return _k_select(data, k, indexmap, kmap)
+        return _k_select(data, k, indexmap, kmap, mask)
     
 
 if __name__ == "__main__":

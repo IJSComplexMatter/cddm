@@ -5,9 +5,11 @@ Configuration & Tips
 
 In the :mod:`cddm.conf` there are a few configuration options that you can use for custom configuration, optimization and tuning. The package relies heavily on numba-optimized code. Default numba compilation options are used. For fine-tuning you can of course use custom compilation options that numba provides (See numba_ compilation options). There are also a few numba related environment variables that you can set in addition to numba_ compilation options. These are explained below.
 
+Runtime options
+---------------
 
 Verbosity
----------
++++++++++
 
 By default, compute functions do not print to stdout. You can set printing of progress bar and messages with:
 
@@ -33,17 +35,30 @@ To disable verbosity, set verbose level to zero:
 You can set this option in the configuration file (see below).
 
 Video preview
--------------
++++++++++++++
 
-Video previewing can be done using cv2 (in installed) instead of matplotlib::
+Video previewing can be done using `cv2` or `pyqtgraph` (in installed) instead of `matplotlib`::
 
-   >>> cddm.conf.set_cv2(1)
-   0
+   >>> cddm.conf.set_showlib("cv2")
+   "matplotlib"
 
 You can set this option in the configuration file (see below).
 
+FFT library
++++++++++++
+
+You can select FFT library ("mkl_fft", "numpy", "scipy" or "pyfftw") for rfft2 calculation, and for fff calculations triggered with method = "fft" in the correlation functions::
+
+   >>> cddm.conf.set_fftlib("mkl_fft")
+   'mkl_fft'
+   >>> cddm.conf.set_rfft2lib("numpy")
+   'numpy'
+
+Compilation options
+-------------------
+
 Numba multithreading
---------------------
+++++++++++++++++++++
 
 Most computationally expensive numerical algorithms were implemented using @vectorize or @guvecgorize and can be compiled with target="parallel" option. By default, parallel execution is disabled.
 
@@ -57,9 +72,8 @@ You can enable parallel target for numba functions by setting the *CDDM_TARGET_P
 
 Another option is to modify the configuration file (see below). Depending on the number of cores in your system, you should be able to notice an increase  in the computation speed.
 
-
 Numba cache
------------
++++++++++++
 
 Numba allows caching of compiled functions. If *CDDM_TARGET_PARALLEL* environment variable is not defined, all compiled functions are cached and stored in your home directory for faster import by default. For debugging purposes, you can enable/disable caching with *CDDM_NUMBA_CACHE* environment variable. To disable caching (enabled by default):
 
@@ -69,18 +83,8 @@ Numba allows caching of compiled functions. If *CDDM_TARGET_PARALLEL* environmen
 
 Cached files are stored in *.cddm/numba_cache*  in user's home directory. You can remove this folder to force recompilation. To enable/disable caching you can modify the configuration file (see below).
 
-FFT library
------------
-
-You can select FFT library ("mkl_fft", "numpy", or "scipy") for rfft2 calculation, and for fit calculations triggered with method = "fft" in the correlation functions calculations with the following::
-
-   >>> cddm.conf.set_fftlib("mkl_fft")
-   'mkl_fft'
-   >>> cddm.conf.set_rfft2lib("numpy")
-   'numpy'
-
 Precision
----------
++++++++++
 
 By default, computation is performed in double precision. You may disable double precision if you are low on memory, and to gain some speed in computation. 
 
@@ -93,6 +97,16 @@ You can also use *fastmath* option in numba compilation to gain some small speed
    >>> os.environ["CDDM_FASTMATH"] = "1"
 
 Default values can also be set the configuration file (see below).
+
+Optimization tips
+-----------------
+
+In-memory calculation
++++++++++++++++++++++
+
+In principle, in-memory versions of the correlation calculation algorithms should be faster to compute, because there is no need to make intermediate copy of the data to internal data type. 
+
+If the nature of your experiment requires fast analysis of large k-space data, there are a few optimization tricks that you can try to speed up the computation. If you can subtract the background (with the `auto_background` option) you can...
 
 
 CDDM configuration file

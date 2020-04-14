@@ -90,9 +90,9 @@ Module Contents
    Sets verbose level (0-2) used by compute functions.
 
 
-.. function:: set_cv2(ok)
+.. function:: set_showlib(name)
 
-   Enable/Disable cv2 rendering.
+   Set library for live video view
 
 
 .. function:: set_nthreads(num)
