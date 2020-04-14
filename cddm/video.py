@@ -20,13 +20,8 @@ if CV2_INSTALLED:
     
 if PYQTGRAPH_INSTALLED:
     import pyqtgraph as pg
-    #from pyqtgraph.Qt import QtGui
-    #try:
-    #    app
-    #except NameError:
-    #    app = QtGui.QApplication([])
-    
-    
+    from pyqtgraph.Qt import QtGui
+
 def fromarrays(arrays):
     """Creates a multi-frame iterator from given list of arrays.
     
@@ -353,7 +348,8 @@ def pause(i = 1):
         cv2.waitKey(int(i))
     elif CDDMConfig.showlib == "matplotlib":
         plt.pause(i/1000.)
-    else:  
+    else: 
+        app = QtGui.QApplication.instance()
         app.processEvents()
         
         
