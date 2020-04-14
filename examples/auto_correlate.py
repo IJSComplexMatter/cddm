@@ -51,24 +51,26 @@ fft = rfft2(video, kimax =31, kjmax = 31)
 #load int numpy array
 fft_array, = asarrays(fft, NFRAMES)
 
-#: now perform auto correlation calculation with default parameters using iterative algorithm
-data = acorr(fft_array)
-bg, var = stats(fft_array)
+if __name__ == "__main__":
 
-#perform normalization and merge data
-data_lin = normalize(data, bg, var, scale = True)
-
-#: inspect the data
-viewer = DataViewer()
-viewer.set_data(data_lin)
-viewer.set_mask(k = 25, angle = 0, sector = 30)
-viewer.plot()
-viewer.show()
-
-x,y = log_average(data_lin)
-
-#: save the normalized data to numpy files
-np.save("auto_correlate_t.npy",x)
-np.save("auto_correlate_data.npy",y)
+    #: now perform auto correlation calculation with default parameters using iterative algorithm
+    data = acorr(fft_array)
+    bg, var = stats(fft_array)
+    
+    #perform normalization and merge data
+    data_lin = normalize(data, bg, var, scale = True)
+    
+    #: inspect the data
+    viewer = DataViewer()
+    viewer.set_data(data_lin)
+    viewer.set_mask(k = 25, angle = 0, sector = 30)
+    viewer.plot()
+    viewer.show()
+    
+    x,y = log_average(data_lin)
+    
+    #: save the normalized data to numpy files
+    np.save("auto_correlate_t.npy",x)
+    np.save("auto_correlate_data.npy",y)
 
 
