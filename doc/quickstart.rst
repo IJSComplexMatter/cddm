@@ -696,10 +696,10 @@ For instance, for the cross-correlation analysis using the iterative algorithm, 
 
 .. doctest::
 
-   >>> from cddm.map import k_indexmap
+   >>> from cddm.map import k_indexmap, plot_indexmap
    >>> map = k_indexmap(63,32, angle = 0, sector = 90)
    >>> mask = (kmap >= 20) & (kmap <= 30)
-   >>> ax = plt.imshow(mask) 
+   >>> plot_indexmap(mask) 
    >>> plt.show()
 
 .. plot:: examples/mask_array.py
@@ -734,34 +734,6 @@ The in-memory calculation of standard (linear) correlation function does not sup
    >>> acorr_masked = acorr(fft_masked)
    >>> acorr_data = reshape_output(acorr_masked, masked_shape, mask = mask)
    
-
-Optimization tips
------------------
-
-Is the computation too slow? Here you can find some tips for optimizing your code to speed up the calculation, should you 
-need this. I suggest you work with some test data that you read into memory, and then use::
-
-   >>> cddm.conf.set_cerbose(2) 
-   0
-
-so that it will plot the execution speed. Then as you work on your dataset, test how the following options change the computation speed:
-
-* You can select the method = 'diff' method and norm = 1 to force calculation without the extra `data_sum` arrays. Or, calculate with norm = 0 and method = "corr".
-* For non-iterative version, you can also use `align` = True and try to see if copying and aligning the data in memory before the calculation improves.
-
-Multiple tau algorithm
-++++++++++++++++++++++
-
-The multiple tau algorithm is the best option, if you want log-spaced results. Here are some multiple-tau-specific options that you can tune
-
-* You can speed up the computation if you lower the `level_size` parameter, which effectively reduces the time resolution.
-* Play with `chunk_size` parameter and find the best option for your dataset.
-* Use `thread_divisor` and find the best combination of `chunk_size` and `thread_divisor`
-
-Linear algorithm
-++++++++++++++++
-
-If you need linear data, the fft algorithm works best for regular-spaced data and complete tau calculation. Here you may work with floats instead of doubles to speed up FFT or work with different fft library. See Optimization for details. If you can work with a limited range of delay times you may use the `n` parameter, which may be speedier to compute with the standard `method = "corr"` Here, you should use `align = True` 
 
 
 

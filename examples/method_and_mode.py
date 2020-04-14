@@ -1,10 +1,8 @@
 """
-Demonstrates the use of method and mode options
+Demonstrates the use and equivalence of method and mode options
 """
 from auto_correlate import fft_array
-
 from cddm.core import acorr, normalize, stats
-
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +11,7 @@ bg, var = stats(fft_array)
 
 for method in ("corr","diff"):
     if method == "corr":
-        data = acorr(fft_array, method = "fft")
+        data = acorr(fft_array, method = "fft") #fft,so that it is faster
     else:
         data = acorr(fft_array, method = "diff", n = 256)
     for mode in ("diff", "corr"):

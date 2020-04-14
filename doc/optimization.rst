@@ -101,12 +101,30 @@ Default values can also be set the configuration file (see below).
 Optimization tips
 -----------------
 
-In-memory calculation
-+++++++++++++++++++++
+Is the computation too slow? Here you can find some tips for optimizing your code to speed up the calculation, should you 
+need this. I suggest you work with some test data that you read into memory, and then use::
 
-In principle, in-memory versions of the correlation calculation algorithms should be faster to compute, because there is no need to make intermediate copy of the data to internal data type. 
+   >>> cddm.conf.set_cerbose(2) 
+   0
 
-If the nature of your experiment requires fast analysis of large k-space data, there are a few optimization tricks that you can try to speed up the computation. If you can subtract the background (with the `auto_background` option) you can...
+so that it will plot the execution speed. Then as you work on your dataset, test how the following options change the computation speed:
+
+* You can select the method = 'diff' method and norm = 1 to force calculation without the extra `data_sum` arrays. Or, calculate with norm = 0 and method = "corr".
+* For non-iterative version, you can also use `align` = True and try to see if copying and aligning the data in memory before the calculation improves.
+
+Multiple tau algorithm
+++++++++++++++++++++++
+
+The multiple tau algorithm is the best option, if you want log-spaced results. Here are some multiple-tau-specific options that you can tune
+
+* You can speed up the computation if you lower the `level_size` parameter, which effectively reduces the time resolution.
+* Play with `chunk_size` parameter and find the best option for your dataset.
+* Use `thread_divisor` and find the best combination of `chunk_size` and `thread_divisor`
+
+Linear algorithm
+++++++++++++++++
+
+If you need linear data, the fft algorithm works best for regular-spaced data and complete tau calculation. Here you may work with floats instead of doubles to speed up FFT or work with different fft library. See Optimization for details. If you can work with a limited range of delay times you may use the `n` parameter, which may be speedier to compute with the standard `method = "corr"` Here, you should use `align = True` 
 
 
 CDDM configuration file
