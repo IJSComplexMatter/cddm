@@ -400,7 +400,7 @@ Cross correlation can be made on two different (or equal) sources of data. Norma
    >>> acorr_data = acorr(fft_array)
    >>> lin_data_cross = normalize(ccorr_data, bg, var, scale = True)
    >>> lin_data_auto  = normalize(acorr_data, bg, var, scale = True)
-   >>> np.allclose(lin_data_auto, lin_data_cross, atol = 1e-5) #almost the same.
+   >>> np.allclose(lin_data_auto, lin_data_cross, atol = 1e-4) #almost the same.
    True
 
 Irregular-spaced data analysis
@@ -463,7 +463,7 @@ Pre-process the video and perform FFT
    >>> window = blackman((512,512))
    >>> window_video = ((window,window),)*1024
    >>> video = multiply(video, window_video)
-   >>> fft = rfft2(video, kimax =37, kjmax = 37)
+   >>> fft = rfft2(video, kimax =31, kjmax = 31)
 
 Optionally, you can normalize for flickering effects in fft space, instead of normaliing in real space.
 
@@ -715,16 +715,16 @@ Now to show this video iterator, just load it into memory, or iterate over the f
 Data masking
 ------------
 
-One of the more advanced features is data masking. Sometimes, you may not want to compute the correlation function for the whole k-space, but only focus the analysis on a subset of k-values.
+One of the more useful features is data masking. Sometimes, you may not want to compute the correlation function for the whole k-space, but only focus the analysis on a subset of k-values.
 
 For instance, for the cross-correlation analysis using the iterative algorithm, we can simply define a mask array, which is a boolean array with ones defined at k-indices where the correlation function needs to be calculated. For instance, to calculate data only along a given sector of k-value, you can build the mask with:
 
 .. doctest::
 
    >>> from cddm.map import k_indexmap, plot_indexmap
-   >>> map = k_indexmap(63,32, angle = 0, sector = 90)
+   >>> kmap = k_indexmap(63,32, angle = 0, sector = 90)
    >>> mask = (kmap >= 20) & (kmap <= 30)
-   >>> plot_indexmap(mask) 
+   >>> ax = plot_indexmap(mask) 
    >>> plt.show()
 
 .. plot:: examples/mask_array.py
@@ -741,7 +741,7 @@ Here we built k-mask with a shape of (63,32), because these is the shape of the 
 
 .. doctest::
 
-   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, 
+   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, 
    ...   level_size = 32, mask = mask, viewer = viewer)
 
 
@@ -755,7 +755,7 @@ The in-memory calculation of standard (linear) correlation function does not sup
 .. doctest::
 
    >>> from cddm.core import reshape_input, reshape_output
-   >>> masked_shape, fft_masked = reshape_input(fft_array, mask = mask)
+   >>> fft_masked, masked_shape = reshape_input(fft_array, mask = mask)
    >>> acorr_masked = acorr(fft_masked)
    >>> acorr_data = reshape_output(acorr_masked, masked_shape, mask = mask)
    
