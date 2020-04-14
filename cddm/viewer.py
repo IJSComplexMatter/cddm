@@ -22,19 +22,25 @@ class VideoViewer(object):
         Length of the video. When this is set it displays only first 'count' frames of the video.
     id : int, optional
         For multi-frame data specifies camera index.
+    norm_func : callable
+        Normalization function that takes a single argument (array) and returns
+        a single element (array). Can be used to apply custom normalization 
+        function to the image before it is shown.    
     title : str, optional
         Plot title.
     kw : options, optional
         Extra arguments passed directly to imshow function
     """
 
-    def __init__(self, video, count = None, id = 0, title = "", **kw):
+    def __init__(self, video, count = None, id = 0, norm_func = lambda x : x.real, title = "", **kw):
 
         if count is None:
             try:
                 count = len(video)
             except TypeError:
                 raise Exception("You must specify count!")
+                
+        self._norm = norm_func
                 
         self.id = id
         self.index = 0
@@ -144,9 +150,9 @@ class VideoViewer(object):
         
     def _prepare_image(self,im):
         if isinstance(im, tuple) or isinstance(im, list):
-            return im[self.id]
+            return self._norm(im[self.id])
         else:
-            return im
+            return self._norm(im)
         
     def show(self):
         """Shows video."""

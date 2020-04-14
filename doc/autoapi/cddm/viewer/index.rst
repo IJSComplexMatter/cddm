@@ -12,7 +12,7 @@
 Module Contents
 ---------------
 
-.. py:class:: VideoViewer(video, count=None, id=0, title='', **kw)
+.. py:class:: VideoViewer(video, count=None, id=0, norm_func=lambda x: x.real, title='', **kw)
 
    Bases: :class:`object`
 
@@ -25,6 +25,10 @@ Module Contents
    :type count: int
    :param id: For multi-frame data specifies camera index.
    :type id: int, optional
+   :param norm_func: Normalization function that takes a single argument (array) and returns
+                     a single element (array). Can be used to apply custom normalization
+                     function to the image before it is shown.
+   :type norm_func: callable
    :param title: Plot title.
    :type title: str, optional
    :param kw: Extra arguments passed directly to imshow function

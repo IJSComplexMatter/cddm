@@ -3,25 +3,25 @@
 Quickstart Guide
 ================
 
-This is a step-by-step guide, showing most typical use case of this package, that is, 
-computation of the auto-correlation function from standard DDM experiments, and computation of the cross-correlation function from the cross-DDM experiments using multiple-tau algorithm and real-time analysis.
+This is a step-by-step guide that aims to demonstrate two most typical use cases:  
+computation of the auto-correlation function on regular-spaced data from standard DDM experiments performed with a single camera, and computation of the cross-correlation function on irregular-spaced data from the cross-DDM experiments using multiple-tau algorithm and real-time analysis.
 
 For this guide you do not need the actual data because we will construct a sample
-video, simulating a set of spherical particles undergoing 2D Brownian motion using the (included in the package) Brownian motion simulator. In real world experiments you will have to stream the videos either directly from the cameras with the library of choice, or read from the disk. This package does not provide tools for reading the data, so it is up to the user to provide the link between image readout and this package. You can use imageio_ or any other tool for loading recorded videos.
+video. We will be simulating a set of spherical particles undergoing 2D Brownian. Simulation is performed on-the-fly with the Brownian motion simulator that is included with this package. In real world experiments you will have to stream the videos either directly from the cameras with the library of your choice, or read data files from the disk. This package does not provide the tools for reading the data, so it is up to the user to provide the link between the image readout and the correlation computation functions. You can use imageio_ or any other tool for loading recorded videos.
 
 To proceed, you can copy-paste the examples below in your python shell. Or, open the source files under each of the plots in this document and run those in your favorite python development environment.
 
 Video processing
 ----------------
 
-Here we will cover some basic video processing functions and explain the data types used in the package. We will demonstrate the use on single-camera video first, and then show how to process dual-camera experiment from the paper_.
+We will start with some basic video processing functions and explain the data types used in the package. We will demonstrate the use on single-camera video first, and then show how to process dual-camera experiment in order to simulate Cross-DDM experiments as demonstrated in the paper_.
 
 Video data type
 +++++++++++++++
 
-There are a few video processing functions residing in :mod:`cddm.video` that were designed to work on iterables of multi-frame data, in order to process the data without reading it into the memory. When doing the analysis of DDM experiments on large data sets, it becomes difficult to hold reference to all data in computer's memory. Another approach is to work with numpy arrays, but we will not covert this approach. You will have to go through the examples distributed with the package to lear how to do processing on numpy arrays.
+In :mod:`cddm.video` there are a few video processing functions that were designed to work on iterables of multi-frame data. This way the processing of the data is possible without reading it into the memory as you would normally do if you wanted to operate with numpy arrays. This makes it possible to analyze live videos without writing to disk.
 
-Video data is an iterable object that consists of tuples, where each tuple holds a single numpy array (for single camera experiments) or a dual frame data (two numpy arrays) representing a cross-ddm experiment using two cameras. To clarify, a valid dual-frame  out-of-memory video can be constructed using python generator expressions, e.g. for random noise dual_frame video you can do: 
+Video data is an iterable object with tuple element, where each tuple holds a set of numpy arrays (frames). A single-camera video is an iterator over a single-frame tuples. A dual-camera video iterates over dual frame data (two numpy arrays). To clarify, a valid dual-frame out-of-memory video can be constructed using python generator expressions, e.g. for random noise dual_frame video you can do: 
 
 .. doctest::
 
@@ -33,27 +33,28 @@ Check python documentation on *generator expressions* if you are unfamiliar with
 
    >>> video = ((np.random.rand(512,512),) for i in range(1024))
 
-Notice the trailing comma to indicate a tuple of length 1. The above video is a multi-frame video holding only a single array in each of the elements of the `video` iterable object. Note that any iterable is valid, so you can work with lists, or tuples, or create any object that support the iterator protocol.
+Notice the trailing comma to indicate a tuple of length 1. The above video is a multi-frame video holding only a single array in each of the elements of the `video` iterable object. Note that any iterable is valid, so you can work with lists, or tuples, or create any object of your own that support the iterator protocol.
 
 Video simulator
 +++++++++++++++
 
-For testing, we will use a sample video of a simulated Brownian motion of 
-100 particles. Here we will construct a simulation area of shape (512+32,512+32)
-because we will later crop this to (512,512). We crop the video in order to avoid mirroring of particles as they touch the boundary of the simulation size because of the mirror boundary conditions implied by the simulation procedure. This way we simulate the real-world boundary effects better and prevent the particles to reappear on the other side of the image when they leave the viewing area.
+For testing, we will build a sample video of a simulated Brownian motion of 
+100 particles. We will construct a simulation area of shape (512+32,512+32)
+because we will later crop this to (512,512). We crop the simulated video in order to avoid mirroring of particles as they touch the boundary of the simulation size because of the mirror boundary conditions implied by the simulation procedure. This way we simulate the real-world boundary effects better and prevent the particles to reappear on the other side of the image when they leave the viewing area.
 
 .. doctest::
 
-   >>> from cddm.sim import simple_brownian_video
+   >>> from cddm.sim import simple_brownian_video, seed
+   >>> seed(0) #sets numba and numpy seeds for random number generators
    >>> t = range(1024) #times at which to trigger the camera.
    >>> video = simple_brownian_video(t, shape = (512+32,512+32), delta = 2)
  
-Here we have created a frame iterator of a Brownian motion of spherical particles viewed with a camera that is triggered with a constant frame rate (standard DDM experiment). Time `t` goes in units of time step :math:`\delta t = 1`, specified by the simulator. The `delta` parameter is the mean step size in the time step in units of pixel size. It is related to the diffusion constant `D` :math:`\delta = \sqrt{2D \delta t}`. 
+Here we have created a frame iterator of a Brownian motion of spherical particles viewed with a camera that is triggered with a constant frame rate (standard DDM experiment). Time `t` goes in units of time step defined with parameter `dt` :math:`\delta t = 1`, specified by the simulator. The `delta` parameter is the mean step size when dt=1 in the time step in units of pixel size. It is related to the diffusion constant `D` by the relation :math:`\delta = \sqrt{2D}`.  
 
 Showing video
 +++++++++++++
 
-You may want to inspect and play videos. Video player is implemented in :mod:`.viewer` using `matplotlib`. As such, it is not meant to be a real player, but it allows you to inspect the video before you begin the correlation analysis. In order to inspect the video, we will first load the video into memory:
+You may want to inspect and play videos. Video player is implemented in module :mod:`.viewer` using `matplotlib`. It is not meant to be a real player, but it allows you to inspect the video before you begin the correlation analysis. In order to inspect the video, we will first load the video into memory:
 
 .. doctest::
  
@@ -64,7 +65,7 @@ You may want to inspect and play videos. Video player is implemented in :mod:`.v
 
    For playing the video you are not required to load the data into memory. By doing so, it allows you to inspect the video back and forth, otherwise we can only iterate step by step in the forward direction with the :class:`.viewer.VideoViewer`.
 
-Now we can inspect the video using tools found in :mod:`.viewer`
+Now we can inspect the video:
 
 .. doctest::
  
@@ -79,7 +80,7 @@ Now we can inspect the video using tools found in :mod:`.viewer`
 Cropping
 ++++++++
 
-You may want to crop data before processing. Cropping is done using python slice objects, or simply by specifying the range of values for slicing. For instance to perform slicing of frames (numpy arrays) like ``frame[0:512,0:512]`` do:
+You may want to crop the data before processing. Cropping is done using python slice objects, or simply, by specifying the range of values for slicing. For instance to perform slicing of frames (numpy arrays) like ``frame[0:512,0:512]`` do:
 
 .. doctest::
  
@@ -91,7 +92,7 @@ Under the hood, the crop function performs array slicing using slice object gene
 Windowing
 +++++++++
 
-In FFT processing, it is common to apply a window function to the data before the computation of FFT to reduce FFT leakage. In cross-DDM it also helps to reduce the camera  misalignment error. In :mod:`.window` there are four 2D windowing functions that you can use.
+In FFT processing, it is common to apply a window function before the computation of FFT ignorer to reduce FFT leakage. In cross-DDM it also helps to reduce the camera  misalignment error. In :mod:`.window` there are four 2D windowing functions that you can use.
 
 .. plot:: examples/plot_windows.py
    
@@ -104,27 +105,28 @@ After you have cropped the data you can apply the window. First create the windo
    >>> from cddm.window import blackman
    >>> window = blackman((512,512))
 
-In order to multiply each frame of our video with this window function we must create another video-like object, that has the same length and frame shape as the video we wish to process. Use generator expression mechanism to create this video-like object:
+In order to multiply each frame of our video with this window function we must create another video-like object. This video must be of the same length and same frame shape as the video we wish to process. Use generator expression mechanism to create this video-like object:
 
 .. doctest::
  
    >>> window_video = ((window,),)* 1024
    >>> video = multiply(video, window_video)
 
+Again, notice the trailing commas and make sure you understand the python's *generator mechanism* before you proceed.
+
 Performing FFT
 ++++++++++++++
 
-Next thing is to compute the FFT of each frame in the video and to generate a FFT video, that is, an iterable with a multi-frame data, where each of the frames in the elements of the iterable correspond to the FFT of the frames of the video that we are processing. Because the input signal is real, there is no real benefit in using the general FFT algorithm for complex data and to hold reference to all computed Fourier coefficients. Instead, it is better to compute  or hold reference only to the first half of the coefficients using np.fft.rfft2, for instance.  
+Next thing is to compute the FFT of each frame in the video and to generate a FFT video. FFT video is a an iterable with a multi-frame data, where each of the frames in the elements of the iterable correspond to the FFT of the frames of the video that we are processing. Because the input signal is real, there is no benefit in using the general FFT algorithm for complex data and to hold reference to all computed Fourier coefficients. Instead, it is better to compute or hold reference only for the first half of the coefficients using np.fft.rfft2, for instance, instead of  np.fft.fft. For this reason, the package provides a :func:`.fft.rfft2` function that works on iterables, and there is no equivalent fft2 function. The underlying k-averaging and data visualization functions expect the fft data to be presented in half-space only.
 
-Also, in DDM experiments there is usually a cutoff wavenumber value above which there is no significant signal to process. To reduce the memory requirements and computational effort, it is therefore better to remove the computed coefficients that will not be used in the analysis. You can do this using:
+Also, in DDM experiments there is usually a cutoff wavenumber above which there is no significant signal to process. To reduce the memory requirements and computational effort, it is therefore better to remove the computed coefficients that will not be used in the analysis. You can do this using:
 
 .. doctest::
  
    >>> from cddm.fft import rfft2
    >>> fft = rfft2(video, kimax = 31, kjmax = 31)
 
-Here, the resulting fft object is of the same video data type. We have used two arguments `kimax` and `kjmax` for cropping. The result of this cropping is a video of FFTs, where the shape of each frame (in our case it is a single frame of the multi-frame data type) is `(2*kimax+1, kjmax +1)`. As in uncropped rfft2 function, the zero wavenumber is found at[0,0], element [31,31] are for the wavenumber k = (31,31), element [-31,0] == [62,0] of the cropped fft is the Fourier coefficient of k = (-31,0).  
-
+Here, the resulting fft object is of the same video data type. We have used two arguments `kimax` and `kjmax` for cropping. The result of this cropping is a video of FFTs, where the shape of each frame (in our case it is a single frame of the multi-frame data type) is :math:`(2*k_{imax}+1, k_{jmax} +1)`. As in uncropped rfft2, the zero wave vector is found at[0,0], element [31,31] are for the wave vector k = (31,31), element [-1,0] == [62,0] of the cropped fft is the Fourier coefficient of k = (-1,0). The original rfft2 frame shape in our case is (512,257), and therefore the max possible k value for our dataset is kmax = (257,257). With kimax and kjmax we have reduced the computation size for the correlation function calculation from (512*257) to (63*32) different k vectors, which significantly improves the speed and lowers the memory requirements.
 
 Bakground removal
 +++++++++++++++++
@@ -145,11 +147,9 @@ or better, in reciprocal space:
    >>> background_fft = ((background,),) * 1024 
    >>> fft = subtract(fft, background_fft)
 
-However, most of the times it is not possible to acquire a good estimator of the background image. The algorithm allows for the background removal as a part of normalization procedure, so it is not necessary to remove the background. This will bi discussed later in greater detail...
+However, most of the times it is not possible to acquire a good estimator of the background image. The algorithm allows for the background removal as a part of normalization procedure, so it is not necessary to remove the background completely. This will be discussed later in greater detail.
 
-Till this stage, none of the processing has yet took place because all processing functions that were applied have not yet been executed. The execution of the video processing function takes place in real-time when we calculate the correlation function. If you do need to inspect the results of the processing you have to load the calcualtion results in memory.
-
-To load the results of the processing into memory, to inspect the data you can do
+Until now, none of the processing has yet took place because all processing functions that were applied have not yet been executed. The execution of the video processing function takes place in real-time when we start the iteration over frames, e.g. when we calculate the correlation function. If you need to inspect the results of the video processing you have to load the calculation results in memory. To load the results of the processing into memory, to inspect the data you can do
 
 .. doctest::
 
@@ -160,10 +160,12 @@ To load the results of the processing into memory, to inspect the data you can d
 
    You do not need to load the data into memory. The calculation of the correlation function using multiple tau algorithm does not require all data to be read at once, so you should not load the data into memory in general. 
 
+.. _numpyarrays:
+
 Converting to/from arrays
 +++++++++++++++++++++++++
 
-You can convert multi-frame `video` to numpy arrays and numpy arrays to `video` with :func:`.video.asarrays` and :func:`.video.fromarrays`. We are currently working with one-element (single camera) video, to load the video from previous examples into numpy array:
+You can convert multi-frame `video` to numpy arrays and numpy arrays to `video` with :func:`.video.asarrays` and :func:`.video.fromarrays`. We are currently working with one-element (single camera) video. To load the video from previous examples into numpy array do:
 
 .. doctest::
 
@@ -181,31 +183,46 @@ Again, notice the trailing comma.
 Auto-correlation
 ----------------
 
-Now that our video has been cropped, windowed, normalized, fourier transformed, we can start calculating the correlation function. There are a few ways to calculate the correlation function (or image structure function) with the `cddm` package. Here we will do a standard auto-correlation analysis first, the we will do the multiple-tau approach, as this is the most efficient way to simultaneously obtain small tau and large tau data. There is an in-memory version of the algorithm, working on numpy arrays and an out-of-memory version working on the video data iterable object, as explained above.
+Now that our video has been cropped, windowed, normalized, Fourier transformed, we can start calculating the correlation function. There are a few ways to calculate the correlation function (or image structure function) with the `cddm` package. Here we will do a standard auto-correlation analysis first, then we will do the multiple-tau approach, as this is the most efficient way to simultaneously obtain small delay and large delay time data. There is an in-memory version of the algorithm, working on numpy arrays and an out-of-memory version working on the video data iterable objects that we defined above in our previous examples.
 
 Linear analysis
 +++++++++++++++
 
-For standard regular time-spaced data analysis, if you need to calculate all possible delay times accessible from the measured data, you will have to use the calculation methods from :mod:`.core` and you will have to load the data into numpy array first, as we did in the previous example. Then do:
+For standard regular time-spaced data analysis, if you need to calculate all delay times that are accessible from the measured data, you will have to use the calculation methods from :mod:`.core` and you will have to load the data into numpy array first, as shown in :ref:`numpyarrays`. Then do:
 
 .. doctest::
 
    >>> from cddm.core import acorr, normalize, stats
    >>> acorr_data = acorr(fft_array)
 
-Here `acorr_data` is a raw correlation data that still needs to be normalized. When computing with default arguments, it is a tuple of five ndarrays or NoneTypes. As a user, you do not need to know the details of this data type, it will be defined later.
+Here `acorr_data` is a raw correlation data that still needs to be normalized. When computing with default arguments, it is a tuple of length 5 or 4, depending on the parameters used. As a user, you do not need to know the details of this data type. If you are curious, thought, it will be defined in detail later in :ref:`method_and_norm`. What you need to know is that the first element of the correlation data tuple is the actual correlation data, the second element is the count data.
 
-Linear data
-+++++++++++
+.. doctest::
 
-Normally, you won't work with the raw correlation data. Instead, you will normalize the data using :func:`.core.normalize`. For normalization, you have to provide the mean and pixel variance data of the original fft data. You can use :func:`.core.stats` to compute these:
+   >>> corr = acorr_data[0]
+   >>> count = acorr_data[1]
+
+Here the shape of the data are
+
+.. doctest::
+
+   >>> corr.shape == (63,32,1024) and count.shape == (1024,)
+   True
+
+For most simple normalization (assuming background subtraction has been performed prior to the calculation of the correlation function) you could do
+
+.. doctest::
+  
+   >>> normalized_data = corr/count
+
+However, for more complex, background removing normalizations you will normalize the data using :func:`.core.normalize`. Details about the normalization types will be covered in :ref:`normalization`. For default normalization, you have to provide the mean and pixel variance data of the original fft data. You can use :func:`.core.stats` to compute these:
 
 .. doctest::
    
    >>> bg, var = stats(fft_array)
    >>> lin_data = normalize(acorr_data, bg, var, scale = True)
 
-Here, `lin_data` is the normalize autocorrelation data that you can plot and analyze. It is a numpy array, thhe shape of the data depends on the input fft_array shape. In our case it is
+Here, `lin_data` is the normalized autocorrelation data that you can plot and analyze. It is a numpy array, the shape of the data depends on the input `fft_array` shape. In our case it is
 
 .. doctest::
 
@@ -263,7 +280,7 @@ If you wish to analyze the data with some other tool (Mathematica, Origin) you w
    >>> i, j = 4, 8
    >>> np.savetxt("data_{}_{}.txt".format(i,j), log_data[i,j])
 
-Now you can use your favorite tool for data analysis and fitting. But, most probably you will want to do some k-averaging. This will be covered later on, so keep reading ...
+Now you can use your favorite tool for data analysis and fitting. But, most probably you will want to do some k-averaging. This will be covered in :ref:`k_averaging`, so keep reading ...
 
 Multitau analysis
 +++++++++++++++++
@@ -365,12 +382,15 @@ Here, `x` is the log-spaced time delay array, `y` is the merged correlation data
 
 .. plot:: examples/auto_correlate_multi_data_plot.py
 
-   Data obtained using multiple tau algorithm is comparable to the log averaged linear data. Slight discrepancy comes from a difference between the averaging performed with the :func:`.multitau.log_average` and the effective averaging of the multiple tau algorithm. 
+   Data obtained using multiple tau algorithm is comparable to the log averaged linear data. Slight discrepancy comes from the difference between the averaging performed with the :func:`.multitau.log_average` and the effective averaging of the multiple tau algorithm. 
+
+As you can see, both yield similar results. Slight discrepancy comes from the difference between the averaging performed with the :func:`.multitau.log_average` and the effective averaging implied by the multiple tau algorithm.
+
 
 Cross-correlation
 -----------------
 
-Cross correlation can be made on two different (or equal) source of data. In modules :mod:`.core` and :mod:`.multitau` you will find cross-correlation working with two sets of data instead of the equivalent auto-correlation functions for single datasets. Normalized results of the cross-correlation performed on two equal datasets are identical to the result obtained form the autocorrelation function, e.g.:
+Cross correlation can be made on two different (or equal) sources of data. Normalized results of the cross-correlation performed on two equal datasets are identical to the result obtained form the auto-correlation function, e.g.:
 
 .. doctest::
 
@@ -405,14 +425,14 @@ Now, set up random time sequence and video of the simulated cross-DDM experiment
    >>> video = simple_brownian_video(t1,t2, shape = (512+32,512+32))
    >>> video = crop(video, roi = ((0,512), (0,512)))
 
-We will apply some dust particles to each frame in order to simulate different static background on the two cameras. If your working directory is in the `examples` folder you can load dust images::
+Here the parameter `n` defines the random triggering scheme as explained in the paper_. The effective period of the trigger is in our case :math:`period = 2 * n`. We will apply some dust particles to each frame in order to simulate different static background on the two cameras. If your working directory is in the `examples` folder you can load dust images::
 
    >>> dust1 = plt.imread('dust1.png')[...,0] #float normalized to (0,1)
    >>> dust2 = plt.imread('dust2.png')[...,0]
    >>> dust = ((dust1,dust2),)*nframes
    >>> video = multiply(video, dust)
 
-To view the two videos we can again use the VideoViewer
+To view the two videos we can use the VideoViewer
 
 .. doctest::
 
@@ -458,7 +478,7 @@ Again, do this only if you have problems with the stability of the light source.
 Live analysis
 +++++++++++++
 
-To show live view of the computed correlation function, we can pass the viewer as an argument to :func:`.multitau.iccorr_multi`:
+To show live view of the computed correlation function as it issuing computed, we can pass the viewer as an argument to :func:`.multitau.iccorr_multi`:
 
 .. doctest:: 
    
@@ -480,6 +500,8 @@ Note the `period` argument. You must provide the correct effective period of the
 .. note::
 
    Live data view uses matplotlib for visualization, which is slow in rendering. It will significantly reduce the computational power. In numerically intensive experiments (high frame rate and large k-space) you will probably have to disable real-time rendering.
+
+.. _`k_averaging`:
 
 Data analysis
 -------------
@@ -516,6 +538,7 @@ In the examples in this guide we were simulating Brownian motion of particles, s
 
 As can be seen, normalization with *norm = 3* appears to work best with this data. For further details and examples, you are encouraged to browse the source, API reference and examples.
 
+.. _normalization:
 
 Normalization
 -------------
@@ -597,6 +620,8 @@ This will allow you to normalize either to `baseline` or `compensated`, but the 
 .. note::
 
    In non-ergodic systems auto-background subtraction may not be good enough, so you are encouraged to work with norm = 3 (the default) during the calculation, and later decide on the normalization procedure. You should calculate with norm < 3 only if you need to gain the speed, or to reduce the memory requirements.
+
+.. _method_and_norm:
 
 Method & Norm mode
 ------------------
