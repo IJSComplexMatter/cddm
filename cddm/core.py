@@ -582,7 +582,7 @@ def reshape_input(f, axis = 0, thread_divisor = None, mask = None):
         number of threads.
     mask : ndarray
         A boolean mask array. If provided, input data is masked first, then reshaped.
-        This only works woth axis = 0.
+        This only works with axis = 0.
         
     Returns
     -------
