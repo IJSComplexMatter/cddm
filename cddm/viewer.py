@@ -377,6 +377,7 @@ class CorrViewer(DataViewer):
         self.computed_mask = mask
         
     def set_norm(self, value):
+        """Sets norm parameter"""
         method = _method_from_data(self.data)
         self.norm = _default_norm_from_data(self.data,method,value)      
         
