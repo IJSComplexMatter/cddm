@@ -94,12 +94,17 @@ You may want to crop the data before processing. Cropping is done using python s
    >>> from cddm.video import crop
    >>> video = crop(video, roi = ((0,512), (0, 512)))
 
-Under the hood, the crop function performs array slicing using slice object generated from the provided `roi` values. See :func:`.video.crop` for details.
+Under the hood, the crop function performs array slicing using slice object generated from the provided `roi` values. See :func:`.video.crop` for details. You can crop to any shape, however, you must be aware that in reciprocal space, non-rectangular data has a different unit step size, so care must be made in the interpretation of wave vector values of the FFTs performed on non-rectangular data.
 
 Windowing
 +++++++++
 
 In FFT processing, it is common to apply a window function before the computation of FFT in order to reduce FFT leakage. In cross-DDM it also helps to reduce the camera  misalignment error. In :mod:`.window` there are four 2D windowing functions that you can use.
+
+.. doctest::
+
+   >>> from cddm.window import plot_windows
+   >>> ax = plot_windows()
 
 .. plot:: examples/plot_windows.py
    
@@ -249,16 +254,26 @@ You can inspect the data with :class:`.viewer.DataViewer`
 .. doctest::
 
    >>> from cddm.viewer import DataViewer
-   >>> viewer = DataViewer()
+   >>> viewer = DataViewer(shape = (512,512)) # shape not needed here
    >>> viewer.set_data(lin_data)
    >>> viewer.set_mask(k=25, angle = 0, sector = 30)
    True
+
+.. note:: 
+
+   For rectangular-shaped video frames, the unit size in k-space is identical in both dimensions, and you do not need to provide the `shape` argument, however, for non-rectangular data, the step size in k-space is not identical. The `shape` argument is used to calculate unit steps for proper k-visualization and averaging.
+
+Now we can plot the data:
+
+.. doctest::
+
    >>> viewer.plot()
    >>> viewer.show()
 
 .. plot:: examples/auto_correlate.py
 
    :class:`.viewer.DataViewer` can be used to visualize the normalized correlation data. With sliders you can select the size of the wave vector `k`, angle of the wave vector with respect to the horizontal axis, and averaging sector. The resulting correlation function that is shown on the left subplot is a mean value of the computed correlation functions at the wave vectors that are marked in the right subplot.
+
 
 .. seealso:: There is also :class:`.viewer.CorrViewer` that you can use to inspect raw correlation data.
 
@@ -320,18 +335,29 @@ The output of the :func:`.multitau.iacorr_multi`, by default, returns a data tup
 .. doctest::
    
    >>> from cddm.viewer import MultitauViewer
-   >>> viewer = MultitauViewer(scale = True)
+   >>> viewer = MultitauViewer(scale = True, shape = (512,512))
    >>> viewer.set_data(data, bg, var)
    >>> viewer.set_mask(k = 25, angle = 0, sector = 30)
    True
-   >>> viewer.plot()
-   >>> viewer.show()
 
 We used the `scale = True` option to normalize data to pixel variance value, which results in scaling the data between (0,1). 
+
+.. note:: 
+
+   For rectangular-shaped video frames, the unit size in k-space is identical in both dimensions, and you do not need to provide the `shape` argument, however, for non-rectangular data, the step size in k-space is not identical. The `shape` argument is used to calculate unit steps for proper k-visualization and averaging.
+
+Plot the data:
+
+.. doctest::
+
+   >>> viewer.plot()
+   >>> viewer.show()
 
 .. plot:: examples/auto_correlate_multi.py
 
    :class:`.viewer.MultitauViewer` can be used to visualize the correlation data. With sliders you can select the size of the wave vector `k`, angle of the wave vector with respect to the horizontal axis, and averaging sector. The resulting correlation function that is shown on the left subplot is a mean value of the computed correlation functions at the wave vectors that are marked in the right subplot.
+
+
 
 Multitau data
 +++++++++++++
@@ -498,10 +524,14 @@ To show live view of the computed correlation function during data iteration, we
 
 .. doctest:: 
    
-   >>> viewer = MultitauViewer(scale = True)
+   >>> viewer = MultitauViewer(scale = True, shape = (512,512))
    >>> viewer.k = 15 #initial mask parameters,
    >>> viewer.sector = 30
    >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, viewer  = viewer)
+
+.. note:: 
+
+   For rectangular-shaped video frames, the unit size in k-space is identical in both dimensions, and you do not need to provide the `shape` argument, however, for non-rectangular data, the step size in k-space is not identical. The `shape` argument is used to calculate unit steps for proper k-visualization and averaging.
 
 .. plot:: examples/cross_correlate_multi_live.py
 
@@ -538,12 +568,16 @@ You have to do this index by index. Another way is to work with the normalized d
    >>> from cddm.map import k_select
    >>> fast, slow = normalize_multi(data, bg, var, scale = True)
    >>> x,y = log_merge(fast, slow)
-   >>> k_data = k_select(y, angle = 0, sector = 30)
+   >>> k_data = k_select(y, angle = 0, sector = 30, shape = (512,512))
 
 Here, k_data is an iterator of (`k_avg`, `data_avg`) elements, where `k_avg` is the mean size of the wavevector and `data_avg` is the averaged data. You can save the averaged data to txt files. Example below will save all non-zero data at all k-values within the selection criteria defined above::
 
    >>> for (k_avg, data_avg) in k_data:
    ...    np.savetxt("data_{}.txt".format(k_avg), data_avg)
+
+.. note:: 
+
+   For rectangular-shaped video frames, the unit size in k-space is identical in both dimensions, and you do not need to provide the `shape` argument, however, for non-rectangular data, the step size in k-space is not identical. The `shape` argument is used to calculate unit steps for proper k-visualization and averaging.
   
 
 In the examples in this guide we were simulating Brownian motion of particles, so the correlation function decays exponentially. The obtained relaxation rate is proportional to the square of the wave vector, so we can obtain the diffusion constant and compare the results with the theoretical prediction. See the source of the plots below to perform k-averaging and fitting in python.
@@ -556,10 +590,28 @@ As can be seen, normalization with *norm = 3* appears to work best with this dat
 
 .. _normalization:
 
-Normalization
+Norm & Method
 -------------
 
-Normalization type of all correlation functions is controlled by the `norm` flags. By default, computation and normalization is performed using
+Correlation function can be computed and normalized with different normalization types. This is controlled both in the computation functions, e.g. :func:`.core.acorr` and in the normalize functions, e.g. :func:`.core.normalize` with the `norm` flags. This works in combination with the method used in the calculation. Each of the computation functions accepts the `method` argument that controls the computation method.
+
+In addition, tho normalized data can be viewed in two different data representations, either with `mode = 'corr'`, for standard correlation data representation, or `mode = 'diff'`, for difference (or image structure function) representation of the data. These options are explained in this section.
+
+The methods
++++++++++++
+
+When computing the correlation function there are three different methods to choose from:
+
+* `method = 'corr'` for standard correlation :math:`C_k=\sum_i I_i I_{i+k}` (good for multiple tau algorithm on irregular spaced data)
+* `method = 'fft'` computes :math:`C_k=\sum_i I_i I_{i+k}` through FFT (good for linear algorithm with regular spaced data)
+* `method = 'diff'` for the differential algorithm :math:`D_k= \sum_i \left|I_i -I_{i+k}\right|^2` (good for multiple tau algorithm on irregular spaced data with norm = 1)
+
+There are no restrictions in `norm` selection if you use the first two methods, the differential method, however, support `norm = 1` or `norm = 3` in cross-correlation analysis and `norm = 1` in auto-correlation analysis.
+
+Norm flags and methods
+++++++++++++++++++++++
+
+By default, computation and normalization is performed using
 
 .. doctest:: 
 
@@ -568,12 +620,12 @@ Normalization type of all correlation functions is controlled by the `norm` flag
    >>> norm == 3
    True
 
-This way it is possible to normalize the computed data with the :func:`.multitau.normalize_multi` function in four different ways:
+This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in four different ways:
 
-* *baseline* : norm = NORM_BASELINE (norm = 0), here we remove the baseline error introduced by the non-zero background frame, which produces an offset in the correlation data. For this to work, you must provide the background data to the :func:`.multitau.normalize_multi` or :func:`.core.normalize`
-* *compensated* : norm = NORM_COMPENSATED (norm = 1), here we compensate the error introduced at smaller delay times, which is due to non-ergodicity of the data. Basically, we normalize the data as if we had calculated the cross-difference function instead of the cross-correlation. This requires one to calculate the delay-dependent squares of the intensities, which slows down the computation.
-* *subtracted* : norm = NORM_SUBTRACTED (norm = 2), here we compensate for baseline error and for the linear error introduced by the not-known-in-advance background data. This requires one to track the delay-dependent sum of the data, which further slows down the computation
-* *subtracted and compensated* : norm = NORM_COMPENSATED | NORM_SUBTRACTED (norm = 3), which does both the *subtracted* and *compensated* normalizations.
+* **baseline** : `norm = NORM_BASELINE` (`norm = 0`), supported methods: `'corr'` and `'fft'` here we remove the baseline error introduced by the non-zero background frame, which produces an offset in the correlation data. For this to work, you must provide the background data to the :func:`.multitau.normalize_multi` or :func:`.core.normalize`
+* **compensated** : `norm = NORM_COMPENSATED` (`norm = 1`), here we compensate the statistical error introduced at smaller delay times. Basically, we normalize the data as if we had calculated the cross-difference function instead of the cross-correlation. This requires one to calculate the delay-dependent squares of the intensities, which slows down the computation when `method = 'corr' or 'fft'`.
+* **subtracted** : `norm = NORM_SUBTRACTED` (`norm = 2`), supported methods: `'corr'` and `'fft'`. Here we compensate for baseline error and for the linear error introduced by the not-known-in-advance background data. This requires one to track the delay-dependent sum of the data, which further slows down the computation
+* **subtracted and compensated** : `norm = NORM_COMPENSATED | NORM_SUBTRACTED` (`norm = 3`), which does both the *subtracted* and *compensated* normalizations. `'diff'` method supported only in cross-analysis and not in auto-analysis.
 
 .. doctest:: 
    
@@ -619,7 +671,7 @@ This way we have forced the algorithm to work with chunks of data of length 512,
 
 .. note::
    
-   If the background is properly subtracted before the calculation of the correlation function, the output of  `normalize_multi` with norm = 0 and norm = 2 are identical, and the output of `normalize_multi` with norm = 1 and norm = 3 are identical. In the case above, background has not been fully subtracted, so there is still a small difference.
+   If the background is properly subtracted before the calculation of the correlation function, the output of  `normalize` functions with norm = 0 and norm = 2 are identical, and the output of `normalize` function with norm = 1 and norm = 3 are identical. In the case above, background has not been fully subtracted, so there is still a small difference.
 
 In some experiments, it may be sufficient to work with norm = 0, and you can  work with::
 
@@ -639,10 +691,10 @@ This will allow you to normalize either to `baseline` or `compensated`, but the 
 
 .. _method_and_norm:
 
-Method & Norm mode
-------------------
+Representation modes 
+--------------------
 
-The `cddm` package defines two different correlation data normalization modes. Either `mode = 'corr'` for  correlation mode or `mode = 'diff'` for image difference mode (typically used in standard DDM experiments). Both modes are equivalent and we can convert from the difference mode to the correlation mode. However, the computation with different methods yield different intermediate results. It is after we call the :func:`.core.normalize` that data become equivalent. This is demonstrated below.
+The `cddm` package defines two different correlation data representation modes. Either `mode = 'corr'` for  correlation mode or `mode = 'diff'` for image difference mode (typically used in standard DDM experiments). Both modes are equivalent and we can convert from the difference mode to the correlation mode. However, the computation with different methods yield different intermediate results. It is after we call the :func:`.core.normalize` that data become equivalent. This is demonstrated below.
 
 Auto/Cross-correlation can be computed using direct calculation `method='corr'`, or using Circular-Convolution theorem by means of FFT transform `method='fft'`. For regular-spaced data and standard linear analysis , the 'fft' algorithm is usually the fastest, and is used by default. The output of `ccorr` and `acorr` functions depend on the method used. For `method='corr'` and `method='fft'`, the output of `acorr` is
 
@@ -754,9 +806,13 @@ Here we have constructed the k-mask with a shape of (63,32) because this is the 
 
 .. doctest::
 
-   >>> viewer = MultitauViewer(scale = True, mask = mask)
+   >>> viewer = MultitauViewer(scale = True, mask = mask, shape = (512,512))
    >>> viewer.k = 25 #central k 
    >>> viewer.sector = 180 #average over all phi space.
+
+.. note:: 
+
+   For rectangular-shaped video frames, the unit size in k-space is identical in both dimensions, and you do not need to provide the `shape` argument, however, for non-rectangular data, the step size in k-space is not identical. The `shape` argument is used to calculate unit steps for proper k-visualization and averaging.
 
 .. doctest::
 
@@ -777,6 +833,7 @@ The in-memory calculation of the standard (linear) correlation function does not
    >>> fft_masked, masked_shape = reshape_input(fft_array, mask = mask)
    >>> acorr_masked = acorr(fft_masked)
    >>> acorr_data = reshape_output(acorr_masked, masked_shape, mask = mask)
+
    
 That is it, we have shown almost all features of the package. You can learn about some more specific use cases by browsing and reading the rest of the examples in the source. Also read the :ref:`optimization` for running options and tips.
 
