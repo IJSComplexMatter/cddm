@@ -1619,7 +1619,7 @@ def iccorr(data, t1 = None, t2 = None, n = None, norm = 0, method = "corr", coun
 
     for i, mdata in enumerate(_compute_multi_iter(data, t1, t2, period = period , level_size = n , 
                         chunk_size = chunk_size,   method = method, count = count, auto_background = auto_background, nlevel = nlevel, 
-                        norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats)):
+                        norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats, cross = True)):
         if stats == True:
             (data, dummy), bg, var = mdata
         else:
@@ -1704,7 +1704,7 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr", count = None,
 
     for i, mdata in enumerate(_compute_multi_iter(data, t, period = period , level_size = n , 
                         chunk_size = chunk_size,   method = method,  count = count, auto_background = auto_background, nlevel = nlevel, 
-                        norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats)):
+                        norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats, cross = False)):
         if stats == True:
             (data, dummy), bg, var = mdata
         else:

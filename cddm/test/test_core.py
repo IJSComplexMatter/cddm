@@ -287,7 +287,7 @@ class TestIcorr(unittest.TestCase):
             data = core.ccorr(test_data1, test_data2,n = 8, norm = 1, method = method)
             out1 = core.normalize(data, bg, var)
             vid = fromarrays((test_data1, test_data2))
-            data = core.iccorr(vid, count = len(test_data1),chunk_size = 16,n = 8, norm = 1, method = method)
+            data,bg,var = core.iccorr(vid, count = len(test_data1),chunk_size = 16,n = 8, norm = 1, method = method)
             out2 = core.normalize(data, bg, var)  
             self.assertTrue(np.allclose(out1, out2))              
 
@@ -296,7 +296,7 @@ class TestIcorr(unittest.TestCase):
             bg,var = core.stats(test_data1, axis = 0)
             data1 = core.ccorr(test_data1,test_data1, n = 8, norm = 2, method = method)
             out1 = core.normalize(data1, bg, var, norm = 2)
-            data2 = core.iacorr(test_data1, n = 8, norm = 2, method = method)
+            data2,bg,var = core.iacorr(test_data1, n = 8, norm = 2, method = method)
             out2 = core.normalize(data2, bg, var, norm = 2)  
             self.assertTrue(np.allclose(out1, out2))    
 
@@ -305,7 +305,7 @@ class TestIcorr(unittest.TestCase):
             bg,var = core.stats(test_data1, axis = 0)
             data1 = core.acorr(test_data1, n = 8, norm = 1, method = method)
             out1 = core.normalize(data1, bg, var, norm = 1)
-            data2 = core.iacorr(test_data1, n = 8, norm = 1, method = method)
+            data2,bg,var = core.iacorr(test_data1, n = 8, norm = 1, method = method)
             out2 = core.normalize(data2, bg, var, norm = 1)  
             self.assertTrue(np.allclose(out1, out2))    
 
