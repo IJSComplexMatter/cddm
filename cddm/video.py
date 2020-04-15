@@ -277,10 +277,17 @@ def multiply(x,y, inplace = False, dtype = None):
             yield tuple((np.asarray(frame*w, dtype = dtype) for w, frame in zip(arrays,frames)))
             
 class ImageShow():
-    """A simple interface for video visualization using matplotlib or opencv.
+    """A simple interface for video visualization using matplotlib opencv or
+    pyqtgraph.
     
-    To use cv2 (which is much faster) for visualization 
-    you must set it with :func:`.conf.set_cv2`
+    Parameters
+    ----------
+    title : str
+       Title of the video
+    norm_func : callable
+        Normalization function that takes a single argument (array) and returns
+        a single element (array). Can be used to apply custom normalization 
+        function to the image before it is shown.
     """
     
     fig = None
