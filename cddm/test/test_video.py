@@ -2,7 +2,7 @@
 
 import unittest
 import numpy as np
-from cddm.video import subtract, multiply, normalize_frames, random_video, asarrays, fromarrays
+from cddm.video import subtract, multiply, normalize_video, random_video, asarrays, fromarrays
 from cddm.conf import FDTYPE
 from cddm.window import blackman
 
@@ -26,27 +26,27 @@ class TestVideo(unittest.TestCase):
     
     def test_subtract(self):
         video = fromarrays((vid,))
-        out = subtract(video, (bg,))
+        out = subtract(video, ((bg,),)*128)
         for frames, true_frame in zip(out, vid_subtract):
             self.assertTrue(np.allclose(frames[0],true_frame))
 
     def test_multiply(self):
         video = fromarrays((vid,))
-        out = multiply(video, (window,))
+        out = multiply(video, ((window,),)*128)
         for frames, true_frame in zip(out, vid_multiply):
             self.assertTrue(np.allclose(frames[0],true_frame))
  
     def test_normalize(self):
         video = fromarrays((vid,))
-        out = normalize_frames(video)
+        out = normalize_video(video)
         for frames, true_frame in zip(out, vid_normalize):
             self.assertTrue(np.allclose(frames[0],true_frame))
             
     def test_multiple(self):
         video = fromarrays((vid,))
-        video = subtract(video, (bg,), dtype = FDTYPE)
-        video = multiply(video, (window,), inplace = True)
-        out = normalize_frames(video, inplace = True)
+        video = subtract(video, ((bg,),)*128, dtype = FDTYPE)
+        video = multiply(video, ((window,),)*128, inplace = True)
+        out = normalize_video(video, inplace = True)
         
         for frames, true_frame in zip(out, vid_multiple):
             self.assertTrue(np.allclose(frames[0],true_frame))        
