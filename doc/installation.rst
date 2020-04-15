@@ -1,7 +1,7 @@
 Installation
 ============
 
-The code is hosted on GitHub. No official release exists yet, so you have to clone or download the latest development code from the `repository`_ and run::
+The code is hosted at GitHub. No official release exists yet, so you have to clone or download the latest development code from the `repository`_ and run::
 
     $ python setup.py install
 
@@ -20,13 +20,17 @@ To install these it is best to go with one of the python distributions, e.g. `an
 
 .. note::
   
-    It is important that you have recent enough version of numba installed.
+    It is important that you have a recent enough version of numba installed. The package was tested with numba 0.45 and above, older versions might work as well, but it was not tested.
 
-Optionally, instead of using matplotlib, for faster visualization of videos in real-time, you may use one of these two libraries:
+Optionally, instead of using matplotlib, for faster visualization of videos in real-time, you may install and use one of these two libraries:
 
 * cv2
 * pyqtgraph
 
+For faster computation of FFTs you may install and use one of these two libraries.
+
+* mkl_fft
+* pyfftw
 
 Installing in Anaconda
 ----------------------

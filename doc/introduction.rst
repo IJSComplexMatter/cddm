@@ -1,29 +1,25 @@
 Introduction
 ============
 
-``cddm`` is a package for analysis of cross-differential dynamic microscopy experiments
-and for standard DDM experiments. It consists of tools for the analysis of regular
-or irregular time-spaced data. The package is hosted at GitHub `repository`_.
+``cddm`` is a python package for analysis of cross-differential dynamic microscopy (cross-DDM) experiments. You can also use it for a single-camera (DDM) analysis, or a general purpose correlation analysis. Regular and irregular time-spaced data is supported. The package is hosted at GitHub `repository`_.
 
 License
 -------
 
-``cddm`` will be released under MIT license so you will be able to use it freely, however, I will ask you to cite the *... some future paper*. In the mean time you can play with the current development version freely, but i kindly ask you not to redistribute the code or  publish data obtained with this package. **Please wait until the package is officially released!**
+``cddm`` will be released under MIT license so you will be able to use it freely when it will be officially released (by the end of May 2020), however, I will ask you to cite the *... some future paper*. In the mean time you can play with the current development version freely, but i kindly ask you not to redistribute the code or  publish data obtained with this package. **Please wait until the paper is published!**
 
 Highlights
 ----------
 
 * Easy-to-use interface.
-* Efficient computation (numba optimized), multitau algorithm
-* In-memory and out-of-memory computation of cross- auto-correlation functions
-* Data visualizer, and k-averaging
+* Efficient computation (numba optimized), multiple-tau algorithm.
+* In-memory and out-of-memory computation of cross- auto-correlation functions.
+* Data visualizer, and k-averaging.
 
-   
 Status and limitations
 ----------------------
 
-``cddm`` is a young (experimental) project. The package was developed mainly for calculation of cross correlation function in cross-DDM experiment, but it can be used
-for standard DDM analysis. The package is fully operational. Currently, the work is focused on documenting the package and working on examples, tutorials and building  unittests.
+``cddm``  package was developed mainly for the analysis of cross-DDM experiment, but it can be used for standard DDM analysis or any kind of correlation analysis. The package is fully operational. Currently, the work is focused on documenting the package and writing examples, and unittests. The API is stable, and is not expected to change in the future release version.
 
 .. _repository: https://github.com/IJSComplexMatter/cddm
 

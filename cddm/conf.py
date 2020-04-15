@@ -101,7 +101,6 @@ else:
 NUMBA_CACHE = False 
 """Specifiess whether we use numba caching or not"""  
 
-_numba_0_39_or_greater = False
 _numba_0_45_or_greater = False
 
 try: 
@@ -109,10 +108,8 @@ try:
     major, minor = nb.__version__.split(".")[0:2]
     if int(major) == 0 and int(minor) >=45:
         _numba_0_45_or_greater = True
-    if int(major) == 0 and int(minor) >=39:
-        _numba_0_39_or_greater = True
 except:
-    print("Could not determine numba version you are using, assuming < 0.39")
+    print("Could not determine numba version you are using, assuming < 0.45")
 
 
 if _read_environ_variable("CDDM_NUMBA_CACHE",

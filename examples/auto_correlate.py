@@ -17,8 +17,7 @@ import numpy as np
 
 from conf import SIZE, NFRAMES,DELTA
 
-
-#set seeds so that all experiments are on ssame dataset
+#set seeds so that each run of the experiment is on same dataset
 seed(0)
 numba_seed(0)
 
@@ -53,11 +52,11 @@ fft_array, = asarrays(fft, NFRAMES)
 
 if __name__ == "__main__":
 
-    #: now perform auto correlation calculation with default parameters using iterative algorithm
+    #: now perform auto correlation calculation with default parameters 
     data = acorr(fft_array)
     bg, var = stats(fft_array)
     
-    #perform normalization and merge data
+    #: perform normalization and merge data
     data_lin = normalize(data, bg, var, scale = True)
     
     #: inspect the data
@@ -67,7 +66,8 @@ if __name__ == "__main__":
     viewer.plot()
     viewer.show()
     
-    x,y = log_average(data_lin)
+    #: change size, to define time resolution in log space
+    x,y = log_average(data_lin, size = 16)
     
     #: save the normalized data to numpy files
     np.save("auto_correlate_t.npy",x)

@@ -101,8 +101,7 @@ Default values can also be set the configuration file (see below).
 Optimization tips
 -----------------
 
-Is the computation too slow? Here you can find some tips for optimizing your code to speed up the calculation, should you 
-need this. I suggest you work with some test data that you read into memory, and then use::
+Is the computation too slow? Here you can find some tips for optimizing your code to speed up the calculation, should you need this. I suggest you work with some test data that you read into memory, and then use::
 
    >>> cddm.conf.set_cerbose(2) 
    0
@@ -111,6 +110,7 @@ so that it will plot the execution speed. Then as you work on your dataset, test
 
 * You can select the method = 'diff' method and norm = 1 to force calculation without the extra `data_sum` arrays. Or, calculate with norm = 0 and method = "corr".
 * For non-iterative version, you can also use `align` = True and try to see if copying and aligning the data in memory before the calculation improves.
+* Use k masks to compute only the part of k-space that interests you.
 
 Multiple tau algorithm
 ++++++++++++++++++++++
@@ -121,10 +121,18 @@ The multiple tau algorithm is the best option, if you want log-spaced results. H
 * Play with `chunk_size` parameter and find the best option for your dataset.
 * Use `thread_divisor` and find the best combination of `chunk_size` and `thread_divisor`
 
+.. note::
+
+   Internally, the algorithm uses numba `vectorize` and `guvectorize` for automatic multi-threading. However, the efficiency of the threaded calculation depends on the input data shape and cache size of your processor. With `thread_divisor` and `chunk_size` parameters  you are reshaping the input data, which might help in speeding up. 
+
+.. note::
+
+   When `thread_divisor` is defined, input data is reshaped from shape = (x,y...) to (thread_divisor, rest). So thread_divisor must be a divisor of the data size, otherwise error is raised. Therefore, you must use this parameter in combination with `kimax` and `kjmax`, that define your data size.
+
 Linear algorithm
 ++++++++++++++++
 
-If you need linear data, the fft algorithm works best for regular-spaced data and complete tau calculation. Here you may work with floats instead of doubles to speed up FFT or work with different fft library. See Optimization for details. If you can work with a limited range of delay times you may use the `n` parameter, which may be speedier to compute with the standard `method = "corr"` Here, you should use `align = True` 
+If you need linear data, the fft algorithm works best for regular-spaced data and complete tau calculation. Here you may work with floats instead of doubles to speed up FFT or work with different fft library. See Optimization for details. If you can work with a limited range of delay times you may use the `n` parameter, which may be speedier to compute with the standard `method = "corr"` Here, you should use `align = True`. You can also use the :func:`.core.reshape_input` and  :func:`.core.reshape_output` with combination of `thread_divisor` parameter.
 
 
 CDDM configuration file
