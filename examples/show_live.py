@@ -14,7 +14,7 @@ from cddm.conf import set_showlib
 import matplotlib.pyplot as plt
 SIZE = 512
 # test dual camera video (regular spaced)
-video = simple_brownian_video(range(1024), range(1024), shape = (SIZE, SIZE))
+video = simple_brownian_video(range(1024), range(1024), shape = (SIZE, SIZE), background = 200)
 
 #: apply dust particles
 dust1 = plt.imread('dust1.png')[...,0] #float normalized to (0,1)

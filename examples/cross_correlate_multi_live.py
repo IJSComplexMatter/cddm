@@ -21,7 +21,7 @@ t1, t2 = create_random_times1(NFRAMES,n = n)
 
 #: this creates a brownian motion multi-frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame,)
-video = simple_brownian_video(t1,t2, shape = (SIZE+32,SIZE+32), delta = DELTA)
+video = simple_brownian_video(t1,t2, shape = (SIZE+32,SIZE+32), delta = DELTA, background = 200)
 
 #: crop video to selected region of interest 
 video = crop(video, roi = ((0,SIZE),(0,SIZE)))

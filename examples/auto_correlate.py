@@ -12,18 +12,17 @@ from cddm.fft import rfft2, normalize_fft
 from cddm.core import acorr, normalize, stats
 from cddm.multitau import log_average
 from cddm.multitau import iacorr_multi, normalize_multi, log_merge
-from cddm.sim import simple_brownian_video, seed, numba_seed
+from cddm.sim import simple_brownian_video, seed
 import numpy as np
 
 from conf import SIZE, NFRAMES,DELTA
 
 #set seeds so that each run of the experiment is on same dataset
 seed(0)
-numba_seed(0)
 
 #: this creates a brownian motion multi-frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame,)
-video = simple_brownian_video(range(NFRAMES), shape = (SIZE+32,SIZE+32), delta = DELTA)
+video = simple_brownian_video(range(NFRAMES), shape = (SIZE+32,SIZE+32), delta = DELTA, background = 200)
 
 #: crop video to selected region of interest 
 video = crop(video, roi = ((0,SIZE), (0,SIZE)))
