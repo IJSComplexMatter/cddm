@@ -60,17 +60,16 @@ def make_step(x,scale, velocity):
 def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, velocity = 0.):
     """Returns an brownian walk iterator.
      
-    Given the initial coordinates x0, it callculates and yields next n coordinates.
-    
+    Given the initial coordinates x0, it callculates and yields next `count` coordinates.
     
     Parameters
     ----------
     x0 : array-like
-        A list of initial coordinates (i, j) of particles (in pixel units)
+        A list of initial coordinates (i, j) of particles (in pixel units).
     count : int
-        Number of simulation steps
+        Number of simulation steps.
     shape : (int,int)
-        Shape of the simulation region in pixels
+        Shape of the simulation region in pixels.
     delta : float
         Defines an average step in pixel coordinates (when dt = 1).
     dt : float
@@ -78,14 +77,25 @@ def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, veloci
     velocity : (float,float)
         Defines an average velocity (vi,vj) in pixel coordinates per unit time step
         (when dt = 1).
+        
+    Yields
+    ------
+    coordinates : ndarray
+        Coordinates 2D array for the particles. The second axis is the x,y coordinate.
     """ 
     
-    x = np.asarray(x0,FDTYPE)            
-    particles, xy = x.shape
+    x = np.asarray(x0,FDTYPE)
+    try:            
+        particles, xy = x.shape
+    except:
+        raise ValueError("Wrong shape of input coordinats.")
     #step size
     scale=delta*np.sqrt(dt)
     velocity = np.asarray(velocity, FDTYPE)*dt
     scale = np.asarray(scale, FDTYPE)
+    
+    if len(shape) != 2:
+        raise ValueError("Wrong `shape`, must be 2D.")
     
     x1, x2 = 0, np.asarray(shape,FDTYPE)
     
@@ -98,7 +108,10 @@ def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, veloci
         x = mirror(x,x1,x2)
         
 def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1, dt = 1,velocity = 0., x0 = None):
-    """Creates coordinates of multiple brownian particles.
+    """Coordinates generator of multiple brownian particles.
+    
+    Builds particles randomly distributed in the computation box and performs
+    random walk of coordinates.
     
     Parameters
     ----------
@@ -114,13 +127,23 @@ def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1
         Time resolution
     velocity : float
         Velocity in pixel units (when dt = 1) 
+    x0 : array-like
+        A list of initial coordinates
+        
+    Yields
+    ------
+    coordinates : ndarray
+        Coordinates 2D array for the particles. The second axis is the x,y coordinate.
+        Length of the array equals number of particles.
     """
     if x0 is None:
-        x0 = np.asarray(np.random.rand(particles,2)*np.array(shape),FDTYPE)
+        x0 = np.asarray(np.random.rand(int(particles),2)*np.array(shape),FDTYPE)
     else:
         x0 = np.asarray(x0,FDTYPE)
         if x0.ndim == 1 and particles == 1:
             x0 = x0[None,:]
+        if len(x0) != particles:
+            raise ValueError("Wrong length of initial coordinates x0")
  
     v0 = np.zeros_like(x0)
     v0[:,:] = velocity
@@ -181,7 +204,32 @@ def draw_psf(im, points, intensity, sigma):
 
 def particles_video(particles, t1, shape = (512,512), t2 = None, 
                  background = 0, intensity = 10, sigma = None, noise = 0.):
-    """Creates brownian particles video"""
+    """Creates brownian particles video
+    
+    Parameters
+    ----------
+    particles : iterable
+        Iterable of particle coordinates
+    t1 : array-like
+        Frame time
+    shape : (int,int)
+        Frame shape
+    t2 : array-like, optional
+        Second camera frame time, in case we are simulating dual camera video.
+    background : int
+        Background frame value
+    intensity : int
+        Peak Intensity of the particle.
+    sigma : float
+        Sigma of the gaussian spread function for the particle
+    noise : float, optional
+        Intensity of the random noise
+        
+    Yields
+    ------
+    frames : tuple of ndarrays
+        A single-frame or dual-frame images (ndarrays).
+    """
         
     background = np.zeros(shape = shape,dtype = "uint8") + background
     height, width = shape
@@ -261,7 +309,6 @@ def data_trigger(data, indices):
                 #all done.
                 break
             
-
 def test_plot(count = 5000, particles = 2):
     """Brownian particles usage example. Track 2 particles"""
     import matplotlib.pyplot as plt 
@@ -312,7 +359,34 @@ def create_random_times2(nframes,n = 20):
     return t1, t2 
 
 def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 200, intensity = 5, sigma = 5, noise = 0, **kw):
-    """Returns an iterator of DDM or c-DDM video."""
+    """DDM or c-DDM video generator.
+
+    
+    Parameters
+    ----------
+    t1 : array-like
+        Frame time
+    t2 : array-like, optional
+        Second camera frame time, in case we are simulating dual camera video.
+    shape : (int,int)
+        Frame shape
+    background : int
+        Background frame value
+    intensity : int
+        Peak Intensity of the particle.
+    sigma : float
+        Sigma of the gaussian spread function for the particle
+    noise : float, optional
+        Intensity of the random noise
+    kw : extra arguments
+        Extra keyward arguments that are passed to :func:`brownian_particles`
+        
+    Yields
+    ------
+    frames : tuple of ndarrays
+        A single-frame or dual-frame images (ndarrays).
+    
+    """
     t1 = np.asarray(t1)
     if t2 is None:
         count = t1.max()+1
@@ -323,11 +397,10 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 200, in
     kw["shape"] = shape
     p = brownian_particles(**kw) 
     return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, noise = noise) 
-    
-    
+
 
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
     seed(0)
-    test_plot()
+    test_plot(1024,3)
