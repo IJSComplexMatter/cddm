@@ -692,7 +692,7 @@ This will allow you to normalize either to `baseline` or `compensated`, but the 
 .. _method_and_norm:
 
 Representation modes 
---------------------
+++++++++++++++++++++
 
 The `cddm` package defines two different correlation data representation modes. Either `mode = 'corr'` for  correlation mode or `mode = 'diff'` for image difference mode (typically used in standard DDM experiments). Both modes are equivalent and we can convert from the difference mode to the correlation mode. However, the computation with different methods yield different intermediate results. It is after we call the :func:`.core.normalize` that data become equivalent. This is demonstrated below.
 
