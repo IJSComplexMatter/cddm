@@ -59,7 +59,7 @@ are of `uint8` dtype.
 Showing video
 +++++++++++++
 
-You may want to inspect and play videos. Video player is implemented in the module :mod:`.viewer` using `matplotlib`. It is not meant to be a real player, but it allows you to inspect the video before you begin the correlation analysis. In order to inspect the video, we will first load the video into memory (though you are not required to):
+You may want to inspect and play videos. Video player is implemented in the module :mod:`.viewer` using `matplotlib`. It is not meant to be a real-time player, but it allows you to inspect the video before you begin the correlation analysis. In order to inspect the video, we will first load the video into memory (though you are not required to):
 
 .. doctest::
  
