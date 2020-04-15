@@ -1924,7 +1924,8 @@ def _inspect_scale(scale):
     except:
         raise ValueError("Invalid scale")
         
-def normalize(data, background = None, variance = None, norm = None,  mode = "corr", scale = False, mask = None, out = None):
+def normalize(data, background = None, variance = None, norm = None,  mode = "corr", 
+              scale = False, mask = None, out = None):
     """Normalizes correlation (difference) data. Data must be data as returned
     from ccorr or acorr functions. 
     

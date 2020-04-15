@@ -595,7 +595,7 @@ Norm & Method
 
 Correlation function can be computed and normalized with different normalization types. This is controlled both in the computation functions, e.g. :func:`.core.acorr` and in the normalize functions, e.g. :func:`.core.normalize` with the `norm` flags. This works in combination with the method used in the calculation. Each of the computation functions accepts the `method` argument that controls the computation method.
 
-In addition, tho normalized data can be viewed in two different data representations, either with `mode = 'corr'`, for standard correlation data representation, or `mode = 'diff'`, for difference (or image structure function) representation of the data. These options are explained in this section.
+In addition, the normalized data can be viewed in two different data representations, either with `mode = 'corr'`, for standard correlation data representation, or `mode = 'diff'`, for difference (or image structure function) representation of the data. These options are explained in this section.
 
 The methods
 +++++++++++
@@ -683,7 +683,7 @@ which will significantly improve the speed of computation, as there is no need t
    >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, 
    ...         norm = NORM_COMPENSATED, chunk_size = 512, auto_background = True)
 
-This will allow you to normalize either to `baseline` or `compensated`, but the computation is slower because of the two extra channels that need to be calculated.
+This will allow you to normalize either to `baseline` or `compensated`, but the computation is slower because of one extra channels that needs to be calculated.
 
 .. note::
 
@@ -824,7 +824,15 @@ Here we have constructed the k-mask with a shape of (63,32) because this is the 
 
    Because we have computed data over a sector of width 90 degrees, we average only over the computed data values (marked with yellow dots in graph right).
 
-The actual output data is a complete-sized array, with np.nan values where the computation mask was non-positive.
+The actual output data is a complete-sized array, with np.nan values where the computation mask was non-positive. If you are doing k-selection, you have to provide the mask parameter as well:
+
+.. doctest:: 
+
+   >>> fast, slow = normalize_multi(data, bg, var, scale = True)
+   >>> x,y = log_merge(fast, slow)
+   >>> k_data = k_select(y, angle = 0, sector = 30, shape = (512,512), mask = mask)
+
+
 The in-memory calculation of the standard (linear) correlation function does not support masking. Instead, you can do:
 
 .. doctest::
