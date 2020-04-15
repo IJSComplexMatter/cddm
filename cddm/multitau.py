@@ -495,7 +495,7 @@ def _inspect_t1_t2_count(t1,t2,count,data):
 def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16, 
                         chunk_size = None,  binning = None, method = "corr", count = None,
                         auto_background = False, nlevel = None,  norm = 0,
-                        stats = False, thread_divisor = None, mode = "full", mask = None):
+                        stats = False, thread_divisor = None, mode = "full", mask = None, cross = True):
     t0 = time.time()
     
     if mode not in ("full", "chunk"):
@@ -540,17 +540,13 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
         nlevel = min(int(nlevel),n_decades_max -1)
               
     t_slow = np.arange(nframes)
-        
-    cross = None    
+          
     i = 0 #initialize to zero, in case iterator is empty
     
     for i,d in enumerate(data):
         if i == nframes:
             break
-        #determine if it is cross-data (double element) or auto-data (single element)
-        if cross is None:
-            cross = True if len(d) == 2 and isinstance(d, tuple) else False
-                
+
         #first and second frame or masked frames, x2 is None if cross = False
         x1, x2 = _get_frames(d, cross, mask)
 
@@ -952,7 +948,7 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = 3, method
     
     for i, data in enumerate(_compute_multi_iter(data, t1, t2, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count, auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor)):
+                        nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor, cross = True)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["ccorr_multi"] = viewer
@@ -1033,7 +1029,7 @@ def iacorr_multi(data, t = None, level_size = 2**4, norm = 3, method = "corr", c
     """
     for i, data in enumerate(_compute_multi_iter(data, t, None, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count,auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor, mask = mask)):
+                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor, mask = mask, cross = False)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["acorr_multi"] = viewer
