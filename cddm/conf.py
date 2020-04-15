@@ -5,7 +5,6 @@ Configuration and constants
 from __future__ import absolute_import, print_function, division
 
 import numpy as np
-from functools import wraps
 import os, warnings, shutil
 
 #These will be defined later at runtime... here we hold reference to disable warnings in autoapi generation
