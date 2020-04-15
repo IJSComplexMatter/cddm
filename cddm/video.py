@@ -557,7 +557,7 @@ if __name__ == '__main__':
     import cddm.conf
     cddm.conf.set_verbose(2)
     #
-    cddm.conf.set_showlib("pyqtgraph")
+    #cddm.conf.set_showlib("pyqtgraph")
     
     #example how to use show_video and play
     video = random_video(count = 256, dual = True)
