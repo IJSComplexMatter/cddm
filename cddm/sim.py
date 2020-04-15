@@ -202,7 +202,7 @@ def draw_psf(im, points, intensity, sigma):
                 im[i,j] = im[i,j] + p
     return im  
 
-def particles_video(particles, t1, shape = (512,512), t2 = None, 
+def particles_video(particles, t1, shape = (256,256), t2 = None, 
                  background = 0, intensity = 10, sigma = None, noise = 0.):
     """Creates brownian particles video
     
@@ -309,10 +309,10 @@ def data_trigger(data, indices):
                 #all done.
                 break
             
-def test_plot(count = 5000, particles = 2):
+def test_plot(count = 5000, particles = 2, shape = (256,256)):
     """Brownian particles usage example. Track 2 particles"""
     import matplotlib.pyplot as plt 
-    x = np.array([x for x in brownian_particles(count = count, particles = particles)])
+    x = np.array([x for x in brownian_particles(count = count, particles = particles, shape = shape)])
     plt.figure()
     
     for i in range(particles): 
@@ -331,6 +331,8 @@ def test_plot(count = 5000, particles = 2):
     plt.title('2D Brownian Motion with mirror boundary conditions.')
     plt.xlabel('x', fontsize=16)
     plt.ylabel('y', fontsize=16)
+    plt.xlim(0,shape[1])
+    plt.ylim(0,shape[0])
     plt.axis('equal')
     plt.grid(True)
     plt.show()
@@ -358,7 +360,7 @@ def create_random_times2(nframes,n = 20):
     t2[mask] = t1[mask]
     return t1, t2 
 
-def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 200, intensity = 5, sigma = 5, noise = 0, **kw):
+def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, intensity = 5, sigma = 3, noise = 0, **kw):
     """DDM or c-DDM video generator.
 
     
@@ -403,4 +405,4 @@ if __name__ == "__main__":
     import doctest
     doctest.testmod()
     seed(0)
-    test_plot(1024,3)
+    test_plot(1024,6)
