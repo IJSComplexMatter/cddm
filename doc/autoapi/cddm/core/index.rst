@@ -111,7 +111,7 @@ Module Contents
                           number of threads.
    :type thread_divisor: int
    :param mask: A boolean mask array. If provided, input data is masked first, then reshaped.
-                This only works woth axis = 0.
+                This only works with axis = 0.
    :type mask: ndarray
 
    :returns: **array, old_shape** -- Reshaped array and old frame shape tuple. Old frame shape is needed dor

@@ -136,6 +136,12 @@ Module Contents
    :param mask: A boolean array indicating which data elements were computed.
    :type mask: ndarray, optional
 
+   .. method:: set_norm(self, value)
+
+
+      Sets norm parameter
+
+
    .. method:: set_data(self, data, background=None, variance=None)
 
 

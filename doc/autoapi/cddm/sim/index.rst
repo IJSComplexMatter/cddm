@@ -48,14 +48,13 @@ Module Contents
 
    Returns an brownian walk iterator.
 
-   Given the initial coordinates x0, it callculates and yields next n coordinates.
+   Given the initial coordinates x0, it callculates and yields next `count` coordinates.
 
-
-   :param x0: A list of initial coordinates (i, j) of particles (in pixel units)
+   :param x0: A list of initial coordinates (i, j) of particles (in pixel units).
    :type x0: array-like
-   :param count: Number of simulation steps
+   :param count: Number of simulation steps.
    :type count: int
-   :param shape: Shape of the simulation region in pixels
+   :param shape: Shape of the simulation region in pixels.
    :type shape: (int,int)
    :param delta: Defines an average step in pixel coordinates (when dt = 1).
    :type delta: float
@@ -65,10 +64,15 @@ Module Contents
                     (when dt = 1).
    :type velocity: (float,float)
 
+   :Yields: **coordinates** (*ndarray*) -- Coordinates 2D array for the particles. The second axis is the x,y coordinate.
+
 
 .. function:: brownian_particles(count=500, shape=(256, 256), particles=100, delta=1, dt=1, velocity=0.0, x0=None)
 
-   Creates coordinates of multiple brownian particles.
+   Coordinates generator of multiple brownian particles.
+
+   Builds particles randomly distributed in the computation box and performs
+   random walk of coordinates.
 
    :param count: Number of steps to calculate
    :type count: int
@@ -82,6 +86,11 @@ Module Contents
    :type dt: float
    :param velocity: Velocity in pixel units (when dt = 1)
    :type velocity: float
+   :param x0: A list of initial coordinates
+   :type x0: array-like
+
+   :Yields: **coordinates** (*ndarray*) -- Coordinates 2D array for the particles. The second axis is the x,y coordinate.
+            Length of the array equals number of particles.
 
 
 .. function:: psf_gauss(x, x0, y, y0, sigma, intensity)
@@ -100,9 +109,28 @@ Module Contents
    Draws psf to image from a given points array
 
 
-.. function:: particles_video(particles, t1, shape=(512, 512), t2=None, background=0, intensity=10, sigma=None, noise=0.0)
+.. function:: particles_video(particles, t1, shape=(256, 256), t2=None, background=0, intensity=10, sigma=None, noise=0.0)
 
    Creates brownian particles video
+
+   :param particles: Iterable of particle coordinates
+   :type particles: iterable
+   :param t1: Frame time
+   :type t1: array-like
+   :param shape: Frame shape
+   :type shape: (int,int)
+   :param t2: Second camera frame time, in case we are simulating dual camera video.
+   :type t2: array-like, optional
+   :param background: Background frame value
+   :type background: int
+   :param intensity: Peak Intensity of the particle.
+   :type intensity: int
+   :param sigma: Sigma of the gaussian spread function for the particle
+   :type sigma: float
+   :param noise: Intensity of the random noise
+   :type noise: float, optional
+
+   :Yields: **frames** (*tuple of ndarrays*) -- A single-frame or dual-frame images (ndarrays).
 
 
 .. function:: data_trigger(data, indices)
@@ -118,7 +146,7 @@ Module Contents
    [1, 4, 7]
 
 
-.. function:: test_plot(count=5000, particles=2)
+.. function:: test_plot(count=5000, particles=2, shape=(256, 256))
 
    Brownian particles usage example. Track 2 particles
 
@@ -133,8 +161,28 @@ Module Contents
    Create trigger times for c-ddm experiments based on Eq.8 from the paper
 
 
-.. function:: simple_brownian_video(t1, t2=None, shape=(256, 256), background=200, intensity=5, sigma=5, noise=0, **kw)
+.. function:: simple_brownian_video(t1, t2=None, shape=(256, 256), background=0, intensity=5, sigma=3, noise=0, **kw)
 
-   Returns an iterator of DDM or c-DDM video.
+   DDM or c-DDM video generator.
+
+
+   :param t1: Frame time
+   :type t1: array-like
+   :param t2: Second camera frame time, in case we are simulating dual camera video.
+   :type t2: array-like, optional
+   :param shape: Frame shape
+   :type shape: (int,int)
+   :param background: Background frame value
+   :type background: int
+   :param intensity: Peak Intensity of the particle.
+   :type intensity: int
+   :param sigma: Sigma of the gaussian spread function for the particle
+   :type sigma: float
+   :param noise: Intensity of the random noise
+   :type noise: float, optional
+   :param kw: Extra keyward arguments that are passed to :func:`brownian_particles`
+   :type kw: extra arguments
+
+   :Yields: **frames** (*tuple of ndarrays*) -- A single-frame or dual-frame images (ndarrays).
 
 

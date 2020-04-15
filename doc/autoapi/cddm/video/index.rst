@@ -156,10 +156,15 @@ Module Contents
 
 .. py:class:: ImageShow(title='video', norm_func=lambda x: x)
 
-   A simple interface for video visualization using matplotlib or opencv.
+   A simple interface for video visualization using matplotlib opencv or
+   pyqtgraph.
 
-   To use cv2 (which is much faster) for visualization
-   you must set it with :func:`.conf.set_cv2`
+   :param title: Title of the video
+   :type title: str
+   :param norm_func: Normalization function that takes a single argument (array) and returns
+                     a single element (array). Can be used to apply custom normalization
+                     function to the image before it is shown.
+   :type norm_func: callable
 
    .. method:: show(self, im)
 

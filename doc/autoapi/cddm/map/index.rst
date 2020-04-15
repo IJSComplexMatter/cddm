@@ -46,6 +46,35 @@ Module Contents
    :type shape: (int,int)
 
 
+.. function:: k_indexmap(kisize, kjsize, angle=0, sector=5, kstep=1.0, shape=None)
+
+   Builds indexmap array of integers ranging from -1 (invalid data)
+   and positive integers. Each non-negative integer is a valid k-index computed
+   from sector parameters.
+
+   :param kisize: Height of the fft data
+   :type kisize: int
+   :param kjsize: Width of the fft data
+   :type kjsize: int
+   :param angle: Mean angle of the sector in degrees (-90 to 90).
+   :type angle: float
+   :param sector: Width of the sector in degrees (between 0 and 180)
+   :type sector: float
+   :param kstep: k resolution in units of minimum step size.
+   :type kstep: float, optional
+   :param shape: Shape of the original data. This is used to calculate step size. If not
+                 given, rectangular data is assumed (equal steps).
+   :type shape: (int,int), opyional
+
+   :returns: **map** -- Ouput array of non-zero valued k-indices where data is valid, -1 elsewhere.
+   :rtype: ndarray
+
+
+.. function:: plot_indexmap(graph, ax=None)
+
+   Plots indexmap array on a given axis, or on a new axis (if ax is None)
+
+
 .. function:: k_select(data, angle, sector=5, kstep=1, k=None, shape=None, mask=None)
 
    k-selection and k-averaging of normalized (and merged) correlation data.
