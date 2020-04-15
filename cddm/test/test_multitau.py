@@ -6,8 +6,6 @@ from cddm.conf import FDTYPE, CDTYPE
 from cddm.video import fromarrays
 
 
-
-
 class TestMulti(unittest.TestCase):
     
     def setUp(self):
