@@ -3,7 +3,7 @@ Data mapping and k-averaging functions.
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 #from cddm.conf import F64,I64,U16, U16DTYPE, F, I, FDTYPE, I64DTYPE,F64DTYPE, NUMBA_CACHE
 
@@ -155,11 +155,39 @@ def _k_select(data, k, indexmap, kmap, computed_mask):
         return None
     
 def k_indexmap(kisize,kjsize, angle = 0, sector = 5, kstep = 1., shape = None):
+    """Builds indexmap array of integers ranging from -1 (invalid data)
+    and positive integers. Each non-negative integer is a valid k-index computed
+    from sector parameters.
+    
+    Parameters
+    ----------
+    kisize : int
+        Height of the fft data
+    kjsize : int
+        Width of the fft data
+    angle : float
+        Mean angle of the sector in degrees (-90 to 90).
+    sector : float
+        Width of the sector in degrees (between 0 and 180) 
+    kstep : float, optional
+        k resolution in units of minimum step size.
+    shape : (int,int), opyional
+        Shape of the original data. This is used to calculate step size. If not
+        given, rectangular data is assumed (equal steps).
+        
+    Returns
+    -------
+    map : ndarray
+        Ouput array of non-zero valued k-indices where data is valid, -1 elsewhere.
+    """
+
     kmap, anglemap = rfft2_kangle(kisize, kjsize,shape)
     indexmap = sector_indexmap(kmap, anglemap, angle, sector, kstep) 
     return indexmap
 
 def plot_indexmap(graph, ax = None):
+    """Plots indexmap array on a given axis, or on a new axis (if ax is None)"""
+    import matplotlib.pyplot as plt
     extent=[0,graph.shape[1],graph.shape[0]//2+1,-graph.shape[0]//2-1]
     if ax is None:
         return plt.imshow(np.fft.fftshift(graph,0), extent = extent)
