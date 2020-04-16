@@ -85,8 +85,8 @@ class TestWindows(unittest.TestCase):
             out = hann(shape, out = out)
             self.assertTrue(np.allclose(result, out))        
             
-    def test_plot_window(self):
-        self.assertEqual(None, plot_windows())
+#    def test_plot_window(self):
+#        self.assertEqual(None, plot_windows())
             
        
 if __name__ == "__main__":
