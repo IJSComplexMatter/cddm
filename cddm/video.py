@@ -114,7 +114,10 @@ def asmemmaps(basename, video, count = None):
     """
     
     if count is None:
-        count = len(count)
+        try:
+            count = len(video)
+        except TypeError:
+            raise ValueError("You must provide count")
         
     def _load(array, frame):
         array[...] = frame
@@ -586,19 +589,16 @@ def random_video(shape = (512,512), count = 256, dtype = FDTYPE, max_value = 1.,
 
         
 if __name__ == '__main__':
-
     import cddm.conf
     cddm.conf.set_verbose(2)
-    #
-    #cddm.conf.set_showlib("pyqtgraph")
-    
+
+    #cddm.conf.set_showlib("pyqtgraph")    
     #example how to use show_video and play
     video = random_video(count = 256, dual = True)
     video = show_video(video)
     video = show_diff(video)
-    
+  
     v1,v2 = asarrays(play(video, fps = 30),count = 256)
-
 #    #example how to use ImageShow
 #    video = random_video(count = 256)
 #    viewer = ImageShow()

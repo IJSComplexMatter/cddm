@@ -2,7 +2,8 @@
 
 import unittest
 import numpy as np
-from cddm.video import subtract, multiply, normalize_video, random_video, asarrays, fromarrays
+from cddm.video import subtract, multiply, normalize_video, random_video, \
+     asarrays, fromarrays, load, crop
 from cddm.conf import FDTYPE
 from cddm.window import blackman
 
@@ -29,7 +30,20 @@ class TestVideo(unittest.TestCase):
         out = subtract(video, ((bg,),)*128)
         for frames, true_frame in zip(out, vid_subtract):
             self.assertTrue(np.allclose(frames[0],true_frame))
-
+            
+    def test_crop(self):
+        video = fromarrays((vid,))
+        out, = asarrays(crop(video, roi = ((0,2),(0,2))),128)
+        self.assertTrue(np.allclose(out[0], vid[0,0:2,0:2]))
+        
+    
+    def test_load(self):
+        video = fromarrays((vid,))
+        with self.assertRaises(ValueError):
+            video = load(video)
+        video = load(video,128)
+        video = load(video)
+        
     def test_multiply(self):
         video = fromarrays((vid,))
         out = multiply(video, ((window,),)*128)
