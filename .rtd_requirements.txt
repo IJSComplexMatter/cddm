@@ -1,0 +1,6 @@
+matplotlib
+numpy 
+numba
+scipy
+sphinx-autoapi
+sphinx>=2.2
