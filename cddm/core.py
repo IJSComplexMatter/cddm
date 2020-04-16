@@ -538,7 +538,11 @@ def auto_correlate_fft(f, t = None, axis = 0, n = None, aout = None):
         return _auto_corr_fft(f,t,length,out, out)    
 
 def _is_aligned(data, axis, align):
-    return (((axis == -1 or axis == data.ndim-1) and data.data.contiguous == True) or align == True)    
+    try:
+        return (((axis == -1 or axis == data.ndim-1) and data.data.contiguous == True) or align == True)    
+    except:
+        #python 2.7 just return False
+        return False
 
 def thread_frame_shape(shape, thread_divisor = None):
     """Computes new frame shape for threaded computaton.
