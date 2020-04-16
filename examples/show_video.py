@@ -21,8 +21,8 @@ video = crop(video, roi = ((0,SHAPE[0]), (0,SHAPE[1])))
 
 if __name__ == "__main__":
     #: no need to load video, but this way we load video into memory, and we 
-    #: can scroll back and forth with the viewer
-    video = load(video, NFRAMES) # loads and displays progress bar
+    #: can scroll back and forth with the viewer. Uncomment the line below.
+    #video = load(video, NFRAMES) # loads and displays progress bar
 
     #: VideoViewer either expects a multi_frame iterator, or a numpy array
     viewer = VideoViewer(video, count = NFRAMES, vmin = 0, cmap = "gray")

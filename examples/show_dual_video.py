@@ -33,8 +33,8 @@ video = multiply(video, dust)
 if __name__ == "__main__":
 
     #: no need to load video, but this way we load video into memory, and we 
-    #: can scroll back and forth with the viewer
-    video = load(video, NFRAMES) # loads and displays progress bar
+    #: can scroll back and forth with the viewer. Uncomment the line below
+    #video = load(video, NFRAMES) # loads and displays progress bar
 
     #: camera 1
     viewer1 = VideoViewer(video, count = NFRAMES, id = 0, vmin = 0, cmap = "gray")
