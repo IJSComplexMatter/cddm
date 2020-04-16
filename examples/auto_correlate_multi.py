@@ -50,9 +50,14 @@ if __name__ == "__main__":
     
     #perform normalization and merge data
     fast, slow = normalize_multi(data, bg, var, scale = True)
+    
+    #: save the normalized raw data to numpy files
+    np.save("auto_correlate_multi_raw_fast.npy",fast)
+    np.save("auto_correlate_multi_raw_slow.npy",slow)    
+    
     x,y = log_merge(fast, slow)
     
-    #: save the normalized data to numpy files
+    #: save the normalized merged data to numpy files
     np.save("auto_correlate_multi_t.npy",x)
     np.save("auto_correlate_multi_data.npy",y)
 

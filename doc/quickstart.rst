@@ -409,8 +409,9 @@ Here the shape of the data are
 
 The `lin_data` is the zero-th level of the multiple-tau data, while `multi_level` is the rest of the multi-level data. By default the size of each level in multilevel data is 16, so we have 16 time delays for each level, and there are 63 x 32 unique k values. The multi_level part of the data has 5 levels, the length of `corr_multi` varies, and depends on the length of the video. The rest of the data elements of the `lin_data` and `multi_data` are time-dependent sum of the signal squared and time-dependent sum of signal for each of the levels, which are needed for more advanced normalization. You do not need to know the exact structure, because you will not work with the raw correlation data, but you will use the provided normalization functions to convert this raw data into meaningful normalized correlation function.  
 
-Mergin multitau data
-++++++++++++++++++++
+
+Merging multitau data
++++++++++++++++++++++
 
 We can compare the results obtained from the multiple tau approach with the linear analysis and log averaging from the previous example. Fist we normalize the data:
 
@@ -425,7 +426,13 @@ Here, `lin_data` and `multi_level` are normalized correlation data (numpy arrays
 
    >>> x, y = log_merge(lin_data, multi_level)
 
-Here, `x` is the log-spaced time delay array, `y` is the merged correlation data. We can compare the results now
+Here, `x` is the log-spaced time delay array, `y` is the merged correlation data. 
+
+.. plot:: examples/plot_auto_correlate_raw.py
+
+   All levels of the multilevel data and the merged data (black).
+
+We can compare the log merged results with the log averaged results:
 
 .. doctest::
 
@@ -562,6 +569,28 @@ Note the `period` argument. You must provide the correct effective period of the
 .. note::
 
    Live data view uses matplotlib for visualization, which is slow in rendering. It will significantly reduce the computational power. In numerically intensive experiments (high frame rate and large k-space) you will probably have to disable real-time rendering.
+
+Merging multitau data
++++++++++++++++++++++
+
+As for the auto correlation on regular spaced data, the irregular spaced data must be normalized and merged.
+
+.. doctest::
+
+   >>> from cddm.multitau import normalize_multi, log_merge
+   >>> lin_data, multi_level = normalize_multi(data, bg, var, scale = True)
+
+Here, `lin_data` and `multi_level` are normalized correlation data (numpy arrays). One final step is to merge the multi_level part with the linear part into one continuous log-spaced data.
+
+.. doctest::
+
+   >>> x, y = log_merge(lin_data, multi_level)
+
+Here, `x` is the log-spaced time delay array, `y` is the merged correlation data. Raw data and the merged results is shown below. 
+
+.. plot:: examples/plot_cross_correlate_raw.py
+
+   All levels of the multilevel data and the merged data (black).
 
 .. _`k_averaging`:
 
@@ -833,7 +862,7 @@ Here we have constructed the k-mask with a shape of (63,32) because this is the 
 .. doctest::
 
    >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, 
-   ...   level_size = 32, mask = mask, viewer = viewer)
+   ...   level_size = 16, mask = mask, viewer = viewer)
 
 
 .. plot:: examples/cross_correlate_multi_masked.py
