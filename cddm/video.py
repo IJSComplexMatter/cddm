@@ -446,29 +446,34 @@ def figure_title(name):
 
 def norm_rfft2(clip = None, mode = "real"):
     """Returns a frame normalizing function for :func:`show_video`"""
-    clip = clip
-    
+
     def _clip_fft(im):
         im = _rfft2(im)
         if mode == "real":
             im = im.real
         elif mode == "imag":
             im = im.imag
-        elif mode != "abs":
+        elif mode == "abs":
+            im = np.abs(im)
+        else:
             raise ValueError("Wrong mode")
-        im = np.abs(im)
+        
         if clip is None:
             im[0,0] = 0
             clip_factor = im.max()
         else:
+            im[0,0] = 0
             clip_factor = clip
-            
-        im = im/clip_factor
-        im = im.clip(0,1)    
+        
+        if mode == "abs":
+            im = im/(clip_factor)
+        else:
+            im = im/(clip_factor*2) + 0.5
+        im = im.clip(0,1)  
         return np.fft.fftshift(im,0)  
     return _clip_fft
 
-def show_fft(video, id = 0, title = None, clip = None, mode = "real"):
+def show_fft(video, id = 0, title = None, clip = None, mode = "abs"):
     """Show fft of the video.
     
     Parameters
@@ -482,7 +487,7 @@ def show_fft(video, id = 0, title = None, clip = None, mode = "real"):
         to create a unique name.
     clip : float, optional
         Clipping value. If not given, it is determined automatically.
-    mode : str
+    mode : str, optional
         What to display, "real", "imag" or "abs"
     
     Returns

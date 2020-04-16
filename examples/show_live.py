@@ -7,19 +7,21 @@ with the play function. Note that you can use the video for further processing
 (correlation analysis) 
 
 """
+from conf import SHAPE, NFRAMES, BACKGROUND
+
 from cddm.video import  show_video, show_fft, play, show_diff, multiply
 from cddm.sim import simple_brownian_video
 from cddm.conf import set_showlib
 
 import matplotlib.pyplot as plt
-SIZE = 512
+
 # test dual camera video (regular spaced)
-video = simple_brownian_video(range(1024), range(1024), shape = (SIZE, SIZE), background = 200)
+video = simple_brownian_video(range(NFRAMES), range(NFRAMES), shape = SHAPE, background = BACKGROUND)
 
 #: apply dust particles
 dust1 = plt.imread('dust1.png')[...,0] #float normalized to (0,1)
 dust2 = plt.imread('dust2.png')[...,0]
-dust = ((dust1,dust2),)* 1024
+dust = ((dust1,dust2),)* NFRAMES
 video = multiply(video, dust)
 
 video = show_video(video)
