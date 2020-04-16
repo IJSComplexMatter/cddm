@@ -8,6 +8,7 @@ class TestMulti(unittest.TestCase):
        pass
    
     def test_print(self):
+        conf.set_verbose(0)
         pt.print1("No print")
         pt.print2("No print")
         pt.print_progress(4,10)
@@ -24,6 +25,7 @@ class TestMulti(unittest.TestCase):
     def test_frame_rate(self):
         import time
         t0 = time.time()-1.
+        conf.set_verbose(2)
         pt.print_frame_rate(1024, t0)
         pt.print_frame_rate(1024, t0, time.time())
         
