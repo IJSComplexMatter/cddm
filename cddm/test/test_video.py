@@ -2,7 +2,7 @@
 
 import unittest
 import numpy as np
-from cddm.video import subtract, multiply, normalize_video, random_video, \
+from cddm.video import subtract, multiply, normalize_video, random_video, asmemmaps,\
      asarrays, fromarrays, load, crop, show_video, show_fft, show_diff, play, add
 from cddm.conf import FDTYPE
 from cddm.window import blackman
@@ -26,14 +26,25 @@ class TestVideo(unittest.TestCase):
     def setUp(self):
         pass  
     
+    def test_memmaps(self):
+        video = fromarrays((vid,))
+        with self.assertRaises(ValueError):
+            video = asmemmaps("deleteme", video)
+        video = asmemmaps("deleteme", video,128)   
+    
     def test_subtract(self):
         video = fromarrays((vid,))
-        out = subtract(video, ((bg,),)*128)
+        with self.assertRaises(ValueError):
+            list(subtract(video, ((bg,bg),)*128))
+        video = fromarrays((vid,))
+        out = subtract(video, ((bg,),)*128)    
         for frames, true_frame in zip(out, vid_subtract):
             self.assertTrue(np.allclose(frames[0],true_frame))
             
     def test_crop(self):
         video = fromarrays((vid,))
+        with self.assertRaises(ValueError):
+            list(crop(video, roi = ((0,4),0,2)))
         out, = asarrays(crop(video, roi = ((0,2),(0,2))),128)
         self.assertTrue(np.allclose(out[0], vid[0,0:2,0:2]))
         
@@ -47,11 +58,17 @@ class TestVideo(unittest.TestCase):
 
     def test_add(self):
         video = fromarrays((vid,))
+        with self.assertRaises(ValueError):
+            list(add(video, ((bg,bg),)*128))
+        video = fromarrays((vid,))
         out = add(video, ((bg,),)*128)
         for frames, true_frame in zip(out, vid_add):
             self.assertTrue(np.allclose(frames[0],true_frame))
         
     def test_multiply(self):
+        video = fromarrays((vid,))
+        with self.assertRaises(ValueError):
+            list(multiply(video, ((window,window),)*128))
         video = fromarrays((vid,))
         out = multiply(video, ((window,),)*128)
         for frames, true_frame in zip(out, vid_multiply):
@@ -67,6 +84,8 @@ class TestVideo(unittest.TestCase):
         video = fromarrays((vid,))
         video = subtract(video, ((bg,),)*128, dtype = FDTYPE)
         video = multiply(video, ((window,),)*128, inplace = True)
+        video = add(video, ((bg,),)*128, inplace = True)
+        video = subtract(video, ((bg,),)*128, inplace = True)
         out = normalize_video(video, inplace = True)
         
         for frames, true_frame in zip(out, vid_multiple):
