@@ -811,7 +811,7 @@ For the cross-correlation analysis using the iterative algorithms and all multip
    >>> from cddm.map import k_indexmap, plot_indexmap
    >>> kmap = k_indexmap(63,32, angle = 0, sector = 90)
    >>> mask = (kmap >= 20) & (kmap <= 30)
-   >>> ax = plot_indexmap(mask) 
+   >>> plot_indexmap(mask) 
    >>> plt.show()
 
 .. plot:: examples/mask_array.py

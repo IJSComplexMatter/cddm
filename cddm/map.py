@@ -185,15 +185,11 @@ def k_indexmap(kisize,kjsize, angle = 0, sector = 5, kstep = 1., shape = None):
     indexmap = sector_indexmap(kmap, anglemap, angle, sector, kstep) 
     return indexmap
 
-def plot_indexmap(graph, ax = None):
-    """Plots indexmap array on a given axis, or on a new axis (if ax is None)"""
+def plot_indexmap(graph):
+    """Plots indexmap array"""
     import matplotlib.pyplot as plt
     extent=[0,graph.shape[1],graph.shape[0]//2+1,-graph.shape[0]//2-1]
-    if ax is None:
-        return plt.imshow(np.fft.fftshift(graph,0), extent = extent)
-    else:
-        return ax.imshow(np.fft.fftshift(graph,0), extent = extent)
-
+    plt.imshow(np.fft.fftshift(graph,0), extent = extent)
 
 def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask = None):
     """k-selection and k-averaging of normalized (and merged) correlation data.

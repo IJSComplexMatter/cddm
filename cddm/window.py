@@ -122,27 +122,26 @@ def plot_windows(shape = (256,256), alpha = 0.5, sigma = 0.4):
     """Plots all windows with a given shape, alpha (for tukey), sigma (for gaussian)
     values"""
     import matplotlib.pyplot as plt
-    
-    fig = plt.figure()
+
     plt.subplot(221)
     im = plt.imshow(blackman(shape), vmin = 0, vmax = 1.)
-    fig.colorbar(im)
+    plt.colorbar(im)
     plt.xticks([])
     plt.title(r"blackman")
     plt.subplot(222)
     im = plt.imshow(hann(shape), vmin = 0, vmax = 1.)
     plt.xticks([])
-    fig.colorbar(im)
+    plt.colorbar(im)
     plt.title(r"hann")
     plt.subplot(223)
     im = plt.imshow(tukey(shape,alpha), vmin = 0, vmax = 1.)
-    fig.colorbar(im)
+    plt.colorbar(im)
     plt.title(r"tukey $\alpha = {:0.2}$".format(alpha))
     plt.subplot(224)
     im = plt.imshow(gaussian(shape,sigma), vmin = 0, vmax = 1.)
-    fig.colorbar(im)
+    plt.colorbar(im)
     plt.title(r"gaussian $\sigma = {:0.2}$".format(sigma))  
-    plt.show()    
+  
 
 if __name__  == "__main__":
     plot_windows()

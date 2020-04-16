@@ -313,9 +313,7 @@ def plot_random_walk(count = 5000, particles = 2, shape = (256,256)):
     """Brownian particles usage example. Track 2 particles"""
     import matplotlib.pyplot as plt 
     x = np.array([x for x in brownian_particles(count = count, particles = particles, shape = shape)])
-    
-    plt.figure()
-    
+        
     for i in range(particles): 
         
         # Plot the 2D trajectory.
@@ -336,8 +334,6 @@ def plot_random_walk(count = 5000, particles = 2, shape = (256,256)):
     plt.ylim(0,shape[0])
     plt.axis('equal')
     plt.grid(True)
-    plt.show()
-
  
 def create_random_times1(nframes,n = 20):
     """Create trigger times for c-ddm experiments based on Eq.7 from the paper"""
