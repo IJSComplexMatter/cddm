@@ -13,8 +13,14 @@ import matplotlib.pyplot as plt
 import time   
 from cddm.conf import CDDMConfig, CV2_INSTALLED,  FDTYPE, PYQTGRAPH_INSTALLED
 from cddm.print_tools import print_progress, print1, print_frame_rate
-from queue import Queue
+
 from cddm.fft import _rfft2
+
+try:
+    from queue import Queue
+except ImportError:
+    #python 2.7
+    from Queue import Queue
 
 if CV2_INSTALLED:
     import cv2
