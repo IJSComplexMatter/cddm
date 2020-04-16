@@ -1,5 +1,5 @@
 """
-Bulds sample video and demonstrates how to use VideoViewer to inspect 
+Builds sample video and demonstrates how to use VideoViewer to inspect 
 the video from a frame iterator or list of data.
 """
 
