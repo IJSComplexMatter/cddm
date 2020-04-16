@@ -72,8 +72,7 @@ class TestWindows(unittest.TestCase):
                 tukey(shape, 1.01)
                 
             with self.assertRaises(ValueError):
-                tukey(shape, -0.2)
-                
+                tukey(shape, -0.2)           
 
     def test_hann(self):
         for shape in window_shapes:
@@ -85,8 +84,8 @@ class TestWindows(unittest.TestCase):
             out = hann(shape, out = out)
             self.assertTrue(np.allclose(result, out))        
             
-#    def test_plot_window(self):
-#        self.assertEqual(None, plot_windows())
+    def test_plot_window(self):
+        self.assertEqual(None, plot_windows())
             
        
 if __name__ == "__main__":
