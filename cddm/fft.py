@@ -161,16 +161,16 @@ def normalize_fft(video, inplace = False, dtype = None):
         else:
             yield tuple((np.asarray(frame / frame[0,0], dtype = dtype) for frame in frames))   
         
-if __name__ == "__main__":
-    import cddm.conf
-
-    from cddm.video import random_video, show_diff, show_video, show_fft, play
-    video = random_video(dual = True, shape = (512,256))
-    #video = show_video(video,0)
-    #video = show_diff(video)
-    video = show_fft(video,0)
-    #video = rfft2(video,63,63)
-    
-    
-    for frames in play(video, fps = 20):
-        pass
+#if __name__ == "__main__":
+#    import cddm.conf
+#
+#    from cddm.video import random_video, show_diff, show_video, show_fft, play
+#    video = random_video(dual = True, shape = (512,256))
+#    #video = show_video(video,0)
+#    #video = show_diff(video)
+#    video = show_fft(video,0)
+#    #video = rfft2(video,63,63)
+#    
+#    
+#    for frames in play(video, fps = 20):
+#        pass

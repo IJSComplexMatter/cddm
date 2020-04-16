@@ -145,8 +145,8 @@ def plot_windows(shape = (256,256), alpha = 0.5, sigma = 0.4):
     plt.colorbar(im)
     plt.title(r"gaussian $\sigma = {:0.2}$".format(sigma))  
   
-
-if __name__  == "__main__":
-    plot_windows()
-
-    
+#
+#if __name__  == "__main__":
+#    plot_windows()
+#
+#    

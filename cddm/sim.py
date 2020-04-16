@@ -398,9 +398,9 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
     p = brownian_particles(**kw) 
     return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, noise = noise) 
 
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-    seed(0)
-    plot_random_walk(1024,6)
+#
+#if __name__ == "__main__":
+#    import doctest
+#    doctest.testmod()
+#    seed(0)
+#    plot_random_walk(1024,6)

@@ -76,7 +76,7 @@ def skip_runtime_error(f):
             pass
     return _f
 
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
+#
+#if __name__ == "__main__":
+#    import doctest
+#    doctest.testmod()

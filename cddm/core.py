@@ -2047,7 +2047,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         result /= _scale_factor
     return result
 
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
-   
+#if __name__ == "__main__":
+#    import doctest
+#    doctest.testmod()
+#   

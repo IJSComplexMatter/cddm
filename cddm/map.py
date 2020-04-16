@@ -240,14 +240,14 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask =
         #not iterable
         return _k_select(data, k, indexmap, kmap, mask)
     
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    k,f = rfft2_kangle(129,65, (256,256))
-    m = sector_indexmap(k,f, angle = 0,sector = 30)
-    plt.imshow(np.fft.fftshift(m,0))
-    
-    kmask = m == 32
-    plt.figure()
-    plt.imshow(np.fft.fftshift(kmask,0))
+#
+#if __name__ == "__main__":
+#    import matplotlib.pyplot as plt
+#    k,f = rfft2_kangle(129,65, (256,256))
+#    m = sector_indexmap(k,f, angle = 0,sector = 30)
+#    plt.imshow(np.fft.fftshift(m,0))
+#    
+#    kmask = m == 32
+#    plt.figure()
+#    plt.imshow(np.fft.fftshift(kmask,0))
     

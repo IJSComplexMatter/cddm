@@ -588,23 +588,23 @@ def random_video(shape = (512,512), count = 256, dtype = FDTYPE, max_value = 1.,
         yield tuple((np.asarray(np.random.rand(*shape)*max_value,dtype) for i in range(nframes)))
 
         
-if __name__ == '__main__':
-    import cddm.conf
-    cddm.conf.set_verbose(2)
-
-    #cddm.conf.set_showlib("pyqtgraph")    
-    #example how to use show_video and play
-    video = random_video(count = 256, dual = True)
-    video = show_video(video)
-    video = show_diff(video)
-  
-    v1,v2 = asarrays(play(video, fps = 30),count = 256)
-#    #example how to use ImageShow
-#    video = random_video(count = 256)
-#    viewer = ImageShow()
-#    for frames in video:
-#        viewer.show(frames[0])
-#        pause()
-#        
-    
+#if __name__ == '__main__':
+#    import cddm.conf
+#    cddm.conf.set_verbose(2)
+#
+#    #cddm.conf.set_showlib("pyqtgraph")    
+#    #example how to use show_video and play
+#    video = random_video(count = 256, dual = True)
+#    video = show_video(video)
+#    video = show_diff(video)
+#  
+#    v1,v2 = asarrays(play(video, fps = 30),count = 256)
+##    #example how to use ImageShow
+##    video = random_video(count = 256)
+##    viewer = ImageShow()
+##    for frames in video:
+##        viewer.show(frames[0])
+##        pause()
+##        
+#    
     
