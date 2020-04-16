@@ -84,8 +84,8 @@ def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
         if kjsize > shape[1]:
             raise ValueError("kjmax too large for a given frame")
     
-    jstop = kjsize//2+1
-    istop = kisize//2+1
+    istop = kimax+1
+    jstop = kjmax+1
     
     shape = kisize, jstop
     return shape, istop, jstop
@@ -118,7 +118,7 @@ def rfft2(video, kimax = None, kjmax = None, overwrite_x = False):
         data = _rfft2(frame, overwrite_x = overwrite_x)
         vid = np.empty(shape,data.dtype)
         vid[:istop,:] = data[:istop,:jstop] 
-        vid[-istop:,:] = data[-istop:,:jstop] 
+        vid[-istop+1:,:] = data[-istop+1:,:jstop] 
         return vid
     
     if kimax is None and kjmax is None:
