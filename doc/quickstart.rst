@@ -665,9 +665,9 @@ One way to partially overcome this limitation is to use the `auto_background` op
 
 .. doctest::
 
-   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, chunk_size = 512, auto_background = True)
+   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, chunk_size = 128, auto_background = True)
 
-This way we have forced the algorithm to work with chunks of data of length 512, and to take the first chunk of data to calculate the background frames that are then used to subtract from the input video. This way we get a reasonably good estimator of the background, which reduces the need to use the NORM_SUBTRACTED flag for the normalization as shown below.
+This way we have forced the algorithm to work with chunks of data of length 128, and to take the first chunk of data to calculate the background frames that are then used to subtract from the input video. This way we get a reasonably good estimator of the background, which reduces the need to use the NORM_SUBTRACTED flag for the normalization as shown below.
 
 .. doctest:: 
    
@@ -692,12 +692,12 @@ This way we have forced the algorithm to work with chunks of data of length 512,
 In some experiments, it may be sufficient to work with norm = 0, and you can  work with::
 
    >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, 
-   ...         norm = NORM_BASELINE, chunk_size = 512, auto_background = True)
+   ...         norm = NORM_BASELINE, chunk_size = 128, auto_background = True)
 
 which will significantly improve the speed of computation, as there is no need to track the three extra channels. In case you do need the `compensated` normalization, you can do:
 
    >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, 
-   ...         norm = NORM_COMPENSATED, chunk_size = 512, auto_background = True)
+   ...         norm = NORM_COMPENSATED, chunk_size = 128, auto_background = True)
 
 This will allow you to normalize either to `baseline` or `compensated`, but the computation is slower because of one extra channels that needs to be calculated.
 

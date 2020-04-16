@@ -70,9 +70,9 @@ Module Contents
    :rtype: ndarray
 
 
-.. function:: plot_indexmap(graph, ax=None)
+.. function:: plot_indexmap(graph)
 
-   Plots indexmap array on a given axis, or on a new axis (if ax is None)
+   Plots indexmap array
 
 
 .. function:: k_select(data, angle, sector=5, kstep=1, k=None, shape=None, mask=None)

@@ -4,7 +4,6 @@ Demonstrates the use and equivalence of method and mode options
 from auto_correlate import fft_array
 from cddm.core import acorr, normalize, stats
 
-import numpy as np
 import matplotlib.pyplot as plt
 
 bg, var = stats(fft_array)

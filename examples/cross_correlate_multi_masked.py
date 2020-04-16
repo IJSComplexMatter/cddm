@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Demonstrates how to compute fft of videos and the compute auto correlation
-function with the out-of-memory version of the multitau algorithm.
+Demonstrates how to compute cross- correlation function with the 
+out-of-memory version of the multitau algorithm with the mask parameter
 """
 
 from mask_array import mask
