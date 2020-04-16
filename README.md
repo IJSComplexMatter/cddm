@@ -1,8 +1,7 @@
 # cddm
 Tools for cross-differential dynamic microscopy
 
-This is under heavy development. The package will be finished in couple of weeks.
-Please do not use this package until paper is published.  
+[![Documentation Status](https://readthedocs.org/projects/cddm/badge/?version=latest)](https://imageio.readthedocs.io)
 
 See documentation at readthedocs
 
