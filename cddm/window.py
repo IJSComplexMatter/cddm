@@ -60,7 +60,8 @@ def gaussian(shape, sigma, out = None):
     if sigma <= 0.:
         raise ValueError("Wrong sigma value")
     r = _r(shape, sigma* (2**0.5))
-    out = np.empty(shape, FDTYPE)
+    if out is None:
+        out = np.empty(shape, FDTYPE)
     return np.exp(-r**2, out = out)
 
 def tukey(shape, alpha, out = None):
