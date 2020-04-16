@@ -1,11 +1,11 @@
 """
 Demonstrates how to perform live view of difference data, video, and fft of
-dual-frame video.Z
+dual-frame video.
 
 Visualization takes place during the iteration over the iterator contructed
 with the play function. Note that you can use the video for further processing
-
 (correlation analysis) 
+
 """
 from cddm.video import  show_video, show_fft, play, show_diff, multiply
 from cddm.sim import simple_brownian_video

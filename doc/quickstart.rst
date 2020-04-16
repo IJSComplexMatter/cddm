@@ -44,7 +44,7 @@ For testing, we will build a sample video of a simulated Brownian motion of 100 
 
 .. doctest::
 
-   >>> from cddm.sim import plot_random_walks, seed
+   >>> from cddm.sim import plot_random_walk, seed
    >>> seed(0) #sets numba and numpy seeds for random number generators  
    >>> plot_random_walk(count = 1024, particles = 6, shape = (512+32,512+32)) 
 
@@ -74,7 +74,7 @@ You may want to inspect and play videos. Video player is implemented in the modu
 .. doctest::
  
    >>> from cddm.video import load
-   >>> video = load(video) #displays progress bar
+   >>> video = load(video, 1024) #allows you to display progress bar
    >>> video = list(video) #or this
    >>> video = tuple(video) #or this
 
@@ -90,7 +90,7 @@ Now we can inspect the video:
    >>> viewer = VideoViewer(video, count = 1024, vmin = 0, cmap = "gray")
    >>> viewer.show()
 
-.. plot:: examples/show_video.py
+.. plot:: examples/video_simulator.py
 
    :class:`.viewer.VideoViewer` can be used to visualize the video (in memory or out-of-memory). 
 
@@ -314,7 +314,7 @@ Here, `t` is the log-spaced time delay array, `log_data` is the log-spaced corre
    >>> text = plt.ylabel("G/Var")
    >>> plt.show()
 
-.. plot:: examples/auto_correlate_data_plot.py
+.. plot:: examples/plot_auto_correlate_data.py
 
    Log-spaced data example. In the first axis, you can access negative coefficients. 
 
@@ -438,7 +438,7 @@ Here, `x` is the log-spaced time delay array, `y` is the merged correlation data
    >>> plt.show()
 
 
-.. plot:: examples/auto_correlate_multi_data_plot.py
+.. plot:: examples/plot_auto_correlate_multi_data.py
 
    Data obtained using multiple tau algorithm is comparable to the log averaged linear data. Slight discrepancy comes from the difference between the averaging performed with the :func:`.multitau.log_average` and the effective averaging of the multiple tau algorithm. 
 
@@ -500,7 +500,7 @@ To view the two videos we can use the VideoViewer
    >>> viewer2 = VideoViewer(video, count = 1024, id = 1, vmin = 0, cmap = "gray")
    >>> viewer2.show()
 
-.. plot:: examples/show_dual_video.py
+.. plot:: examples/dual_video_simulator.py
 
    Dust particles on the two cameras are different, which result in different background frames. 
 
@@ -655,7 +655,7 @@ This way it is possible to normalize the computed data with the :func:`.multitau
    >>> legend = plt.legend()
    >>> plt.show()
 
-.. plot:: examples/cross_correlate_multi_norm_plot.py
+.. plot:: examples/plot_cross_correlate_multi_norm.py
 
    Normalization mode 3 works best for small time delays, mode 2 works best for large delays and is more noisy at smaller delays.
 

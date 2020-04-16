@@ -12,10 +12,12 @@ from cddm.multitau import log_average
 
 import numpy as np
 
-#: see show video for details, loads sample video
-from show_video import video
-from conf import KIMAX, KJMAX, SHAPE, NFRAMES
+#: see video_simulator for details, loads sample video
+import video_simulator
+import importlib
+importlib.reload(video_simulator) #recreates iterator
 
+from conf import KIMAX, KJMAX, SHAPE, NFRAMES
 
 
 #: create window for multiplication...
@@ -25,7 +27,7 @@ window = blackman(SHAPE)
 window_video = ((window,),)*NFRAMES
 
 #:perform the actual multiplication
-video = multiply(video, window_video)
+video = multiply(video_simulator.video, window_video)
 
 #: if the intesity of light source flickers you can normalize each frame to the intensity of the frame
 #video = normalize_video(video)
