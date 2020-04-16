@@ -50,7 +50,7 @@ For testing, we will build a sample video of a simulated Brownian motion of 100 
 
 .. plot:: examples/plot_random_walk.py
 
-   2D random walk simulation of 6 particles.
+   2D random walk simulation of 6 particles. Green dots indicate start positions, red dots are the end positions of the particles. 
 
 We crop the simulated video in order to avoid mirroring of particles as they touch the boundary of the simulation size because of the mirror boundary conditions implied by the simulation procedure. This way we simulate the real-world boundary effects better and prevent the particles to reappear on the other side of the image when they leave the viewing area.
 
