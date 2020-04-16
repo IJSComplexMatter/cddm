@@ -3,6 +3,8 @@ Windowing functions.
 
 These windowing functions can be used to generate FFT window functions.
 """
+from __future__ import absolute_import, print_function, division
+
 import numpy as np
 from cddm.conf import FDTYPE
 

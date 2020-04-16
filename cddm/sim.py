@@ -12,6 +12,7 @@ both cameras.
 The frame grabber is done using iterators to reduce memory requirements. You can
 analyze video frame by frame with minimal memory requirement.
 """
+from __future__ import absolute_import, print_function, division
 
 import numpy as np
 import numba as nb

@@ -3,6 +3,7 @@ variable to define verbosity level and behavior of printing functions.
 
 verbosity levels 1 and 2 enable printing, 0 disables printing messages.
  """
+from __future__ import absolute_import, print_function, division
 
 import time
 import cddm.conf
