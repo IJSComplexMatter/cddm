@@ -101,12 +101,14 @@ Default values can also be set the configuration file (see below).
 Optimization tips
 -----------------
 
-Is the computation too slow? Here you can find some tips for optimizing your code to speed up the calculation, should you need this. I suggest you work with some test data that you read into memory, and then use::
+Is the computation too slow? 
+
+Here you can find some tips for optimizing your code to speed up the calculation, should you need this. I suggest you work with some test data that you read into memory, and then use::
 
    >>> cddm.conf.set_cerbose(2) 
    0
 
-so that it will plot the execution speed. Then as you work on your dataset, test how the following options change the computation speed:
+so that it will plot the execution speed. First make sure you are running in multiple threads (see compilation options). Then as you work on your dataset, test how the following options change the computation speed:
 
 * You can select the method = 'diff' method and norm = 1 to force calculation without the extra `data_sum` arrays. Or, calculate with norm = 0 and method = "corr".
 * For non-iterative version, you can also use `align` = True and try to see if copying and aligning the data in memory before the calculation improves.
