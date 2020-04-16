@@ -342,6 +342,8 @@ class ImageShow():
         if self.fig is None:
             self.fig = self.title
         im = self._prepare_image(im)
+        if im.max() > 1:
+            im = im / im.max()
         
         cv2.imshow(self.fig,im)
         
