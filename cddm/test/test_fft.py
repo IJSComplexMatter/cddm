@@ -11,7 +11,7 @@ import numpy.fft as npfft
 class TestVideo(unittest.TestCase):
     
     def setUp(self):
-        video = random_video((32,42), count = 128, dtype = "uint8", max_value = 255)
+        video = random_video((31,32), count = 128, dtype = "uint8", max_value = 255)
         self.vid, = asarrays(video, count = 128)
         self.fft = npfft.rfft2(self.vid)
         self.fft_norm = self.fft/(self.fft[:,0,0])[:,None,None]
@@ -27,6 +27,21 @@ class TestVideo(unittest.TestCase):
             fft, = asarrays(rfft2(video, kimax = kimax, kjmax = kjmax),128)
             self.assertTrue(np.allclose(fft[:,0:kimax+1], self.fft[:,0:kimax+1,0:kjmax+1])) 
             self.assertTrue(np.allclose(fft[:,-kimax:], self.fft[:,-kimax:,0:kjmax+1]))  
+
+        video = fromarrays((self.vid,))
+        fft, = asarrays(rfft2(video, kimax = None, kjmax = 6),128)
+        self.assertTrue(np.allclose(fft, self.fft[:,:,0:7])) 
+        
+        video = fromarrays((self.vid,))
+        fft, = asarrays(rfft2(video, kimax = 6),128)
+        self.assertTrue(np.allclose(fft[:,0:7,:], self.fft[:,0:7,:])) 
+        
+        with self.assertRaises(ValueError):
+            video = fromarrays((self.vid,))
+            fft, = asarrays(rfft2(video, kimax = 16),128)
+        with self.assertRaises(ValueError):
+            video = fromarrays((self.vid,))
+            fft, = asarrays(rfft2(video, kjmax = 17),128)
 
     def test_rfft2_scipy(self):
         set_rfft2lib("scipy")

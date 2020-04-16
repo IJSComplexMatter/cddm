@@ -73,15 +73,15 @@ def _rfft2(a, overwrite_x = False):
 def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
     if kimax is None:
         kisize = shape[0]
+        kimax = kisize//2 
     else:    
         kisize = kimax*2+1
-        if kisize >= shape[0]:
+        if kisize > (shape[0]//2)*2+1:
             raise ValueError("kimax too large for a given frame")
     if kjmax is None:
-        kjsize = shape[1]
+        kjmax = shape[1]//2 
     else:
-        kjsize = kjmax*2+1
-        if kjsize > shape[1]:
+        if kjmax > shape[1]//2:
             raise ValueError("kjmax too large for a given frame")
     
     istop = kimax+1
