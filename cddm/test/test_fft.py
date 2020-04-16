@@ -2,8 +2,8 @@
 
 import unittest
 import numpy as np
-from cddm.fft import rfft2, normalize_fft
-from cddm.conf import FDTYPE, set_rfft2lib
+from cddm.fft import rfft2, normalize_fft, _ifft, _fft
+from cddm.conf import FDTYPE, set_rfft2lib, set_fftlib
 from cddm.video import asarrays, random_video, fromarrays
 
 import numpy.fft as npfft
@@ -49,6 +49,23 @@ class TestVideo(unittest.TestCase):
         fft = rfft2(video)
         fft, = asarrays(normalize_fft(fft, inplace = True),128)
         self.assertTrue(np.allclose(fft, self.fft_norm))
+        
+    def test_fft(self):
+        for libname in ("numpy","scipy"):
+            set_fftlib(libname)
+            a = np.random.randn(4)
+            fft = np.fft.fft(a)
+            out = _fft(a)
+            self.assertTrue(np.allclose(fft, out))
+
+    def test_ifft(self):
+        for libname in ("numpy","scipy"):
+            set_fftlib(libname)
+            a = np.random.randn(4)
+            fft = np.fft.fft(a)
+            a = np.fft.ifft(fft)
+            out = _ifft(fft)
+            self.assertTrue(np.allclose(a, out))
         
 
 #    def test_rfft2_mkl(self):
