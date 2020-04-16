@@ -3,7 +3,7 @@
 import unittest
 import numpy as np
 from cddm.video import subtract, multiply, normalize_video, random_video, \
-     asarrays, fromarrays, load, crop, show_video, show_fft, show_diff, play
+     asarrays, fromarrays, load, crop, show_video, show_fft, show_diff, play, add
 from cddm.conf import FDTYPE
 from cddm.window import blackman
 
@@ -16,6 +16,7 @@ window = blackman((32,8))
 
 vid_subtract = vid - bg[None,...]
 vid_multiply = vid * window[None,...]
+vid_add = vid + bg[None,...]
 vid_normalize = vid / (vid.mean((1,2))[:,None,None])
 vid_multiple = vid_subtract * window[None,...]
 vid_multiple = vid_multiple / (vid_multiple.mean((1,2))[:,None,None])
@@ -43,6 +44,12 @@ class TestVideo(unittest.TestCase):
             video = load(video)
         video = load(video,128)
         video = load(video)
+
+    def test_add(self):
+        video = fromarrays((vid,))
+        out = add(video, ((bg,),)*128)
+        for frames, true_frame in zip(out, vid_add):
+            self.assertTrue(np.allclose(frames[0],true_frame))
         
     def test_multiply(self):
         video = fromarrays((vid,))
@@ -73,7 +80,6 @@ class TestVideo(unittest.TestCase):
         video = play(video, fps = 100)
         video = load(video, 128)
         
-        
-       
+    
 if __name__ == "__main__":
     unittest.main()
