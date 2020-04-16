@@ -46,16 +46,16 @@ def _ifft(a, overwrite_x = False):
     elif libname == "numpy":
         return np.fft.ifft(a) 
 
-def _fft2(a, overwrite_x = False):
-    libname = CDDMConfig["fftlib"]
-    if libname == "mkl_fft":
-        return mkl_fft.fft2(a, overwrite_x = overwrite_x)
-    elif libname == "scipy":
-        return spfft.fft2(a, overwrite_x = overwrite_x)
-    elif libname == "numpy":
-        return np.fft.fft2(a) 
-    elif libname == "pyfftw":
-        return fftw.scipy_fftpack.fft2(a, overwrite_x = overwrite_x)
+#def _fft2(a, overwrite_x = False):
+#    libname = CDDMConfig["fftlib"]
+#    if libname == "mkl_fft":
+#        return mkl_fft.fft2(a, overwrite_x = overwrite_x)
+#    elif libname == "scipy":
+#        return spfft.fft2(a, overwrite_x = overwrite_x)
+#    elif libname == "numpy":
+#        return np.fft.fft2(a) 
+#    elif libname == "pyfftw":
+#        return fftw.scipy_fftpack.fft2(a, overwrite_x = overwrite_x)
     
 def _rfft2(a, overwrite_x = False):
     libname = CDDMConfig["rfft2lib"]

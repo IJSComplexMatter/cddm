@@ -2,7 +2,7 @@
 
 import unittest
 import numpy as np
-from cddm.fft import rfft2
+from cddm.fft import rfft2, normalize_fft
 from cddm.conf import FDTYPE, set_rfft2lib
 from cddm.video import asarrays, random_video, fromarrays
 
@@ -14,6 +14,7 @@ class TestVideo(unittest.TestCase):
         video = random_video((32,42), count = 128, dtype = "uint8", max_value = 255)
         self.vid, = asarrays(video, count = 128)
         self.fft = npfft.rfft2(self.vid)
+        self.fft_norm = self.fft/(self.fft[:,0,0])[:,None,None]
     
     def test_rfft2_numpy(self):
         set_rfft2lib("numpy")
@@ -38,6 +39,17 @@ class TestVideo(unittest.TestCase):
             fft, = asarrays(rfft2(video, kimax = kimax, kjmax = kjmax),128)
             self.assertTrue(np.allclose(fft[:,0:kimax+1], self.fft[:,0:kimax+1,0:kjmax+1])) 
             self.assertTrue(np.allclose(fft[:,-kimax:], self.fft[:,-kimax:,0:kjmax+1]))  
+
+    def test_normalize(self):
+        video = fromarrays((self.vid,))
+        fft = rfft2(video)
+        fft, = asarrays(normalize_fft(fft),128)
+        self.assertTrue(np.allclose(fft, self.fft_norm))
+        video = fromarrays((self.vid,))
+        fft = rfft2(video)
+        fft, = asarrays(normalize_fft(fft, inplace = True),128)
+        self.assertTrue(np.allclose(fft, self.fft_norm))
+        
 
 #    def test_rfft2_mkl(self):
 #        set_rfft2lib("mkl_fft")
