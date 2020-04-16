@@ -309,10 +309,11 @@ def data_trigger(data, indices):
                 #all done.
                 break
             
-def test_plot(count = 5000, particles = 2, shape = (256,256)):
+def plot_random_walk(count = 5000, particles = 2, shape = (256,256)):
     """Brownian particles usage example. Track 2 particles"""
     import matplotlib.pyplot as plt 
     x = np.array([x for x in brownian_particles(count = count, particles = particles, shape = shape)])
+    
     plt.figure()
     
     for i in range(particles): 
@@ -405,4 +406,4 @@ if __name__ == "__main__":
     import doctest
     doctest.testmod()
     seed(0)
-    test_plot(1024,6)
+    plot_random_walk(1024,6)

@@ -146,7 +146,7 @@ Module Contents
    [1, 4, 7]
 
 
-.. function:: test_plot(count=5000, particles=2, shape=(256, 256))
+.. function:: plot_random_walk(count=5000, particles=2, shape=(256, 256))
 
    Brownian particles usage example. Track 2 particles
 

@@ -1,34 +1,25 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Demonstrates how to compute fft of videos and the compute auto correlation
 function with the out-of-memory version of the multitau algorithm.
 """
 
-from cddm.viewer import DataViewer, CorrViewer
+from cddm.viewer import DataViewer
 from cddm.video import multiply, normalize_video, crop, asarrays
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
 from cddm.core import acorr, normalize, stats
 from cddm.multitau import log_average
-from cddm.multitau import iacorr_multi, normalize_multi, log_merge
-from cddm.sim import simple_brownian_video, seed
+
 import numpy as np
 
-from conf import SIZE, NFRAMES,DELTA
+#: see show video for details, loads sample video
+from show_video import video
+from conf import KIMAX, KJMAX, SHAPE, NFRAMES
 
-#set seeds so that each run of the experiment is on same dataset
-seed(0)
 
-#: this creates a brownian motion multi-frame iterator. 
-#: each element of the iterator is a tuple holding a single numpy array (frame,)
-video = simple_brownian_video(range(NFRAMES), shape = (SIZE+32,SIZE+32), delta = DELTA, background = 200)
-
-#: crop video to selected region of interest 
-video = crop(video, roi = ((0,SIZE), (0,SIZE)))
 
 #: create window for multiplication...
-window = blackman((SIZE,SIZE))
+window = blackman(SHAPE)
 
 #: we must create a video of windows for multiplication
 window_video = ((window,),)*NFRAMES
@@ -40,13 +31,13 @@ video = multiply(video, window_video)
 #video = normalize_video(video)
 
 #: perform rfft2 and crop results, to take only first kimax and first kjmax wavenumbers.
-fft = rfft2(video, kimax =31, kjmax = 31)
+fft = rfft2(video, kimax = KIMAX, kjmax = KJMAX)
 
 #: you can also normalize each frame with respect to the [0,0] component of the fft
 #: this it therefore equivalent to  normalize_video
 #fft = normalize_fft(fft)
 
-#load int numpy array
+#load in numpy array
 fft_array, = asarrays(fft, NFRAMES)
 
 if __name__ == "__main__":

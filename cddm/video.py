@@ -129,7 +129,26 @@ def asmemmaps(basename, video, count = None):
     
     print_progress(count, count)   
     return out
- 
+
+def load(video, count = None):
+    """Loads video into memory. 
+     
+    Parameters
+    ----------
+    video : iterable
+        A multi-frame iterator object.
+    count : int, optional
+        Defines how many frames are in the video. If not provided it will calculate
+        length of the video based on the length of the iterable. If that is not
+        possible ValueError is raised
+       
+    Returns
+    -------
+    out : tuple
+        A video iterable. A tuple of multi-frame data (arrays) 
+    """
+    video = asarrays(video, count)
+    return tuple(fromarrays(video))
 
 def crop(video, roi = (slice(None), slice(None))):
     """Crops each frame in the video. 

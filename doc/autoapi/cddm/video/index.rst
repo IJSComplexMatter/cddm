@@ -63,6 +63,21 @@ Module Contents
    :rtype: tuple of arrays
 
 
+.. function:: load(video, count=None)
+
+   Loads video into memory.
+
+   :param video: A multi-frame iterator object.
+   :type video: iterable
+   :param count: Defines how many frames are in the video. If not provided it will calculate
+                 length of the video based on the length of the iterable. If that is not
+                 possible ValueError is raised
+   :type count: int, optional
+
+   :returns: **out** -- A video iterable. A tuple of multi-frame data (arrays)
+   :rtype: tuple
+
+
 .. function:: crop(video, roi=(slice(None), slice(None)))
 
    Crops each frame in the video.

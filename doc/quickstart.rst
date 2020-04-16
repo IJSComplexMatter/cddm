@@ -40,9 +40,19 @@ Notice the trailing comma to indicate a tuple of length 1. The above random nois
 Video simulator
 +++++++++++++++
 
-For testing, we will build a sample video of a simulated Brownian motion of 
-100 particles. We will construct a simulation area of shape (512+32,512+32)
-because we will later crop this to a shape of (512,512). We crop the simulated video in order to avoid mirroring of particles as they touch the boundary of the simulation size because of the mirror boundary conditions implied by the simulation procedure. This way we simulate the real-world boundary effects better and prevent the particles to reappear on the other side of the image when they leave the viewing area.
+For testing, we will build a sample video of a simulated Brownian motion of 100 particles. We will construct a simulation area of shape (512+32,512+32) because we will later crop this to a shape of (512,512).
+
+.. doctest::
+
+   >>> from cddm.sim import plot_random_walks, seed
+   >>> seed(0) #sets numba and numpy seeds for random number generators  
+   >>> plot_random_walk(count = 1024, particles = 6, shape = (512+32,512+32)) 
+
+.. plot:: examples/plot_random_walk.py
+
+   2D random walk simulation of 6 particles.
+
+We crop the simulated video in order to avoid mirroring of particles as they touch the boundary of the simulation size because of the mirror boundary conditions implied by the simulation procedure. This way we simulate the real-world boundary effects better and prevent the particles to reappear on the other side of the image when they leave the viewing area.
 
 .. doctest::
 
@@ -63,7 +73,9 @@ You may want to inspect and play videos. Video player is implemented in the modu
 
 .. doctest::
  
-   >>> video = list(video)
+   >>> from cddm.video import load
+   >>> video = load(video) #displays progress bar
+   >>> video = list(video) #or this
    >>> video = tuple(video) #or this
 
 .. note::
@@ -104,7 +116,7 @@ In FFT processing, it is common to apply a window function before the computatio
 .. doctest::
 
    >>> from cddm.window import plot_windows
-   >>> ax = plot_windows()
+   >>> plot_windows()
 
 .. plot:: examples/plot_windows.py
    
@@ -143,6 +155,10 @@ Also, in DDM experiments there is usually a cutoff wavenumber above which there 
    >>> fft = rfft2(video, kimax = 31, kjmax = 31)
 
 Here, the resulting fft object is of the same video data type. We have used two arguments `kimax` and `kjmax` for cropping. The result of this cropping is a video of FFTs, where the shape of each frame (in our case it is a single frame of the multi-frame data type) is :math:`(2*k_{imax}+1, k_{jmax} +1)`. As in the uncropped rfft2, the zero wave vector is found at[0,0], element [31,31] are for the largest wave vector k = (31,31), element [-1,0] == [62,0] of the cropped fft is the Fourier coefficient of k = (-1,0).  The original rfft2 frame shape in our case is (512,257), and therefore the max possible k value for our dataset is :math:`k_{max} = (\pm 257,257)`. With kimax and kjmax we have reduced the computation size for the correlation function calculation from (512*257) to (63*32) different k vectors, which significantly improves the speed and lowers the memory requirements.
+
+.. plot:: examples/plot_kmap.py
+
+   We take only a small subset of the original k-values.
 
 .. seealso:: :ref:`masking` demonstrates how to use more advanced k-masking features.
 
