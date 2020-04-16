@@ -8,9 +8,18 @@ class TestMulti(unittest.TestCase):
        pass
    
     def test_print(self):
-        pt.print1("test")
-        pt.print2("test")
+        pt.print1("No print")
+        pt.print2("No print")
         pt.print_progress(4,10)
+        pt.print_progress(10,10)
+        conf.set_verbose(1)
+        pt.print1("Ok")
+        pt.print2("No print")
+        conf.set_verbose(2)
+        pt.print1("OK")
+        pt.print2("OK")
+        pt.print_progress(4,10)
+        pt.print_progress(10,10)
         
     def test_frame_rate(self):
         import time
@@ -19,6 +28,7 @@ class TestMulti(unittest.TestCase):
         pt.print_frame_rate(1024, t0, time.time())
         
     def test_disable_prints(self):
+        conf.set_verbose(0)
         tmp = conf.CDDMConfig["verbose"]
         out = pt.disable_prints()
         self.assertEqual(out, tmp)
