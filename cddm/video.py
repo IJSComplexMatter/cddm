@@ -456,17 +456,17 @@ def figure_title(name):
 
 def norm_rfft2(clip = None, mode = "real"):
     """Returns a frame normalizing function for :func:`show_video`"""
-
+    if mode not in ("real", "imag", "abs"):
+        raise ValueError("Wrong mode")
+        
     def _clip_fft(im):
         im = _rfft2(im)
         if mode == "real":
             im = im.real
         elif mode == "imag":
             im = im.imag
-        elif mode == "abs":
-            im = np.abs(im)
         else:
-            raise ValueError("Wrong mode")
+            im = np.abs(im)
         
         if clip is None:
             im[0,0] = 0
