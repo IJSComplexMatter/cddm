@@ -264,12 +264,6 @@ def set_showlib(name):
         CDDMConfig.showlib = name  
     
     return out
-    
-def set_nthreads(num):
-    """Sets number of threads used by fft functions."""
-    out = CDDMConfig.nthreads
-    CDDMConfig.nthreads = max(1,int(num))
-    return out
    
 def set_fftlib(name = "numpy.fft"):
     """Sets fft library. Returns previous setting."""
