@@ -2,5 +2,5 @@ matplotlib
 numpy 
 numba
 scipy
-PySide
+PyQt5
 opencv-python
