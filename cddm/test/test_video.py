@@ -111,20 +111,20 @@ class TestVideo(unittest.TestCase):
         video = play(video, fps = 100)
         video = load(video, 128)
         
-    def test_show_pyqtgraph(self):
-        set_showlib("pyqtgraph")
-        video = fromarrays((vid,vid))
-        with self.assertRaises(ValueError):
-            show_fft(video, mode = "wrong")
-        
-        video = show_video(video)
-        video = show_fft(video, mode = "imag")
-        video = show_fft(video, mode = "abs")
-        video = show_fft(video, clip = 256)
-        
-        video = show_diff(video)
-        video = play(video, fps = 100)
-        video = load(video, 128)
+#    def test_show_pyqtgraph(self):
+#        set_showlib("pyqtgraph")
+#        video = fromarrays((vid,vid))
+#        with self.assertRaises(ValueError):
+#            show_fft(video, mode = "wrong")
+#        
+#        video = show_video(video)
+#        video = show_fft(video, mode = "imag")
+#        video = show_fft(video, mode = "abs")
+#        video = show_fft(video, clip = 256)
+#        
+#        video = show_diff(video)
+#        video = play(video, fps = 100)
+#        video = load(video, 128)
 
     def test_show_cv2(self):
         set_showlib("cv2")
