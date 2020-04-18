@@ -778,7 +778,7 @@ Here, `diff` is the computed difference data. When you perform the normalization
    >>> b, v = stats(fft_array)
    >>> for data, method in zip((acorr_data, adiff_data),("corr","diff")):
    ...     for mode in ("diff", "corr"):
-   ...         data_lin = normalize(data, b, v, mode = mode)
+   ...         data_lin = normalize(data, b, v, mode = mode, scale = True)
    ...         l = plt.semilogx(data_lin[4,12], label = "mode = {}; method = {}".format(mode, method))
    >>> legend = plt.legend()
    >>> plt.show()
@@ -794,10 +794,8 @@ Live video
 
 In Cross-DDM experiments it is important that cameras are properly aligned and in focus. For this you need a live video preview. There are some helper functions for visualizing frame difference, fft or plain video. For this to work you really should be using `cv2` or `pyqtgraph`, because these libraries are better suited for real-time visualization of videos, so you should first install these. If you have them installed, take the library of choice::
 
-   >>> cddm.conf.set_showlib("cv2")
-   "cv2"
-   >>> cddm.conf.set_showlib("pyqtgraph") #or
-   "cv2"
+   >>> previous = cddm.conf.set_showlib("cv2")
+   >>> previous = cddm.conf.set_showlib("pyqtgraph") #or
    
 Now, we have a dual-frame video object from our previous example, so we can prepare new video iterator that will show the video (first camera), difference, and fft (second camera)
 
@@ -831,27 +829,32 @@ Now to show this video iterator, just load it into memory, or iterate over the f
 Data masking
 ------------
 
-Sometimes, you may not want to compute the correlation function for the rectangular k-space area defined by the kimax and kjmax parameters of the :func:`.fft.rfft2` function, but you may want to focus the analysis on a subset of k-values.
-
-For the cross-correlation analysis using the iterative algorithms and all multiple tau versions allow you to pass a mask array, which is a boolean array with ones defined at k-indices where the correlation function needs to be calculated. For instance, to calculate data only along a given sector of k-values, you can build the mask with:
+Sometimes, you may not want to compute the correlation function for the rectangular k-space area defined by the kimax and kjmax parameters of the :func:`.fft.rfft2` function, but you may want to focus the analysis on a subset of k-values. This can be done most easily by video masking. You must define a boolean array with ones defined at k-indices where the correlation function needs to be calculated. For instance, to calculate data only along a given sector of k-values, you can build the mask with:
 
 .. doctest::
 
    >>> from cddm.map import k_indexmap, plot_indexmap
    >>> kmap = k_indexmap(63,32, angle = 0, sector = 90)
-   >>> mask = (kmap >= 20) & (kmap <= 30)
-   >>> plot_indexmap(mask) 
+   >>> m = (kmap >= 20) & (kmap <= 30)
+   >>> plot_indexmap(m) 
    >>> plt.show()
 
 .. plot:: examples/mask_array.py
 
    Example FFT mask array.
 
-Here we have constructed the k-mask with a shape of (63,32) because this is the shape of the fft data array. Of course you can construct any valid boolean mask that defines the selected k-values of your input data. To apply this mask to the input data there are two options. If you work with the iterative algorithm, or any multiple-tau algorithms, apply the mask as an argument e.g.
+Here we have constructed the k-mask with a shape of (63,32) because this is the shape of the fft data array. Of course you can construct any valid boolean mask that defines the selected k-values of your input data. To apply this mask to the input data there are two options. You can mask the data with :func:`.video.mask`
 
 .. doctest::
 
-   >>> viewer = MultitauViewer(scale = True, mask = mask, shape = (512,512))
+   >>> from cddm.video import mask
+   >>> fft_masked = mask(fft, mask = m)
+
+If you want to use the viewer, you will have to provide the mask to the viewer as well
+
+.. doctest::
+
+   >>> viewer = MultitauViewer(scale = True, mask = m, shape = (512,512))
    >>> viewer.k = 25 #central k 
    >>> viewer.sector = 180 #average over all phi space.
 
@@ -859,36 +862,34 @@ Here we have constructed the k-mask with a shape of (63,32) because this is the 
 
    For rectangular-shaped video frames, the unit size in k-space is identical in both dimensions, and you do not need to provide the `shape` argument, however, for non-rectangular data, the step size in k-space is not identical. The `shape` argument is used to calculate unit steps for proper k-visualization and averaging.
 
+Now you can calculate the masked fft data.
+
 .. doctest::
 
-   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, 
-   ...   level_size = 16, mask = mask, viewer = viewer)
-
+   >>> data, bg, var = iccorr_multi(fft_masked, t1, t2, period = 32, 
+   ...   level_size = 16, viewer = viewer)
 
 .. plot:: examples/cross_correlate_multi_masked.py
 
    Because we have computed data over a sector of width 90 degrees, we average only over the computed data values (marked with yellow dots in graph right).
 
-The actual output data is a complete-sized array, with np.nan values where the computation mask was non-positive. If you are doing k-selection, you have to provide the mask parameter as well:
+If you are working with the iterative algorithm, instead of fft masking of the input data, you can provide the mask parameter to the compute functions. E.g.:
+
+.. doctest::
+
+   >>> data, bg, var = iccorr_multi(fft, t1, t2, period = 32, mask = m,
+   ...   level_size = 16)
+
+Note that here we use the original fft (unmasked) data. The actual output data in this case is a complete-sized array, with np.nan values where the computation mask was non-positive. Regardless of the approach used, if you are doing k-selection, you have to provide the mask parameter as well:
 
 .. doctest:: 
 
    >>> fast, slow = normalize_multi(data, bg, var, scale = True)
    >>> x,y = log_merge(fast, slow)
-   >>> k_data = k_select(y, angle = 0, sector = 30, shape = (512,512), mask = mask)
+   >>> k_data = k_select(y, angle = 0, sector = 30, shape = (512,512), mask = m)
 
-
-The in-memory calculation of the standard (linear) correlation function does not support masking. Instead, you can do:
-
-.. doctest::
-
-   >>> from cddm.core import reshape_input, reshape_output
-   >>> fft_masked, masked_shape = reshape_input(fft_array, mask = mask)
-   >>> acorr_masked = acorr(fft_masked)
-   >>> acorr_data = reshape_output(acorr_masked, masked_shape, mask = mask)
-
-   
 That is it, we have shown almost all features of the package. You can learn about some more specific use cases by browsing and reading the rest of the examples in the source. Also read the :ref:`optimization` for running options and tips.
+
 
 .. _imageio: https://github.com/imageio/imageio
 .. _paper: https://doi.org/10.1039/C9SM00121B

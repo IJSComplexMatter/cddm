@@ -95,11 +95,6 @@ Module Contents
    Set library for live video view
 
 
-.. function:: set_nthreads(num)
-
-   Sets number of threads used by fft functions.
-
-
 .. function:: set_fftlib(name='numpy.fft')
 
    Sets fft library. Returns previous setting.

@@ -105,6 +105,20 @@ Module Contents
    >>> video = crop(video, roi = (slice(10,100),slice(20,120)))
 
 
+.. function:: mask(video, mask=None)
+
+   Masks each frame in the video.
+
+   :param video: Input multi-frame iterable object. Each element of the iterable is a tuple
+                 of ndarrays (frames)
+   :type video: iterable
+   :param mask: A boolean index array for masking (boolean indexing).
+   :type mask: ndarrray
+
+   :returns: **video** -- A multi-frame iterator
+   :rtype: iterator
+
+
 .. function:: subtract(x, y, inplace=False, dtype=None)
 
    Subtracts two videos.
@@ -239,7 +253,7 @@ Module Contents
    Returns a frame normalizing function for :func:`show_video`
 
 
-.. function:: show_fft(video, id=0, title=None, clip=None, mode='real')
+.. function:: show_fft(video, id=0, title=None, clip=None, mode='abs')
 
    Show fft of the video.
 
@@ -253,7 +267,7 @@ Module Contents
    :param clip: Clipping value. If not given, it is determined automatically.
    :type clip: float, optional
    :param mode: What to display, "real", "imag" or "abs"
-   :type mode: str
+   :type mode: str, optional
 
    :returns: **video** -- A multi-frame iterator
    :rtype: iterator

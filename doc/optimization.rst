@@ -121,20 +121,30 @@ The multiple tau algorithm is the best option, if you want log-spaced results. H
 
 * You can speed up the computation if you lower the `level_size` parameter, which effectively reduces the time resolution.
 * Play with `chunk_size` parameter and find the best option for your dataset.
-* Use `thread_divisor` and find the best combination of `chunk_size` and `thread_divisor`
+* Use `thread_divisor` and find the best combination of `chunk_size` and `thread_divisor` (see below).
 
 .. note::
 
    Internally, the algorithm uses numba `vectorize` and `guvectorize` for automatic multi-threading. However, the efficiency of the threaded calculation depends on the input data shape and cache size of your processor. With `thread_divisor` and `chunk_size` parameters  you are reshaping the input data, which might help in speeding up. 
 
-.. note::
-
-   When `thread_divisor` is defined, input data is reshaped from shape = (x,y...) to (thread_divisor, rest). So thread_divisor must be a divisor of the data size, otherwise error is raised. Therefore, you must use this parameter in combination with `kimax` and `kjmax`, that define your data size.
-
 Linear algorithm
 ++++++++++++++++
 
 If you need linear data, the fft algorithm works best for regular-spaced data and complete tau calculation. Here you may work with floats instead of doubles to speed up FFT or work with different fft library. See Optimization for details. If you can work with a limited range of delay times you may use the `n` parameter, which may be speedier to compute with the standard `method = "corr"` Here, you should use `align = True`. You can also use the :func:`.core.reshape_input` and  :func:`.core.reshape_output` with combination of `thread_divisor` parameter.
+
+Thread divisor
+++++++++++++++
+
+If you are doing data masking, the input video frames are shaped to 1D. Consequently, computation runs on a single thread. You can reshape the data from 1D to 2D, which will trigger multithreaded calculation. The length of the first axis of the data frame determines the number of thread jobs that will run. Note that you can reshape also 2D data to optimize array size that each thread is working on, which might improve the speed of execution. The out-of-memory functions and multitau algorithm allows you to reshape the data on-the-fly with the `thread_divisor`. The in-memory calculation of the standard (linear) correlation function does not support `thread_divisor` options. Instead, you can do::
+
+   >>> from cddm.core import reshape_input, reshape_output
+   >>> fft_reshaped, original_shape = reshape_input(fft_array, thread_divisor = 8)
+   >>> acorr = acorr(fft_reshaped)
+   >>> acorr = reshape_output(acorr, original_shape) #reshape back
+
+.. note::
+
+   When `thread_divisor` is defined, input data is reshaped from any shape (x,y...) to (thread_divisor, rest). So thread_divisor must be a divisor of the data size, otherwise error is raised. Therefore, you must use this parameter in combination with `kimax` and `kjmax`, that define your data size. If you use mask arrays, the thread_divisor must divide the length of masked data size. 
 
 
 CDDM configuration file

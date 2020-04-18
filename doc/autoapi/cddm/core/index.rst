@@ -85,7 +85,7 @@ Module Contents
    See :func:`auto_correlate` for details.
 
 
-.. function:: thread_frame_shape(shape, thread_divisor=None)
+.. function:: thread_frame_shape(shape, thread_divisor=None, force_2d=False)
 
    Computes new frame shape for threaded computaton.
 
@@ -94,6 +94,8 @@ Module Contents
    :param thread_divisor: An integer that divides the flattend frame shape. This number determines
                           number of threads.
    :type thread_divisor: int
+   :param force_2d: If 1d data, make it 2d regardless of thread_divisor value.
+   :type force_2d: bool
 
    :returns: **shape** -- A length 2 shape
    :rtype: tuple
@@ -119,7 +121,7 @@ Module Contents
    :rtype: ndarray, tuple
 
 
-.. function:: reshape_output(data, shape, mask=None)
+.. function:: reshape_output(data, shape=None, mask=None)
 
    Reshapes output data as returned from ccorr,acorr functions
    to original frame shape data.
@@ -130,8 +132,9 @@ Module Contents
    reshape it back to original shape and unmasked input array. Missing data
    is filled with np.nan.
 
-   :param data: Data as returned by :func:`acorr` or :func:`ccorr`
-   :type data: tuple of ndarrays
+   :param data: Data as returned by :func:`acorr` or :func:`ccorr` or a numpy array, or
+                a numpy array, as returned by :func:`normalize`
+   :type data: tuple of ndarrays, or ndarray
    :param shape: shape of the input frame data.
    :type shape: tuple of ints
    :param mask: If provided, reconstruct reshaped data to original shape, prior to masking

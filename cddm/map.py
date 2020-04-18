@@ -141,14 +141,16 @@ def rfft2_kangle(kisize = None, kjsize = None, shape = None):
     x2, y2  = x**2, y**2
     return (x2 + y2)**0.5 , np.arctan2(-y,x)  
 
-def _k_select(data, k, indexmap, kmap, computed_mask):
+def _k_select(data, k, indexmap, kmap, computed_mask, masked_data):
     mask = (indexmap == int(round(k)))
     if computed_mask is not None:
         mask = mask & computed_mask
     ks = kmap[mask]
+    if masked_data == True:
+        mask = mask[computed_mask]
     if len(ks) > 0:
         #at least one k value exists
-        data_avg = data[...,mask,:].mean(-2)
+        data_avg = np.nanmean(data[...,mask,:], axis = -2)
         k_avg = ks.mean()
         return k_avg, data_avg  
     else:
@@ -196,7 +198,8 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask =
     """k-selection and k-averaging of normalized (and merged) correlation data.
     
     This function takes (...,i,j,n) correlation data and performs k-based selection
-    and averaging of the data.
+    and averaging of the data. If you analyzed masked video, you must provide
+    the mask.
     
     Parameters
     ----------
@@ -213,8 +216,8 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask =
     shape : tuple
         Shape of the original video frame. If shape is not rectangular, it must
         be provided.
-    mask : ndarray
-        A boolean array indicating which data elements were computed.
+    mask : ndarray, optional
+        A boolean array. This is the mask used in :func:`.video.mask`.
         
     Returns
     -------
@@ -227,14 +230,26 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask =
     
     assert sector > 0
     
-    kmap, anglemap = rfft2_kangle(data.shape[-3], data.shape[-2],shape)
+    #whether data was masked or not
+    masked_data = False
+    
+    if mask is not None:
+        kisize, kjsize = mask.shape
+        #if shapes of mask and frame do not match
+        if data.shape[-3:-1] != (kisize, kjsize):
+            masked_data = True
+        #else assume, data was not masked
+    else:
+        kisize, kjsize = data.shape[-3:-1]
+    
+    kmap, anglemap = rfft2_kangle(kisize, kjsize, shape)
     indexmap = sector_indexmap(kmap, anglemap, angle, sector, kstep)
 
     if k is None:
         kdim = indexmap.max() + 1
         k = np.arange(kdim)
     try:
-        iterator = (_k_select(data, kk, indexmap, kmap, mask) for kk in k)
+        iterator = (_k_select(data, kk, indexmap, kmap, mask, masked_data) for kk in k)
         return tuple((data for data in iterator if data is not None))       
     except TypeError:
         #not iterable

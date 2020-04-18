@@ -26,7 +26,7 @@ video = multiply(video, dust)
 
 video = show_video(video)
 video = show_diff(video)
-video = show_fft(video)
+video = show_fft(video, mode ="real")
 
 #: set fps to your required FPS. Video will be updated only if visualization
 #: is fast enough not to interfere with the acquisition.

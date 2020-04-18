@@ -28,6 +28,7 @@ if CV2_INSTALLED:
 if PYQTGRAPH_INSTALLED:
     import pyqtgraph as pg
     from pyqtgraph.Qt import QtGui
+    pg.setConfigOptions(imageAxisOrder = "row-major")
 
 def fromarrays(arrays):
     """Creates a multi-frame iterator from given list of arrays.
@@ -199,6 +200,25 @@ def crop(video, roi = (slice(None), slice(None))):
         raise ValueError("Invalid roi")
     for frames in video:
         yield tuple((frame[hslice,wslice] for frame in frames))
+
+def mask(video, mask = None):
+    """Masks each frame in the video. 
+    
+    Parameters
+    ----------
+    video : iterable
+        Input multi-frame iterable object. Each element of the iterable is a tuple
+        of ndarrays (frames)
+    mask : ndarrray
+        A boolean index array for masking (boolean indexing).
+        
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+    for frames in video:
+        yield tuple((frame[mask] for frame in frames))
 
 def subtract(x, y, inplace = False, dtype = None):
     """Subtracts two videos.

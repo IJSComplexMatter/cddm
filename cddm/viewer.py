@@ -193,6 +193,9 @@ class DataViewer(object):
         self.semilogx = semilogx
         self.shape = shape
         self.computed_mask = mask
+        if mask is not None:
+            self.kisize, self.kjsize = mask.shape
+            
         
     def _init_map(self):
         self.kmap, self.anglemap = rfft2_kangle(self.kisize, self.kjsize, self.shape)
@@ -244,7 +247,9 @@ class DataViewer(object):
         data : ndarray
             Normalized data.
         """
-        self.kisize, self.kjsize = data.shape[:-1]
+        self.kshape = data.shape[:-1]
+        if self.computed_mask is None:
+            self.kisize, self.kjsize = self.kshape
         self.data = data
         t =  np.asarray(t) if t is not None else np.arange(data.shape[-1])
         if len(t) != data.shape[-1]:
@@ -253,7 +258,7 @@ class DataViewer(object):
             self.t = t
         
     def _get_avg_data(self):
-        return self.t, self.data[...,self.mask,:].mean(-2)
+        return self.t, np.nanmean(self.data[...,self.mask,:], axis = -2)
         
     def get_data(self):
         """Returns computed k-averaged data and time
@@ -303,8 +308,14 @@ class DataViewer(object):
             self._init_map()
         self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
         self.mask = (self.indexmap == int(self.k)) 
+        self.graph_mask = self.mask
         if self.computed_mask is not None:
-            self.mask = self.mask & self.computed_mask
+            if self.kshape == (self.kisize, self.kjsize):
+                self.mask = self.mask & self.computed_mask
+                self.graph_mask = self.mask
+            else:
+                self.graph_mask = self.mask & self.computed_mask
+                self.mask = self.mask[self.computed_mask]
         return self.mask.any()
         
     def plot(self):
@@ -316,7 +327,7 @@ class DataViewer(object):
             
         nans = (self.indexmap == -1)
         self.graph = self.indexmap*1.0 # make it float
-        self.graph[self.mask] = self._max_graph_value +1
+        self.graph[self.graph_mask] = self._max_graph_value +1
         self.graph[nans] = np.nan
         
         self.im.set_data(np.fft.fftshift(self.graph,0))
@@ -376,6 +387,8 @@ class CorrViewer(DataViewer):
         self.shape = shape
         self.size = size
         self.computed_mask = mask
+        if mask is not None:
+            self.kisize, self.kjsize = mask.shape
         
     def set_norm(self, value):
         """Sets norm parameter"""
@@ -417,7 +430,9 @@ class CorrViewer(DataViewer):
         self.data = data
         self.background = background
         self.variance = variance
-        self.kisize, self.kjsize = data[0].shape[:-1]
+        self.kshape = data[0].shape[:-1]
+        if self.computed_mask is None:
+            self.kisize, self.kjsize = self.kshape
         
     def _get_avg_data(self):
         data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
@@ -427,7 +442,7 @@ class CorrViewer(DataViewer):
         else:
             t = np.arange(len(data))
         
-        return t, data.mean(-2)
+        return t, np.nanmean(data, axis = -2)
     
             
 class MultitauViewer(CorrViewer):
@@ -455,6 +470,8 @@ class MultitauViewer(CorrViewer):
         self.semilogx = semilogx
         self.shape = shape
         self.computed_mask = mask
+        if mask is not None:
+            self.kisize, self.kjsize = mask.shape
         
     @doc_inherit
     def set_norm(self, value):
@@ -466,12 +483,14 @@ class MultitauViewer(CorrViewer):
         self.data = data
         self.background = background
         self.variance = variance
-        self.kisize, self.kjsize = data[0][0].shape[:-1]
+        self.kshape = data[0][0].shape[:-1]
+        if self.computed_mask is None:
+            self.kisize, self.kjsize = self.kshape
         
     def _get_avg_data(self):
         data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
         t, data = log_merge(*data)
-        avg_data = data.mean(-2) 
+        avg_data = np.nanmean(data, axis = -2) 
         return t, avg_data
         
 #       

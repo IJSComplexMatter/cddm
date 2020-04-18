@@ -80,7 +80,8 @@ Module Contents
    k-selection and k-averaging of normalized (and merged) correlation data.
 
    This function takes (...,i,j,n) correlation data and performs k-based selection
-   and averaging of the data.
+   and averaging of the data. If you analyzed masked video, you must provide
+   the mask.
 
    :param deta: Input correlation data of shape (...,i,j,n)
    :type deta: array_like
@@ -95,8 +96,8 @@ Module Contents
    :param shape: Shape of the original video frame. If shape is not rectangular, it must
                  be provided.
    :type shape: tuple
-   :param mask: A boolean array indicating which data elements were computed.
-   :type mask: ndarray
+   :param mask: A boolean array. This is the mask used in :func:`.video.mask`.
+   :type mask: ndarray, optional
 
    :returns: **out** -- If k s not defined, this is an iterator that yields a tuple of (k_avg, data_avg)
              of actual (mean) k and averaged data. If k is a list of indices, it returns

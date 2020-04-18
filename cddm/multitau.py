@@ -553,7 +553,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
         if i == 0:
             #do initialization
             original_shape = x1.shape
-            shape = thread_frame_shape(original_shape, thread_divisor)
+            force_2d = True if mask is None else False
+            shape = thread_frame_shape(original_shape, thread_divisor, force_2d)
 
             norm = _default_norm(norm, method, cross)
             

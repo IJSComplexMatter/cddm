@@ -544,7 +544,7 @@ def _is_aligned(data, axis, align):
         #python 2.7 just return False
         return False
 
-def thread_frame_shape(shape, thread_divisor = None):
+def thread_frame_shape(shape, thread_divisor = None, force_2d = False):
     """Computes new frame shape for threaded computaton.
     
     Parameters
@@ -554,6 +554,8 @@ def thread_frame_shape(shape, thread_divisor = None):
     thread_divisor : int
         An integer that divides the flattend frame shape. This number determines
         number of threads.
+    force_2d : bool
+        If 1d data, make it 2d regardless of thread_divisor value.
         
     Returns
     -------
@@ -561,6 +563,8 @@ def thread_frame_shape(shape, thread_divisor = None):
         A length 2 shape
     """
     new_shape = shape
+    if len(new_shape) == 1 and thread_divisor is None and force_2d == True:
+        thread_divisor = 1
     if thread_divisor is not None:
         total = reduce((lambda x, y: x * y), new_shape)
         try:
@@ -605,8 +609,8 @@ def reshape_input(f, axis = 0, thread_divisor = None, mask = None):
         
     shape = list(f.shape)
     n = shape.pop(axis)
-    
-    new_shape = list(thread_frame_shape(shape, thread_divisor))
+    force_2d = True if mask is None else False
+    new_shape = list(thread_frame_shape(shape, thread_divisor, force_2d))
     new_shape.insert(axis, n)
     return f.reshape(new_shape), tuple(shape)
 
@@ -620,7 +624,7 @@ def reshape_frame(frame, shape, mask = None):
     else:
         return x
     
-def reshape_output(data, shape, mask = None):
+def reshape_output(data, shape = None, mask = None):
     """Reshapes output data as returned from ccorr,acorr functions
     to original frame shape data.
     
@@ -632,8 +636,9 @@ def reshape_output(data, shape, mask = None):
     
     Parameters
     ----------
-    data : tuple of ndarrays
-        Data as returned by :func:`acorr` or :func:`ccorr`
+    data : tuple of ndarrays, or ndarray
+        Data as returned by :func:`acorr` or :func:`ccorr` or a numpy array, or
+        a numpy array, as returned by :func:`normalize`
     shape : tuple of ints
         shape of the input frame data.
     mask : ndarray, optional
@@ -660,11 +665,20 @@ def reshape_output(data, shape, mask = None):
                 return x
         else:
             return x
+    if shape is None:
+        if mask is None:
+            raise ValueError("Either `mask` or `shape` must be defined")
+        shape = mask.shape
     if mask is None:
         shape = data[0].shape[0:-3] + tuple(shape) + (data[0].shape[-1],) 
     else:
         shape = data[0].shape[0:-2] + tuple(shape) + (data[0].shape[-1],) 
-    return tuple((_reshape(i,x) for (i,x) in enumerate(data)))
+    #normalized data 
+    if isinstance(data, np.ndarray):
+        return _reshape(0,data) 
+    #raw tuple data
+    else: 
+        return tuple((_reshape(i,x) for (i,x) in enumerate(data)))
 
 def cross_correlate(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = False,aout = None):
     """Calculates cross-correlation function of two equal sized input arrays.
