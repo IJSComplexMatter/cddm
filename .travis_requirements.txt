@@ -2,6 +2,6 @@ matplotlib
 numpy 
 numba
 scipy
-pyfftw
+PyQt5
 pyqtgraph
-mkl_fft
+pyfftw
