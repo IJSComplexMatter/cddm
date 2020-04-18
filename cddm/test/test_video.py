@@ -3,8 +3,9 @@
 import unittest
 import numpy as np
 from cddm.video import subtract, multiply, normalize_video, random_video, asmemmaps,\
-     asarrays, fromarrays, load, crop, show_video, show_fft, show_diff, play, add
-from cddm.conf import FDTYPE
+     asarrays, fromarrays, load, crop, show_video, show_fft, show_diff, play, add, \
+     mask
+from cddm.conf import FDTYPE, set_showlib
 from cddm.window import blackman
 
 
@@ -46,9 +47,14 @@ class TestVideo(unittest.TestCase):
         with self.assertRaises(ValueError):
             list(crop(video, roi = ((0,4),0,2)))
         out, = asarrays(crop(video, roi = ((0,2),(0,2))),128)
-        self.assertTrue(np.allclose(out[0], vid[0,0:2,0:2]))
+        self.assertTrue(np.allclose(out[:], vid[:,0:2,0:2]))
         
-    
+    def test_mask(self):
+        m = vid[0] > 0.
+        video = fromarrays((vid,))
+        out, = asarrays(mask(video, m),128)
+        self.assertTrue(np.allclose(out, vid[:,m]))
+        
     def test_load(self):
         video = fromarrays((vid,))
         with self.assertRaises(ValueError):
@@ -91,7 +97,37 @@ class TestVideo(unittest.TestCase):
         for frames, true_frame in zip(out, vid_multiple):
             self.assertTrue(np.allclose(frames[0],true_frame))
             
-    def test_show(self):
+    def test_show_matplotlib(self):
+        set_showlib("matplotlib")
+        video = fromarrays((vid,vid))
+        with self.assertRaises(ValueError):
+            show_fft(video, mode = "wrong")
+        
+        video = show_video(video)
+        video = show_fft(video, mode = "real")
+        video = show_fft(video, clip = 256)
+        
+        video = show_diff(video)
+        video = play(video, fps = 100)
+        video = load(video, 128)
+        
+    def test_show_pyqtgraph(self):
+        set_showlib("pyqtgraph")
+        video = fromarrays((vid,vid))
+        with self.assertRaises(ValueError):
+            show_fft(video, mode = "wrong")
+        
+        video = show_video(video)
+        video = show_fft(video, mode = "imag")
+        video = show_fft(video, mode = "abs")
+        video = show_fft(video, clip = 256)
+        
+        video = show_diff(video)
+        video = play(video, fps = 100)
+        video = load(video, 128)
+
+    def test_show_cv2(self):
+        set_showlib("cv2")
         video = fromarrays((vid,vid))
         with self.assertRaises(ValueError):
             show_fft(video, mode = "wrong")
