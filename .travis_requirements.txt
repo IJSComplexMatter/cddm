@@ -3,4 +3,5 @@ numpy
 numba
 scipy
 PyQt5
-opencv-python
+pyqtgraph
+pyfftw
