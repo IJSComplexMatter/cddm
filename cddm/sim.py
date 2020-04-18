@@ -141,8 +141,6 @@ def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1
         x0 = np.asarray(np.random.rand(int(particles),2)*np.array(shape),FDTYPE)
     else:
         x0 = np.asarray(x0,FDTYPE)
-        if x0.ndim == 1 and particles == 1:
-            x0 = x0[None,:]
         if len(x0) != particles:
             raise ValueError("Wrong length of initial coordinates x0")
  

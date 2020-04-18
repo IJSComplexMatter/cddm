@@ -3,7 +3,7 @@
 import unittest
 
 from cddm.sim import plot_random_walk, create_random_times1,create_random_times2,\
-     simple_brownian_video   , seed, data_trigger, mirror, brownian_walk
+     simple_brownian_video   , seed, data_trigger, mirror, brownian_walk, brownian_particles
 
 class TestSim(unittest.TestCase):
     """Tests function validity"""
@@ -21,6 +21,10 @@ class TestSim(unittest.TestCase):
             list(brownian_walk(((0,1),(2,3)),shape = (3,)))
         with self.assertRaises(ValueError):
             list(brownian_walk((0,1)))
+            
+    def test_brownian_particles(self):
+        with self.assertRaises(ValueError):
+            list(brownian_particles(particles = 2, x0 =((0,2),)))  
             
     def test_data_trigger(self):
         data = range(10)
