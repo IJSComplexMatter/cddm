@@ -1,0 +1,7 @@
+matplotlib
+numpy 
+numba
+scipy
+pyfftw
+pyqtgraph
+mkl_fft
