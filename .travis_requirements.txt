@@ -2,5 +2,4 @@ matplotlib
 numpy 
 numba
 scipy
-pyfftw
-pyqtgraph
+
