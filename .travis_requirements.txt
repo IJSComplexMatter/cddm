@@ -2,5 +2,4 @@ matplotlib
 numpy 
 numba
 scipy
-PyQt5
-
+PyQt4
