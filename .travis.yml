@@ -7,6 +7,7 @@ python:
 install:
   - pip install -r .travis_requirements.txt
   - pip install coverage
+  - pip install pytest
 # command to run tests
 script:
   - coverage run -m pytest cddm --doctest-modules
