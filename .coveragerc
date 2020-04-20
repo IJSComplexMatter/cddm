@@ -1,11 +1,6 @@
 [report]
 
 omit =
-    _core_nb.py
-    _sim_nb.py
+    cddm/_core_nb.py
+    cddm/_sim_nb.py
     
-[xml]
-
-omit =
-    _core_nb.py
-    _sim_nb.py
