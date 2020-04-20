@@ -5,11 +5,11 @@ dual camera video from a frame iterator or list of data.
 
 from cddm.sim import simple_brownian_video, create_random_times1
 from cddm.viewer import VideoViewer 
-from cddm.video import multiply, load, crop
+from cddm.video import multiply, load, crop, add
 import matplotlib.pyplot as plt
 
 # uppercase values
-from conf import NFRAMES, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, \
+from conf import NFRAMES, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA1,DELTA2, \
     INTENSITY, SIGMA, SHAPE
 
 #random time according to Eq.7 from the SoftMatter paper
@@ -17,8 +17,15 @@ t1, t2 = create_random_times1(NFRAMES,n = N_PARAMETER)
 
 #: this creates a brownian motion frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame)
-video = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = BACKGROUND,
-                              sigma = SIGMA, delta = DELTA, intensity = INTENSITY)
+video1 = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = BACKGROUND,particles = 10,
+                              sigma = SIGMA, delta = DELTA1, intensity = INTENSITY)
+
+video2 = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = BACKGROUND,particles = 10,
+                              sigma = SIGMA, delta = DELTA2, intensity = INTENSITY)
+
+
+video = add(video1,video2)
+
 
 #: crop video to selected region of interest 
 video = crop(video, roi = ((0,SHAPE[0]), (0,SHAPE[1])))
@@ -37,9 +44,9 @@ if __name__ == "__main__":
     #video = load(video, NFRAMES) # loads and displays progress bar
 
     #: camera 1
-    viewer1 = VideoViewer(video, count = NFRAMES, id = 0, vmin = 0, cmap = "gray")
+    viewer1 = VideoViewer(video, count = NFRAMES, id = 0, vmin = 100, cmap = "gray")
     viewer1.show()
     
     #: camera 2
-    viewer2 = VideoViewer(video, count = NFRAMES, id = 1, vmin = 0, cmap = "gray")
+    viewer2 = VideoViewer(video, count = NFRAMES, id = 1, vmin = 100, cmap = "gray")
     viewer2.show()

@@ -34,6 +34,9 @@ import numba as nb
 from cddm.conf import CDTYPE, FDTYPE, IDTYPE, C,F, NUMBA_TARGET, NUMBA_FASTMATH, NUMBA_CACHE
 from cddm.print_tools import print_progress,  print_frame_rate, enable_prints, disable_prints
 from cddm.print_tools import print1, print2
+
+from cddm._core_nb import mean, choose, convolve, _add_stats_vec, _calc_stats_vec
+
 import time
 
 #: placehold for matplotlib plots so that they are not garbage collected diring live view
@@ -46,11 +49,6 @@ BINNING_MEAN = 1
 BINNING_CHOOSE = 2
 """Binning with random selection"""
 
-@nb.vectorize([F(F,F),C(C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def mean(a,b):
-    """Man value"""
-    return 0.5 * (a+b)
-
 def mean_data(data, axis = 0, out_axis = None):
     """Binning function. Takes data and performs channel binning over a specifed
     axis. If specified, also moves axis to out_axis."""
@@ -62,15 +60,6 @@ def mean_data(data, axis = 0, out_axis = None):
     f2 = np.moveaxis(f[...,1:n:2],-1,out_axis)
     out = np.empty(f1.shape, f1.dtype)
     return mean (f1, f2, out = out)
-
-@nb.vectorize([F(F,F),C(C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def choose(a,b):
-    """Chooses data, randomly"""
-    r = np.random.rand()
-    if r >= 0.5:
-        return a
-    else:
-        return b   
 
 def choose_data(data, axis = 0, out_axis = None):
     """Instead of binning, this randomly selects data.
@@ -378,18 +367,6 @@ def acorr_multi(f, t = None,  level_size = 2**4, norm = None, method = None, ali
     return _compute_multi(f, t1 = t, axis = axis, period = period, level_size = level_size, align = align,
                          binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask)
     
-@nb.jit([(C[:],C[:],F[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _add_stats_vec(x, out1, out2):
-    for j in range(x.shape[0]):
-        out1[j] = out1[j] + x[j]
-        out2[j] = out2[j] + x[j].real * x[j].real  + x[j].imag * x[j].imag
-
-@nb.guvectorize([(C[:,:],C[:],F[:])],"(m,n)->(n),(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _calc_stats_vec(f,out1, out2):
-    for i in range(f.shape[0]):
-        _add_stats_vec(f[i],out1,out2)
-        
-
 def _add_data1(i,x, out, binning = True):
     chunk_size = out.shape[-2]
     n_decades = out.shape[0]
@@ -413,7 +390,6 @@ def _add_data1(i,x, out, binning = True):
         else:
             break
 
-     
 def _add_data2(i,x1, x2, out1, out2, binning = True):
     chunk_size = out1.shape[-2]
     n_decades = out1.shape[0]
@@ -1042,18 +1018,6 @@ def iacorr_multi(data, t = None, level_size = 2**4, norm = 3, method = "corr", c
                     viewer.set_data(data)
                     viewer.plot()
     return data
-
-@nb.guvectorize([(F[:],F[:])],"(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def convolve(a, out):
-    """Convolves input array with kernel [0.25,0.5,0.25]"""
-    n = len(out)
-    assert n > 2
-    out[0] = a[0] #at the end we do not use this boundary data so it does not matter what we set here.
-    out[n-1] = a[n-1]    
-    for i in range(1,n-1):
-        out[i] = 0.25*(a[i-1]+2*a[i]+a[i+1])
-    #out[0] = out[1]
-    #out[n-1] = out[n-2]
 
 def multilevel(data, level_size = 16):
     """Computes a multi-level version of the linear time-spaced data.

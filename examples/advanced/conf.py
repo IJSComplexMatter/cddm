@@ -20,7 +20,8 @@ KJMAX = 31
 #: n parameter of the random triggering 
 N_PARAMETER = 16
 #: the delta parameter for the simulator
-DELTA = 2
+DELTA1 = 1
+DELTA2 = 4
 #: image static background value
 BACKGROUND = 200
 #: peak intensity of the particles
@@ -41,6 +42,7 @@ KISIZE = KIMAX*2+1
 KJSIZE = KJMAX+1
 
 #: diffusion constant
-D = 0.5*(DELTA*2*np.pi/SIZE)**2
+D1 = 0.5*(DELTA1*2*np.pi/SIZE)**2
+D2 = 0.5*(DELTA2*2*np.pi/SIZE)**2
 
 PERIOD = N_PARAMETER * 2
