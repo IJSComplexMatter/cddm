@@ -51,20 +51,10 @@ Module Contents
    Binning with random selection
 
 
-.. function:: mean(a, b)
-
-   Man value
-
-
 .. function:: mean_data(data, axis=0, out_axis=None)
 
    Binning function. Takes data and performs channel binning over a specifed
    axis. If specified, also moves axis to out_axis.
-
-
-.. function:: choose(a, b)
-
-   Chooses data, randomly
 
 
 .. function:: choose_data(data, axis=0, out_axis=None)
@@ -284,11 +274,6 @@ Module Contents
                background and variance data. See :func:`.core.acorr` for definition
                of acorr_type
              * **lin, multi** (*acorr_type, acorr_type*) -- If `stats` == False
-
-
-.. function:: convolve(a, out)
-
-   Convolves input array with kernel [0.25,0.5,0.25]
 
 
 .. function:: multilevel(data, level_size=16)

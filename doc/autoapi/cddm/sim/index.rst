@@ -23,25 +23,9 @@
 Module Contents
 ---------------
 
-.. function:: mirror(x, x0, x1)
-
-   transforms coordinate x by flooring in the interval of [x0,x1]
-   It performs x0 + (x-x0)%(x1-x0)
-
-
 .. function:: seed(value)
 
    Seed for numba and numpy random generator
-
-
-.. function:: numba_seed(value)
-
-   Seed for numba random generator
-
-
-.. function:: make_step(x, scale, velocity)
-
-   Performs random particle step from a given initial position x.
 
 
 .. function:: brownian_walk(x0, count=1024, shape=(256, 256), delta=1, dt=1, velocity=0.0)
@@ -91,22 +75,6 @@ Module Contents
 
    :Yields: **coordinates** (*ndarray*) -- Coordinates 2D array for the particles. The second axis is the x,y coordinate.
             Length of the array equals number of particles.
-
-
-.. function:: psf_gauss(x, x0, y, y0, sigma, intensity)
-
-   Gaussian point-spread function. This is used to calculate pixel value
-   for a given pixel coordinate x,y and particle position x0,y0.
-
-
-.. function:: draw_points(im, points, intensity)
-
-   Draws pixels to image from a given points array
-
-
-.. function:: draw_psf(im, points, intensity, sigma)
-
-   Draws psf to image from a given points array
 
 
 .. function:: particles_video(particles, t1, shape=(256, 256), t2=None, background=0, intensity=10, sigma=None, noise=0.0)

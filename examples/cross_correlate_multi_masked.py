@@ -18,7 +18,7 @@ fft_masked = mask(fft, mask = m)
 import cddm.conf
 cddm.conf.set_verbose(2)
 
-data, bg, var = iccorr_multi(fft_masked, t1, t2, period = cross_correlate_multi_live.PERIOD, thread_divisor =13)
+data, bg, var = iccorr_multi(fft_masked, t1, t2, period = cross_correlate_multi_live.PERIOD)
 
 #: or this
 #data, bg, var = iccorr_multi(fft, t1, t2, period = cross_correlate_multi_live.PERIOD, 

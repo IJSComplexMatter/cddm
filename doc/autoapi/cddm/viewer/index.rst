@@ -34,6 +34,18 @@ Module Contents
    :param kw: Extra arguments passed directly to imshow function
    :type kw: options, optional
 
+   .. rubric:: Examples
+
+   >>> video = (np.random.randn(256,256) for i in range(256))
+   >>> vg = VideoViewer(video, 256, title = "iterator example") #must set nframes, because video has no __len__
+
+   #>>> vg.show()
+
+   >>> video = [np.random.randn(256,256) for i in range(256)]
+   >>> vl = VideoViewer(video, title = "list example")
+
+   #>>> vl.show()
+
    .. method:: show(self)
 
 

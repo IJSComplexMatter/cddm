@@ -60,11 +60,6 @@ Module Contents
    background subtraction normalization
 
 
-.. function:: abs2(x)
-
-   Absolute square of data
-
-
 .. function:: cross_correlate_fft(f1, f2, t1=None, t2=None, axis=0, n=None, aout=None)
 
    Calculates cross-correlation function of two equal sized input arrays using FFT.
