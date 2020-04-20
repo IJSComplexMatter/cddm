@@ -1,4 +1,11 @@
-[run]
+[report]
 
 omit =
     _core_nb.py
+    _sim_nb.py
+    
+[xml]
+
+omit =
+    _core_nb.py
+    _sim_nb.py
