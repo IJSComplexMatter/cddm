@@ -12,5 +12,6 @@ install:
 script:
   - coverage run -m pytest cddm --doctest-modules
   - coverage run examples/auto_correlate.py
+  - coverage run examples/auto_correlate_multi.py
 after_success:
   - bash <(curl -s https://codecov.io/bash)
