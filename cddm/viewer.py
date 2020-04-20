@@ -31,6 +31,19 @@ class VideoViewer(object):
         Plot title.
     kw : options, optional
         Extra arguments passed directly to imshow function
+        
+    Examples
+    --------    
+    
+    >>> video = (np.random.randn(256,256) for i in range(256))
+    >>> vg = VideoViewer(video, 256, title = "iterator example") #must set nframes, because video has no __len__  
+    
+    #>>> vg.show()
+    
+    >>> video = [np.random.randn(256,256) for i in range(256)] 
+    >>> vl = VideoViewer(video, title = "list example") 
+    
+    #>>> vl.show()  
     """
 
     def __init__(self, video, count = None, id = 0, norm_func = lambda x : x.real, title = "", **kw):
