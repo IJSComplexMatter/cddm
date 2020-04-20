@@ -4,6 +4,10 @@ Compares results of linear analysis and multiple tau analysis. You must first ru
 $ auto_correlate.py
 $ auto_correlate_multi.py 
 """
+#change CWD to this file's path
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 import matplotlib.pyplot as plt
 #: load the normalized data to numpy files

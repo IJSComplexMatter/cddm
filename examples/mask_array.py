@@ -1,4 +1,8 @@
 """Demonstrates how to create mask array for data masking during computation"""
+#change CWD to this file's path
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 from cddm.map import k_indexmap, plot_indexmap
 

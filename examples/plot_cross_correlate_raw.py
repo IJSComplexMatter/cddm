@@ -3,6 +3,9 @@ Plots raw correlation data and demonstrates how to merge data.
 
 $ cross_correlate_multi_live.py 
 """
+#change CWD to this file's path
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 from cddm.multitau import log_merge
 from conf import PERIOD

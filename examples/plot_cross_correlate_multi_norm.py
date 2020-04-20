@@ -4,6 +4,10 @@ You must first run
 
 $ cross_correlate_multi_live.py 
 """
+#change CWD to this file's path
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 import matplotlib.pyplot as plt
 import numpy as np

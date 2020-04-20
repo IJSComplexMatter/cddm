@@ -2,6 +2,11 @@
 Demonstrates how to compute fft of videos and the compute auto correlation
 function with the out-of-memory version of the multitau algorithm.
 """
+#change CWD to this file's path
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+
 
 from cddm.viewer import MultitauViewer
 from cddm.video import multiply, normalize_video

@@ -2,6 +2,10 @@
 Builds sample video and demonstrates how to use VideoViewer to inspect 
 the video from a frame iterator or list of data.
 """
+#change CWD to this file's path
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 from cddm.sim import simple_brownian_video, seed
 from cddm.viewer import VideoViewer 

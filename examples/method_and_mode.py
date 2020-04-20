@@ -1,6 +1,11 @@
 """
 Demonstrates the use and equivalence of method and mode options
 """
+#change CWD to this file's path
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+
 from auto_correlate import fft_array
 from cddm.core import acorr, normalize, stats
 
