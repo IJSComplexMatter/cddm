@@ -14,7 +14,7 @@ Welcome to cddm's documentation!
    installation
    quickstart
    optimization
-   notes
+   CHANGELOG
    autoapi/index
 
 
