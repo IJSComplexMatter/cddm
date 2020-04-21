@@ -3,10 +3,6 @@ first run
 
 $ cross_correlation_multi_live.py
 """
-#change CWD to this file's path
-import os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 from cddm.map import k_select
 import matplotlib.pyplot as plt
 import numpy as np

@@ -2,11 +2,6 @@
 Demonstrates how to compute cross- correlation function with the 
 out-of-memory version of the multitau algorithm with the mask parameter
 """
-#change CWD to this file's path
-import os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-
 from cddm.video import mask
 from mask_array import mask as m
 from cddm.multitau import iccorr_multi

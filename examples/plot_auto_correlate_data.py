@@ -3,10 +3,6 @@ Auto-correlation plot example. You must first run
 
 $ auto_correlate.py 
 """
-#change CWD to this file's path
-import os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 import matplotlib.pyplot as plt
 #: load the normalized data to numpy files
 import numpy as np

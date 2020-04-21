@@ -3,10 +3,6 @@ Demonstrates how to compute the cross-correlation function with the
 out-of-memory version of the multitau algorithm and do automatic backround 
 subtraction.
 """
-#change CWD to this file's path
-import os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 from cddm.multitau import iccorr_multi, normalize_multi, log_merge
 import matplotlib.pyplot as plt
 

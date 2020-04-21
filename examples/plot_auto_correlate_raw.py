@@ -3,11 +3,6 @@ Plots raw correlation data and demonstrates how to merge data.
 
 $ auto_correlate_multi.py 
 """
-#change CWD to this file's path
-import os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-
 from cddm.multitau import log_merge
 
 import matplotlib.pyplot as plt

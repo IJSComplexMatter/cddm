@@ -7,10 +7,6 @@ with the play function. Note that you can use the video for further processing
 (correlation analysis) 
 
 """
-#change CWD to this file's path
-import os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 from conf import SHAPE, NFRAMES, BACKGROUND
 
 from cddm.video import  show_video, show_fft, play, show_diff, multiply
@@ -39,7 +35,7 @@ video = play(video, fps = 100)
 
 #: you should use either cv2 or pyqtgraph, matplotlib is too slow
 #set_showlib("cv2")
-#set_showlib("pyqtgraph")
+set_showlib("pyqtgraph")
 
 # now go through frames and show videos
 for frames in video:

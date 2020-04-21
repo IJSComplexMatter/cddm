@@ -1,9 +1,4 @@
 """Plots rfft2 k-values of the cropped and the original rfft2"""
-#change CWD to this file's path
-import os
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-
 import matplotlib.pyplot as plt
 import numpy as np
 
