@@ -6,7 +6,7 @@ Introduction
 License
 -------
 
-``cddm`` will be released under MIT license so you will be able to use it freely when it will be officially released (by the end of May 2020), however, I will ask you to cite the *... some future paper*. In the mean time you can play with the current development version freely, but i kindly ask you not to redistribute the code or  publish data obtained with this package. **Please wait until the paper is published!**
+``cddm`` is released under MIT license so you are able to use it freely. I kindly ask you to cite the package if you use it. See the DOI badge in the `repository`_.
 
 Highlights
 ----------

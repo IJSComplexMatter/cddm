@@ -1,7 +1,11 @@
 Installation
 ============
 
-The code is hosted at GitHub. No official release exists yet, so you have to clone or download the latest development code from the `repository`_ and run::
+The source code is hosted at GitHub. You can install latest stable release with::
+
+    $ pip install cddm
+
+Or you can clone or download the latest development code from the `repository`_ and run::
 
     $ python setup.py install
 
@@ -38,7 +42,7 @@ Installing in Anaconda
 After you have downloaded the package, open the terminal (command prompt) `cd` to the downloaded source code and run::
 
     $ conda install numba matplotlib numpy
-    $ python setup.py install
+    $ pip install cddm
 
 Optionally, for faster FFT computation, you can install `mkl_fft`::
 
