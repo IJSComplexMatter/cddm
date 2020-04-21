@@ -1,6 +1,6 @@
 [report]
 
 omit =
-    examples/*.py
     cddm/_core_nb.py
     cddm/_sim_nb.py
+    cddm/test
