@@ -6,7 +6,8 @@ name: Upload Python Package
 on:
   release:
     types: [prereleased]
-
+    
+jobs:
   deploy:
 
     runs-on: ubuntu-latest
