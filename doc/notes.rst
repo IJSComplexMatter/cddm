@@ -1,7 +1,7 @@
 Release notes
 -------------
 
-V0.1.1 (Apr 21 2020)
+V0.1.2 (Apr 21 2020)
 ++++++++++++++++++++
 
 Bugfix release, updated documentation.
