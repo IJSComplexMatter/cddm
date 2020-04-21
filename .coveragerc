@@ -3,4 +3,4 @@
 omit =
     cddm/_core_nb.py
     cddm/_sim_nb.py
-    cddm/test
+    cddm/test/*.py
