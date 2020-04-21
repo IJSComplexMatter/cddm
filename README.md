@@ -9,4 +9,4 @@ Tools for cross-differential dynamic microscopy
 
 See documentation at readthedocs
 
-https://cddm.readthedocs.io/en/latest/index.html
+https://cddm.readthedocs.io/
