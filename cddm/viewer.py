@@ -3,10 +3,10 @@ from __future__ import absolute_import, print_function, division
     
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
 from cddm.map import rfft2_kangle,  sector_indexmap
 from cddm.multitau import normalize_multi, log_merge, log_average
-from cddm.core import normalize, _default_norm_from_data, _method_from_data
+from cddm.core import normalize, _default_norm_from_data, _method_from_data, NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED
 from cddm.print_tools import disable_prints, enable_prints
 from cddm.decorators import doc_inherit, skip_runtime_error
 
@@ -393,6 +393,7 @@ class CorrViewer(DataViewer):
     background = None
     variance = None
     
+    
     def __init__(self, semilogx = True,  shape = None, size = None, norm = None, scale = False, mask = None):
         self.norm  = norm
         self.scale = scale
@@ -406,25 +407,52 @@ class CorrViewer(DataViewer):
     def set_norm(self, value):
         """Sets norm parameter"""
         method = _method_from_data(self.data)
-        self.norm = _default_norm_from_data(self.data,method,value)      
+        self.norm = _default_norm_from_data(self.data,method,value)     
         
     def _init_fig(self):
         super()._init_fig()
         
         self.set_norm(self.norm)
         
-        self.rax = plt.axes([0.48, 0.7, 0.15, 0.15])
-        self.radio = RadioButtons(self.rax,("norm 0","norm 1","norm 2","norm 3"), active = self.norm, activecolor = "gray")
+        #self.rax = plt.axes([0.48, 0.55, 0.15, 0.3])
+        self.cax = plt.axes([0.44, 0.72, 0.2, 0.15])
         
-        def update(val):
+        self.active = [bool(self.norm & 1),bool(self.norm & 2), bool(self.norm & 4)  ]
+        
+        self.check = CheckButtons(self.cax, ("compensated", "subtracted", "weighted"), self.active)
+        
+        #self.radio = RadioButtons(self.rax,("norm 0","norm 1","norm 2","norm 3","norm 4", "norm 5", "norm 6", "norm 7"), active = self.norm, activecolor = "gray")
+ 
+        def update(label):
+            index = ["compensated", "subtracted", "weighted"].index(label)
+            status = self.check.get_status()
+            norm = 0
+            if status[0]:
+                norm = norm | NORM_COMPENSATED
+            if status[1]:
+                norm = norm | NORM_SUBTRACTED
+            if status[2]:
+                norm = norm | NORM_WEIGHTED
             try:
-                self.set_norm(int(self.radio.value_selected[-1]))
+                self.set_norm(norm)
             except ValueError:
-                self.radio.set_active(self.norm)
+                self.check.set_active(index)
             self.set_mask(int(round(self.kindex.val)),self.angleindex.val,self.sectorindex.val, self.kstep)
             self.plot()
-            
-        self.radio.on_clicked(update)
+
+                
+        self.check.on_clicked(update)
+
+       
+#        def update(val):
+#            try:
+#                self.set_norm(int(self.radio.value_selected[-1]))
+#            except ValueError:
+#                self.radio.set_active(self.norm)
+#            self.set_mask(int(round(self.kindex.val)),self.angleindex.val,self.sectorindex.val, self.kstep)
+#            self.plot()
+#            
+#        self.radio.on_clicked(update)
 
     def set_data(self, data, background = None, variance = None):
         """Sets correlation data.

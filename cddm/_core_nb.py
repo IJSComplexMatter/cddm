@@ -39,6 +39,28 @@ def convolve(a, out):
     for i in range(1,n-1):
         out[i] = 0.25*(a[i-1]+2*a[i]+a[i+1])
 
+@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(),()->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def median_decrease(array, minv,maxv, out):
+    """Performs median decrease filter. Each next element must be smaller or equal"""
+    for i in range(len(array)):
+        if i == 0:
+            out[0] = maxv[0]
+        elif array[i] < out[i-1]:
+            out[i] = max(array[i],minv[0])
+        else:
+            out[i] = out[i-1]
+
+@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(),()->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def median_increase(array,minv, maxv,out):
+    """Performs median increase filter. Each next element must be greater or equal"""
+    for i in range(len(array)):
+        if i == 0:
+            out[0] = minv[0]
+        elif array[i] > out[i-1]:
+            out[i] = min(array[i],maxv[0])
+        else:
+            out[i] = out[i-1]
+
 #------------------------------------------------
 # low level numba-optimized computation functions
 #------------------------------------------------
@@ -417,5 +439,4 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
     d2 = d2 + d*d
     
     return tmp + (0.5 * d2)
-
 

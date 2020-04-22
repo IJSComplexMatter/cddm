@@ -45,19 +45,47 @@ Module Contents
 .. data:: NORM_BASELINE
    :annotation: = 0
 
-   baseline normalization
+   baseline normalization flag
 
 
 .. data:: NORM_COMPENSATED
    :annotation: = 1
 
-   compensated normalization (cross-diff)
+   compensated normalization (cross-diff) flag
 
 
 .. data:: NORM_SUBTRACTED
    :annotation: = 2
 
-   background subtraction normalization
+   background subtraction normalization flag
+
+
+.. data:: NORM_WEIGHTED
+   :annotation: = 4
+
+   weighted normalization flag
+
+
+.. function:: norm_flags(compensated=False, subtracted=False, weighted=False)
+
+   Return normalization flags from the parameters.
+
+   :param compensated: Whether to set COMPENSATED normalization flag
+   :type compensated: bool
+   :param subtracted: Whether to set SUBTRACTED normalization flag
+   :type subtracted: bool
+   :param weighted: Whether to set WEIGHTED normalization flag
+   :type weighted: bool
+
+   :returns: **norm** -- Normalization flagse
+   :rtype: int
+
+   .. rubric:: Examples
+
+   >>> norm_flags(True, False, True)
+   5
+   >>> norm_flags(True, True, False)
+   3
 
 
 .. function:: cross_correlate_fft(f1, f2, t1=None, t2=None, axis=0, n=None, aout=None)
@@ -669,5 +697,15 @@ Module Contents
 
    :returns: **out** -- Normalized data.
    :rtype: ndarray
+
+
+.. function:: calc_weight(x, scale_factor, mode='corr')
+
+   Calculates weight function from normalized correlation data.
+
+
+.. function:: weighted_sum(x, y, weight)
+
+   Optimizes correlation data from base normalized data and compensated data
 
 

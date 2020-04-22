@@ -34,3 +34,13 @@ Module Contents
    Convolves input array with kernel [0.25,0.5,0.25]
 
 
+.. function:: median_decrease(array, minv, maxv, out)
+
+   Performs median decrease filter. Each next element must be smaller or equal
+
+
+.. function:: median_increase(array, minv, maxv, out)
+
+   Performs median increase filter. Each next element must be greater or equal
+
+

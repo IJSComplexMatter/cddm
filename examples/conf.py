@@ -5,7 +5,7 @@ import cddm.conf
 #: set verbose level
 cddm.conf.set_verbose(2)
 
-#settable parameters, you can change these
+#settable parameters, you can change these 
 #-----------------------------------------
 
 #: width and height of the frame
@@ -26,20 +26,22 @@ BACKGROUND = 200
 INTENSITY = 5
 #: sigma of the gaussian of the particles
 SIGMA = 3
-
+#: simulation video margin size
 MARGIN = 32
 
 #computed parameters, do not change these
 #----------------------------------------
 
+#: shape of the cropped video
 SHAPE = (SIZE, SIZE)
+#: shape of the simulation video
 SIMSHAPE = (SIZE + MARGIN, SIZE + MARGIN)
 
-#size of the fft data
+#: size of the fft data
 KISIZE = KIMAX*2+1
 KJSIZE = KJMAX+1
 
 #: diffusion constant
 D = 0.5*(DELTA*2*np.pi/SIZE)**2
-
+#: effective period of the dual camera experiment
 PERIOD = N_PARAMETER * 2

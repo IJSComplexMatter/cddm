@@ -48,8 +48,7 @@ if __name__ == "__main__":
     viewer.sector = 30
     
     #: now perform auto correlation calculation with default parameters and show live
-    data, bg, var = iccorr_multi(fft, t1, t2, 
-             period = PERIOD, viewer = viewer)
+    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer)
     
     #perform normalization and merge data
     fast, slow = normalize_multi(data, bg, var,  scale = True)

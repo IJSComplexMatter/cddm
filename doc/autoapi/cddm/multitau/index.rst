@@ -51,19 +51,19 @@ Module Contents
    Binning with random selection
 
 
-.. function:: mean_data(data, axis=0, out_axis=None)
+.. function:: mean_data(data, axis=0, out_axis=None, **kw)
 
    Binning function. Takes data and performs channel binning over a specifed
    axis. If specified, also moves axis to out_axis.
 
 
-.. function:: choose_data(data, axis=0, out_axis=None)
+.. function:: choose_data(data, axis=0, out_axis=None, r=None)
 
    Instead of binning, this randomly selects data.
    If specified, also moves axis to out_axis.
 
 
-.. function:: slice_data(data, axis=0, out_axis=None)
+.. function:: slice_data(data, axis=0, out_axis=None, **kw)
 
    Slices data so that it takes every second channel. If specified, also moves axis to out_axis.
 

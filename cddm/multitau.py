@@ -25,17 +25,17 @@ For time averaging of linear spaced data use:
 
 from __future__ import absolute_import, print_function, division
 
-from cddm.core import normalize, ccorr,acorr, NORM_COMPENSATED, NORM_SUBTRACTED
+from cddm.core import normalize, ccorr,acorr, NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED
 from cddm.core import _transpose_data, _inspect_cross_arguments,_default_norm,\
         _is_aligned, _move_axis_and_align, _inspect_auto_arguments, abs2,\
         reshape_input, reshape_output, thread_frame_shape, reshape_frame
 import numpy as np
-import numba as nb
-from cddm.conf import CDTYPE, FDTYPE, IDTYPE, C,F, NUMBA_TARGET, NUMBA_FASTMATH, NUMBA_CACHE
+
+from cddm.conf import CDTYPE, FDTYPE, IDTYPE
 from cddm.print_tools import print_progress,  print_frame_rate, enable_prints, disable_prints
 from cddm.print_tools import print1, print2
 
-from cddm._core_nb import mean, choose, convolve, _add_stats_vec, _calc_stats_vec
+from cddm._core_nb import mean, choose, convolve, _calc_stats_vec
 
 import time
 
@@ -49,7 +49,7 @@ BINNING_MEAN = 1
 BINNING_CHOOSE = 2
 """Binning with random selection"""
 
-def mean_data(data, axis = 0, out_axis = None):
+def mean_data(data, axis = 0, out_axis = None,**kw):
     """Binning function. Takes data and performs channel binning over a specifed
     axis. If specified, also moves axis to out_axis."""
     if out_axis is None:
@@ -61,7 +61,7 @@ def mean_data(data, axis = 0, out_axis = None):
     out = np.empty(f1.shape, f1.dtype)
     return mean (f1, f2, out = out)
 
-def choose_data(data, axis = 0, out_axis = None):
+def choose_data(data, axis = 0, out_axis = None, r = None):
     """Instead of binning, this randomly selects data.
     If specified, also moves axis to out_axis."""
     if out_axis is None:
@@ -71,9 +71,14 @@ def choose_data(data, axis = 0, out_axis = None):
     f1 = np.moveaxis(f[...,0:n-1:2],-1,out_axis)
     f2 = np.moveaxis(f[...,1:n:2],-1,out_axis)
     out = np.empty(f1.shape, f1.dtype)
-    return  choose(f1,f2, out)
+    if r < 0.5:
+        out[...] = f2
+    else:
+        out[...] = f1
+    return out
+    #return  choose(f1,f2, out)
 
-def slice_data(data, axis = 0, out_axis = None):
+def slice_data(data, axis = 0, out_axis = None,**kw):
     """Slices data so that it takes every second channel. If specified, also moves axis to out_axis."""
     if out_axis is None:
         out_axis = axis
@@ -168,8 +173,8 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     
     if correlate == True:
         #we need to track square of the signal
-        f1s = abs2(f1) if norm & NORM_COMPENSATED else None
-        f2s = abs2(f2) if norm & NORM_COMPENSATED and cross else None
+        f1s = abs2(f1) if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) else None
+        f2s = abs2(f2) if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and cross else None
     else:
         f1s,f2s = None,None
 
@@ -210,7 +215,7 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     count_slow = np.zeros((nlevel, n_slow,),IDTYPE)
     m1, m2, sq = None, None, None
  
-    if norm & NORM_COMPENSATED and correlate == True:
+    if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate == True:
         sq = np.zeros(slow_shape, FDTYPE) 
         sq = _transpose_data(sq, new_axis) 
         
@@ -239,7 +244,7 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     for i in range(nlevel):
         f1 = _bin(f1,axis, new_axis)
         f2 = _bin(f2,axis, new_axis) if cross else None
-        if norm & NORM_COMPENSATED and correlate:
+        if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
             f1s = _bin(f1s,axis, new_axis)
             f2s = _bin(f2s,axis, new_axis) if cross else None
         axis = new_axis
@@ -390,7 +395,7 @@ def _add_data1(i,x, out, binning = True):
         else:
             break
 
-def _add_data2(i,x1, x2, out1, out2, binning = True):
+def _add_data2(i,x1, x2, out1, out2, binning = True, r = None):
     chunk_size = out1.shape[-2]
     n_decades = out1.shape[0]
     
@@ -407,8 +412,12 @@ def _add_data2(i,x1, x2, out1, out2, binning = True):
                 x1 = mean(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
                 x2 = mean(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
             elif binning == BINNING_CHOOSE:
-                x1 = choose(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
-                x2 = choose(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
+                x1 = x1 if r > 0.5 else out1[j-1,...,index_top-1,:]
+                x2 = x2 if r > 0.5 else out2[j-1,...,index_top-1,:]
+                out1[j,...,index_low,:] = x1
+                out2[j,...,index_low,:] = x2
+                #x1 = choose(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
+                #x2 = choose(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
             else:
                 out1[j,...,index_low,:] = x1
                 out2[j,...,index_low,:] = x2
@@ -567,7 +576,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             else:
                 m1_fast, m2_fast = None, None
                 
-            if norm & NORM_COMPENSATED and correlate == True:
+            if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate == True:
                 sq_fast = np.zeros(fast_shape, FDTYPE)
                 sq_fast = _transpose_data(sq_fast) 
             else:
@@ -593,7 +602,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 m2_slow = _transpose_data(m2_slow) if cross  == True else None
             else:
                 m1_slow, m2_slow = None, None
-            if norm & NORM_COMPENSATED and correlate == True:
+            if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate == True:
                 sq_slow = np.zeros(slow_shape, FDTYPE)  
                 sq_slow = _transpose_data(sq_slow) 
             else:
@@ -615,7 +624,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 data_slow = out_slow, count_slow, m1_slow, m2_slow
                      
             
-            if norm & NORM_COMPENSATED and correlate == True:
+            if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate == True:
                 #allocate memory for square data
                 sq1 = np.empty(data_shape, FDTYPE)
                 sq2 = np.empty(data_shape, FDTYPE) if cross  == True else None
@@ -648,15 +657,16 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
              
                 
                 for i in range(half_chunk_size):
+                    r = np.random.rand()
                     x1 = fdata1[0,...,i,:] - bg1
                     x2 = fdata2[0,...,i,:] - bg2 if cross == True else None
                     if cross == True:
-                        _add_data2(i,x1, x2, fdata1,fdata2, binning)
-                        if norm & NORM_COMPENSATED and correlate:
-                            _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning) 
+                        _add_data2(i,x1, x2, fdata1,fdata2, binning, r)
+                        if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+                            _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning, r) 
                     else:
                         _add_data1(i,x1, fdata1, binning)
-                        if norm & NORM_COMPENSATED and correlate:
+                        if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
                             _add_data1(i,abs2(x1),sq1,binning)
         else:
             if bg1 is not None:
@@ -665,12 +675,13 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 x2 = x2 - bg2
                 
             if cross == True:
-                _add_data2(i,x1, x2, fdata1,fdata2, binning)
-                if norm & NORM_COMPENSATED and correlate:
-                    _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning)
+                r = np.random.rand()
+                _add_data2(i,x1, x2, fdata1,fdata2, binning,r)
+                if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+                    _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning,r)
             else:
                 _add_data1(i,x1, fdata1,binning)
-                if norm & NORM_COMPENSATED and correlate:
+                if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
                     _add_data1(i,abs2(x1),sq1,binning)                
                 
         if i % (half_chunk_size) == half_chunk_size -1: 
@@ -704,8 +715,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 np.subtract(out_var1, abs2(out_bg1), out_var1)
                 np.subtract(out_var2, abs2(out_bg2), out_var2)  if cross else None
                                
-            f1s = sq1[0,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None
-            f2s = sq2[0,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate and cross else None
+            f1s = sq1[0,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+            f2s = sq2[0,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate and cross else None
             
             out = data_fast
                 
@@ -718,13 +729,13 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
 
             if istart2 >= 0 and mode == "full":
                 
-                f1s = sq1[0][...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None
+                f1s = sq1[0][...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
                 
                 if cross:
-                    f2s = sq2[0][...,fstart2:fstop2,:] if norm & NORM_COMPENSATED and correlate else None
+                    f2s = sq2[0][...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
                     ccorr(fdata1[0][...,fstart1:fstop1,:],fdata2[0][...,fstart2:fstop2,:],t1[istart1:istop1],t2[istart2:istop2],f1s = f1s, f2s = f2s, axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
                 else:
-                    f2s = sq1[0][...,fstart2:fstop2,:] if norm & NORM_COMPENSATED and correlate else None
+                    f2s = sq1[0][...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
                     if correlate:
                         out = data_fast[0],data_fast[1], data_fast[2], None, None 
                     else:
@@ -734,8 +745,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                         m1_fast += out[3] /2
                         m1_fast += out[4] /2
                 if cross:
-                    f1s = sq1[0][...,fstart2:fstop2,:] if norm & NORM_COMPENSATED and correlate else None
-                    f2s = sq2[0][...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None  
+                    f1s = sq1[0][...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                    f2s = sq2[0][...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None  
                     ccorr(fdata1[0][...,fstart2:fstop2,:],fdata2[0][...,fstart1:fstop1,:],t1[istart2:istop2],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
   
 
@@ -759,8 +770,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                     istop2 = istop1 - half_chunk_size  
                 
   
-                    f1s = sq1[j,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None
-                    f2s = sq2[j,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate and cross else None  
+                    f1s = sq1[j,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                    f2s = sq2[j,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate and cross else None  
                     
                     out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
                     
@@ -770,13 +781,13 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                         acorr(fdata1[j,...,fstart1:fstop1,:],fs = f1s, axis = -2, norm = norm, n = n_slow, aout = out, method = method)
         
                     if istart2 >= 0 and mode == "full":
-                        f1s = sq1[j,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None
+                        f1s = sq1[j,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
                         
                         if cross:
-                            f2s = sq2[j,...,fstart2:fstop2,:] if norm & NORM_COMPENSATED and correlate else None
+                            f2s = sq2[j,...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
                             ccorr(fdata1[j,...,fstart1:fstop1,:],fdata2[j,...,fstart2:fstop2,:],t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s, axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
                         else:
-                            f2s = sq1[j,...,fstart2:fstop2,:] if norm & NORM_COMPENSATED and correlate else None
+                            f2s = sq1[j,...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
                             _out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
                             if correlate:
                                 out = _out[0],_out[1], _out[2], None, None 
@@ -787,8 +798,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                                 m1_slow[j-1] += out[3] /2
                                 m1_slow[j-1] += out[4] /2
                         if cross:
-                            f1s = sq1[j,...,fstart2:fstop2,:] if norm & NORM_COMPENSATED and correlate else None
-                            f2s = sq2[j,...,fstart1:fstop1,:] if norm & NORM_COMPENSATED and correlate else None  
+                            f1s = sq1[j,...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                            f2s = sq2[j,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None  
                             ccorr(fdata1[j,...,fstart2:fstop2,:],fdata2[j,...,fstart1:fstop1,:],t_slow[istart2:istop2],t_slow[istart1:istop1],f1s = f1s, f2s = f2s,axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
 
                 else:
@@ -820,17 +831,18 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
     
     f1 = fdata1[-1]
     f2 = fdata2[-1] if cross else None
-    if norm & NORM_COMPENSATED and correlate:
+    if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
         sq1 = sq1[-1]
         sq2 = sq2[-1] if cross else None
         
     _bin = _get_binning_function(binning)
          
     for j in range(max(n_decades,1),nlevel+1):
-        f1 = _bin(f1,-2)
-        f2 = _bin(f2,-2) if cross else None
-        sq1 = _bin(sq1,-2) if norm & NORM_COMPENSATED and correlate else None
-        sq2 = _bin(sq2,-2) if norm & NORM_COMPENSATED and correlate and cross else None
+        r = np.random.rand()
+        f1 = _bin(f1,-2, r = r)
+        f2 = _bin(f2,-2, r = r) if cross else None
+        sq1 = _bin(sq1,-2, r = r) if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+        sq2 = _bin(sq2,-2, r = r) if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate and cross else None
       
         out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
         

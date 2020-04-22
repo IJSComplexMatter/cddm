@@ -38,11 +38,12 @@ from __future__ import absolute_import, print_function, division
 
 import numpy as np
 from cddm.conf import CDTYPE, FDTYPE, IDTYPE,I64DTYPE
-from cddm.print_tools import print1,print2, print_frame_rate
+from cddm.print_tools import print1,print2, print_frame_rate, enable_prints, disable_prints
 import time
 from functools import reduce 
 from cddm.fft import _fft
-from cddm._core_nb import _cross_corr_fft_regular, _cross_corr_fft, \
+from cddm._core_nb import median_decrease, median_increase,\
+   _cross_corr_fft_regular, _cross_corr_fft, \
     _auto_corr_fft_regular,_auto_corr_fft,\
   _cross_corr_regular, _cross_corr, _cross_corr_vec, \
   _cross_diff_regular,_cross_diff,_cross_diff_vec, \
@@ -55,13 +56,49 @@ from cddm._core_nb import _cross_corr_fft_regular, _cross_corr_fft, \
   _normalize_ccorr_0,_normalize_ccorr_1,_normalize_ccorr_2,_normalize_ccorr_3
 
 NORM_BASELINE = 0
-"""baseline normalization"""
+"""baseline normalization flag"""
 
 NORM_COMPENSATED = 1
-"""compensated normalization (cross-diff)"""
+"""compensated normalization (cross-diff) flag"""
 
 NORM_SUBTRACTED = 2
-"""background subtraction normalization"""
+"""background subtraction normalization flag"""
+
+NORM_WEIGHTED = 4
+"""weighted normalization flag"""
+
+def norm_flags(compensated = False, subtracted = False, weighted = False):
+    """Return normalization flags from the parameters.
+    
+    Parameters
+    ----------
+    compensated : bool
+        Whether to set COMPENSATED normalization flag
+    subtracted : bool
+        Whether to set SUBTRACTED normalization flag
+    weighted : bool
+        Whether to set WEIGHTED normalization flag
+    
+    Returns
+    -------
+    norm : int
+        Normalization flagse
+        
+    Examples
+    --------
+    >>> norm_flags(True, False, True)
+    5
+    >>> norm_flags(True, True, False)
+    3
+    """
+    norm = NORM_BASELINE
+    if compensated == True:
+        norm = norm | NORM_COMPENSATED
+    if subtracted == True:
+        norm = norm | NORM_SUBTRACTED
+    if weighted == True:
+        norm = norm | NORM_WEIGHTED
+    return norm
 
 #--------------------------
 #Core correlation functions
@@ -974,7 +1011,7 @@ def _default_norm(norm, method, cross = True):
     if method == "diff":
         supported = (1,3) if cross else (1,)
     else:
-        supported = (0,1,2,3)
+        supported = (0,1,2,3,4,5,6,7)
     if norm is None:
         norm = supported[-1]
     if norm not in supported:
@@ -1072,7 +1109,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
     else:
         _sum = auto_sum
         
-    if norm & NORM_COMPENSATED and correlate:
+    if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
         if fs is None:
             fs =  abs2(f)
         else:
@@ -1217,7 +1254,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         _sum = cross_sum
 
         
-    if norm & NORM_COMPENSATED and correlate:
+    if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
         print2("... tau sum square")
         if f1s is None:
             f1s =  abs2(f1)
@@ -1433,17 +1470,17 @@ def _norm_from_ccorr_data(data, norm = None):
         if sq is None:
             default_norm = 0
         else:
-            default_norm = 1
+            default_norm = 5
     else:
         if sq is None:
             default_norm = 2
         else:
-            default_norm = 3 
+            default_norm = 7 
     if norm is None:
         return default_norm
     else:
-        if norm not in (0,1,2,3):
-            raise ValueError("Normalization mode can be 0,1,2 or 3")
+        if norm not in range(8):
+            raise ValueError("Normalization mode must be in range(8)")
         if  (norm & default_norm) == norm:
             return norm
         else:
@@ -1626,7 +1663,31 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     print2("   * scale      : {}".format(scale))
     print2("   * mode       : {}".format(mode))
     print2("   * mask       : {}".format(mask is not None))
-
+    
+    if (norm & NORM_WEIGHTED):
+        level = disable_prints()
+        norm_comp = (norm & NORM_SUBTRACTED)|NORM_COMPENSATED
+        comp_data = normalize(data, background, variance, norm = norm_comp,  mode = mode, 
+              scale = scale, mask = mask)
+        norm_base = norm & NORM_SUBTRACTED
+        base_data = normalize(data, background, variance, norm = norm_base,  mode = mode, 
+              scale = scale, mask = mask)
+        enable_prints(level)
+        if scale == False:
+            _scale_factor = _variance2offset(variance,mask)[...,0]
+        else:
+            _scale_factor = 1.
+        if norm & NORM_COMPENSATED:
+            var1 = calc_weight(comp_data, _scale_factor, mode = mode)
+            var2 = 0.5
+            weight = 1/var2/(1/var2+1/var1)    
+            #mask = weight < 0.5
+            #weight[...] = 1.
+            #weight[mask] = 0.     
+        else:
+            weight = calc_weight(comp_data, _scale_factor, mode = mode)
+        return weighted_sum(base_data,comp_data, weight)
+        
     count = data[1]
     
     if mask is not None:
@@ -1687,6 +1748,22 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     if scale == True:
         result /= _scale_factor
     return result
+
+def calc_weight(x, scale_factor, mode = "corr"):
+    """Calculates weight function from normalized correlation data."""
+    scale_factor = np.asarray(scale_factor)
+    if mode == "corr":
+        d = median_decrease(x, 0., scale_factor)
+        return (1-d/scale_factor[...,None])**2
+    elif mode == "diff":
+        d = median_increase(x, 0., scale_factor*2)
+        return (0.5 * d/scale_factor[...,None])**2
+
+def weighted_sum(x, y, weight):
+    """Optimizes correlation data from base normalized data and compensated data
+    """   
+    return x * weight + (1. - weight) * y
+    
 
 #if __name__ == "__main__":
 #    import doctest
