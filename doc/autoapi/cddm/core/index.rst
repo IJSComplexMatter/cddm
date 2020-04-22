@@ -706,6 +706,6 @@ Module Contents
 
 .. function:: weighted_sum(x, y, weight)
 
-   Optimizes correlation data from base normalized data and compensated data
+   Optimizes correlation data from base normalized data and compensated data.
 
 

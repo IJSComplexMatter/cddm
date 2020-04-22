@@ -14,7 +14,7 @@ for method in ("corr","diff"):
     else:
         data = acorr(fft_array, method = "diff", n = 256)
     for mode in ("diff", "corr"):
-        data_lin = normalize(data, bg, var, mode = mode, scale = True)
+        data_lin = normalize(data, bg, var, mode = mode, scale = True, norm = 1)
         plt.semilogx(data_lin[4,12], label = "mode = {}; method = {}".format(mode, method))
 
 plt.legend()

@@ -660,22 +660,38 @@ By default, computation and normalization is performed using
 
 .. doctest:: 
 
-   >>> from cddm.core import NORM_COMPENSATED, NORM_SUBTRACTED, NORM_BASELINE
-   >>> norm = NORM_COMPENSATED | NORM_SUBTRACTED
-   >>> norm == 3
+   >>> from cddm.core import NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_BASELINE
+   >>> norm = NORM_COMPENSATED | NORM_SUBTRACTED | NORM_WEIGHTED
+   >>> norm == 7
    True
 
-This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in four different ways:
+There is a helper function, to build normalization flags:
+
+.. doctest:: 
+
+   >>> from cddm.core import norm_flags
+   >>> norm_flags(compensated = False, subtracted = True, weighted = True)
+   5
+
+This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in eight different ways. For standard (unbiased/ non-weighted) normalization do:
 
 * **baseline** : `norm = NORM_BASELINE` (`norm = 0`), supported methods: `'corr'` and `'fft'` here we remove the baseline error introduced by the non-zero background frame, which produces an offset in the correlation data. For this to work, you must provide the background data to the :func:`.multitau.normalize_multi` or :func:`.core.normalize`
 * **compensated** : `norm = NORM_COMPENSATED` (`norm = 1`), here we compensate the statistical error introduced at smaller delay times. Basically, we normalize the data as if we had calculated the cross-difference function instead of the cross-correlation. This requires one to calculate the delay-dependent squares of the intensities, which slows down the computation when `method = 'corr' or 'fft'`.
 * **subtracted** : `norm = NORM_SUBTRACTED` (`norm = 2`), supported methods: `'corr'` and `'fft'`. Here we compensate for baseline error and for the linear error introduced by the not-known-in-advance background data. This requires one to track the delay-dependent sum of the data, which further slows down the computation
 * **subtracted and compensated** : `norm = NORM_COMPENSATED | NORM_SUBTRACTED` (`norm = 3`), which does both the *subtracted* and *compensated* normalizations. `'diff'` method supported only in cross-analysis and not in auto-analysis.
 
+There are four weighted normalization modes, that are supported only for methods: `'corr'` and `'fft'`. These are:
+
+* **baseline weighted** : `norm = NORM_WEIGHTED` (`norm = 4`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is to promote large delay data from *baseline* data and short delay from *compensated* data.
+* **compensating weighted** : `norm = NORM_COMPENSATED | NORM_WEIGHTED` (`norm = 5`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is based on statistical estimators. 
+* **subtracted and baseline weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
+* **subtracted and compensating weighted** : `norm = NORM_SUBTRACTED | NORM_COMPENSATED | NORM_WEIGHTED` (`norm = 7`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is based on statistical estimators.
+
+
 .. doctest:: 
    
    >>> i,j = 4,15
-   >>> for norm in (0,1,2,3):
+   >>> for norm in (0,1,2,3,6,7):
    ...    fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
    ...    x,y = log_merge(fast, slow)
    ...    ax = plt.semilogx(x,y[i,j], label =  "norm = {}".format(norm) )
@@ -701,7 +717,7 @@ This way we have forced the algorithm to work with chunks of data of length 128,
 .. doctest:: 
    
    >>> i,j = 4,15
-   >>> for norm in (0,1,2,3):
+   >>> for norm in (0,1,2,3,6,7):
    ...    fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
    ...    x,y = log_merge(fast, slow)
    ...    ax = plt.semilogx(x,y[i,j], label =  "norm = {}".format(norm) )
@@ -778,7 +794,7 @@ Here, `diff` is the computed difference data. When you perform the normalization
    >>> b, v = stats(fft_array)
    >>> for data, method in zip((acorr_data, adiff_data),("corr","diff")):
    ...     for mode in ("diff", "corr"):
-   ...         data_lin = normalize(data, b, v, mode = mode, scale = True)
+   ...         data_lin = normalize(data, b, v, mode = mode, scale = True, norm = 1)
    ...         l = plt.semilogx(data_lin[4,12], label = "mode = {}; method = {}".format(mode, method))
    >>> legend = plt.legend()
    >>> plt.show()

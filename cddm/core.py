@@ -1680,10 +1680,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         if norm & NORM_COMPENSATED:
             var1 = calc_weight(comp_data, _scale_factor, mode = mode)
             var2 = 0.5   
-            weight = var1/(var2+var1)  
-            #mask = weight < 0.5
-            #weight[...] = 1.
-            #weight[mask] = 0.     
+            weight = var1/(var2+var1)    
         else:
             weight = calc_weight(comp_data, _scale_factor, mode = mode)
         return weighted_sum(base_data,comp_data, weight)
@@ -1754,13 +1751,13 @@ def calc_weight(x, scale_factor, mode = "corr"):
     scale_factor = np.asarray(scale_factor)
     if mode == "corr":
         d = median_decrease(x, 0., scale_factor)
-        return (1-d/scale_factor[...,None])**2
+        return (1 - d/scale_factor[...,None])**2
     elif mode == "diff":
         d = median_increase(x, 0., scale_factor*2)
         return (0.5 * d/scale_factor[...,None])**2
 
 def weighted_sum(x, y, weight):
-    """Optimizes correlation data from base normalized data and compensated data
+    """Optimizes correlation data from base normalized data and compensated data.
     """   
     return x * weight + (1. - weight) * y
     

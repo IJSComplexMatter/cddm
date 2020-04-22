@@ -55,7 +55,7 @@ if __name__ == "__main__":
     x,y = log_merge(fast, slow)
     
     #: save the normalized data to numpy files
-    for norm in (0,1,2,3):
+    for norm in (0,1,2,3,4,5,6,7):
         fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
         if norm == 3:
             np.save("cross_correlate_multi_raw_fast.npy".format(norm),fast)
