@@ -748,7 +748,7 @@ This will allow you to normalize either to `baseline` or `compensated`, but the 
 
 .. note::
 
-   In non-ergodic systems auto-background subtraction may not work sufficiently well, so you are encouraged to work with norm = 3 (the default) during the calculation, and later decide on the normalization procedure. You should calculate with norm < 3 only if you need to gain the speed, or to reduce the memory requirements.
+   In non-ergodic systems auto-background subtraction may not work sufficiently well, so you are encouraged to work with norm = 3 or (6 or 7) during the calculation, and later decide on the normalization procedure. You should calculate with norm < 3 only if you need to gain the speed, or to reduce the memory requirements.
 
 .. _method_and_norm:
 

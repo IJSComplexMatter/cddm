@@ -401,7 +401,8 @@ class ImageShow():
             plt.close(self.fig)       
     
 def pause(i = 1):
-    """Pause in milliseconds needed to update matplotlib or opencv figures"""
+    """Pause in milliseconds needed to update matplotlib or opencv figures
+    For pyqtgraph, it performs app.processEvents()"""
     if CDDMConfig.showlib == "cv2":
         cv2.waitKey(int(i))
     elif CDDMConfig.showlib == "matplotlib":
@@ -410,8 +411,6 @@ def pause(i = 1):
         app = QtGui.QApplication.instance()
         app.processEvents()
         
-        
-
 #placehold for imshow figures        
 _FIGURES = {}
              
