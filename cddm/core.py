@@ -1679,8 +1679,8 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
             _scale_factor = 1.
         if norm & NORM_COMPENSATED:
             var1 = calc_weight(comp_data, _scale_factor, mode = mode)
-            var2 = 0.5
-            weight = 1/var2/(1/var2+1/var1)    
+            var2 = 0.5   
+            weight = var1/(var2+var1)  
             #mask = weight < 0.5
             #weight[...] = 1.
             #weight[mask] = 0.     
