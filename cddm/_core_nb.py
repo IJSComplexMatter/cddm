@@ -34,32 +34,139 @@ def convolve(a, out):
     """Convolves input array with kernel [0.25,0.5,0.25]"""
     n = len(out)
     assert n > 2
-    out[0] = a[0] #at the end we do not use this boundary data so it does not matter what we set here.
-    out[n-1] = a[n-1]    
+    #out[0] = a[0] #at the end we do not use this boundary data so it does not matter what we set here.
+    #out[n-1] = a[n-1]    
     for i in range(1,n-1):
         out[i] = 0.25*(a[i-1]+2*a[i]+a[i+1])
+    out[n-1] = out[n-2]
+    out[0] = out[1]
+
+@nb.guvectorize([(I64[:],F[:],F[:],F[:])],"(m),(m),(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def log_interpolate(x,y,dummy, out):
+    n = len(x)
+    out[...] = y[-1]
+    out[0] = y[0]
+    for i in range(1,n-1):
+        deltax = x[i+1] - x[i]
+        a = (y[i+1] - y[i])/np.log(x[i+1]/x[i])
+        offset = y[i] - a * np.log(x[i])
+        index = x[i]
+        for j in range(deltax):
+            assert index >= 0 or index < len(dummy)
+            out[index] = offset + a * np.log(x[i]+j)
+            index = index + 1
+        
+@nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def median(array, out):
+    n = len(array)
+    assert n >= 3
+    for i in range(n):
+        if i == 0:
+            pass
+        elif i == n -1:
+            pass
+        else:
+            median = np.sort(array[i-1:i+2])[1]
+            out[i] = median
+    out[0] = out[1]
+    out[n-1] = out[n-2]
+
+@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(),()->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def smooth_decrease(array, minv,maxv, out):
+    n = len(array)
+    assert n >= 3
+    i0 = 0
+    for i in range(n):
+        if i == 0:
+            median = maxv[0]
+            out[0] = median
+        elif i == n -1:
+            median = out[i0]
+        else:
+            #median = array[i]#max(array[i], minv[0])
+            median = np.sort(array[i-1:i+2])[1]
+        if median < out[i0] or i == n - 1:
+            deltax = i-i0
+            deltay = (out[i0]-median)
+            step = deltay/deltax
+            for j in range(i0,i):
+                out[j+1] = out[j] - step
+            i0 = i
+
+@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(),()->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def smooth_increase(array, minv,maxv, out):
+    n = len(array)
+    assert n >= 3
+    i0 = 0
+    for i in range(n):
+        if i == 0:
+            median = minv[0]
+            out[0] = median
+        elif i == n -1:
+            median = out[i0]
+        else:
+            #median = array[i]#max(array[i], minv[0])
+            median = np.sort(array[i-1:i+2])[1]
+        if median > out[i0] or i == n - 1:
+            deltax = i-i0
+            deltay = (median - out[i0])
+            step = deltay/deltax
+            for j in range(i0,i):
+                out[j+1] = out[j] + step
+            i0 = i
 
 @nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(),()->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def median_decrease(array, minv,maxv, out):
     """Performs median decrease filter. Each next element must be smaller or equal"""
-    for i in range(len(array)):
+    n = len(array)
+    assert n >= 3
+    for i in range(n):
         if i == 0:
             out[0] = maxv[0]
-        elif array[i] < out[i-1]:
-            out[i] = max(array[i],minv[0])
+        elif i == n -1:
+            out[i] = minv[0]
         else:
-            out[i] = out[i-1]
+            median = array[i]
+            #median = np.sort(array[i-1:i+2])[1]
+            if median < out[i-1]:
+                out[i] = max(median,minv[0])
+            else:
+                out[i] = out[i-1]
+    out[0] = out[1]
+    out[n-1] = out[n-2]
+
 
 @nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(),()->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def median_increase(array,minv, maxv,out):
     """Performs median increase filter. Each next element must be greater or equal"""
-    for i in range(len(array)):
+    n = len(array)
+    for i in range(1,n-1):
         if i == 0:
             out[0] = minv[0]
-        elif array[i] > out[i-1]:
-            out[i] = min(array[i],maxv[0])
+        elif i == n -1:
+            out[i] = maxv[0]
         else:
-            out[i] = out[i-1]
+            median = array[i]
+            #median = np.sort(array[i-1:i+2])[1]
+            if median > out[i-1]:
+                out[i] = min(median,maxv[0])
+            else:
+                out[i] = out[i-1]
+    out[0] = out[1]
+    out[n-1] = out[n-2]
+
+
+
+#@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(),()->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+#def median_increase(array,minv, maxv,out):
+#    """Performs median increase filter. Each next element must be greater or equal"""
+#    for i in range(len(array)):
+#        if i == 0:
+#            out[0] = minv[0]
+#        elif array[i] > out[i-1]:
+#            out[i] = min(array[i],maxv[0])
+#        else:
+#            out[i] = out[i-1]
 
 #------------------------------------------------
 # low level numba-optimized computation functions

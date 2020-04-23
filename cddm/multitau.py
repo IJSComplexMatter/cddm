@@ -1111,7 +1111,8 @@ def merge_multilevel(data, mode = "full"):
         return x,y   
     else:
         raise ValueError("Unknown merging mode")
-        
+
+                  
 def log_average(data, size = 8):
     """Performs log average of normalized linear-spaced data.
     

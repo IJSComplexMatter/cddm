@@ -42,7 +42,7 @@ from cddm.print_tools import print1,print2, print_frame_rate, enable_prints, dis
 import time
 from functools import reduce 
 from cddm.fft import _fft
-from cddm._core_nb import median_decrease, median_increase,\
+from cddm._core_nb import log_interpolate,  median_decrease, median_increase,\
    _cross_corr_fft_regular, _cross_corr_fft, \
     _auto_corr_fft_regular,_auto_corr_fft,\
   _cross_corr_regular, _cross_corr, _cross_corr_vec, \
@@ -1673,16 +1673,17 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         base_data = normalize(data, background, variance, norm = norm_base,  mode = mode, 
               scale = scale, mask = mask)
         enable_prints(level)
-        if scale == False:
-            _scale_factor = _variance2offset(variance,mask)[...,0]
-        else:
-            _scale_factor = 1.
+        
+        comp_data_avg = average(comp_data, size = 1)
+        base_data_avg = average(base_data, size = 1)
+        
+        _scale_factor = 1. if scale == True else _variance2offset(variance,mask)[...,0]
+        weight = base_weight(comp_data_avg, scale_factor = _scale_factor, mode = mode)
+
         if norm & NORM_COMPENSATED:
-            var1 = calc_weight(comp_data, _scale_factor, mode = mode)
-            var2 = 0.5   
-            weight = var1/(var2+var1)    
-        else:
-            weight = calc_weight(comp_data, _scale_factor, mode = mode)
+            avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
+            weight = comp_weight(base_data, comp_data , avg_data)  
+
         return weighted_sum(base_data,comp_data, weight)
         
     count = data[1]
@@ -1746,20 +1747,56 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         result /= _scale_factor
     return result
 
-def calc_weight(x, scale_factor, mode = "corr"):
-    """Calculates weight function from normalized correlation data."""
+def average(x, size = 1):
+    """Performs averaging of normalized linear-spaced data with delay-dependent
+    kernel. 
+    
+    You must first normalize with :func:`.core.normalize` before averaging!
+    
+    Parameters
+    ----------
+    data : array
+        Input array of linear-spaced data
+    size : int
+        Sampling size. Number of data points per each doubling of time.
+        Any positive number is valid.
+        
+    Returns
+    -------
+    avg : ndarray
+       Averaged data of same shape as the original data.
+    """
+        
+    from cddm.multitau import log_average
+    t,xl= log_average(x,size)
+    out = log_interpolate(t,xl,np.empty_like(x))
+    return out
+
+def base_weight(avg, scale_factor = 1., mode = "corr"):
+    """Computes weighting function for base weighted normalization"""
     scale_factor = np.asarray(scale_factor)
     if mode == "corr":
-        d = median_decrease(x, 0., scale_factor)
+        d = median_decrease(avg, 0., scale_factor)
         return (1 - d/scale_factor[...,None])**2
     elif mode == "diff":
-        d = median_increase(x, 0., scale_factor*2)
+        d = median_increase(avg, 0., scale_factor*2)
         return (0.5 * d/scale_factor[...,None])**2
-
+    else:
+        raise ValueError("Wrong mode.")
+    
+def comp_weight(x, y, avg):
+    """Computes weighting function for compensating weighted normalization"""
+    var1 = (x - avg) **2
+    var1 = average(var1, size = 1)
+    var2 = (y - avg) **2
+    var2 = average(var2, size = 1)
+    return var2/(var2+var1)   
+    
 def weighted_sum(x, y, weight):
-    """Optimizes correlation data from base normalized data and compensated data.
+    """Performs weighted sum of two data sets, given the weight data.
+    Weight must be normalized between 0 and 1.
     """   
-    return x * weight + (1. - weight) * y
+    return x * weight + (1.- weight) * y
     
 
 #if __name__ == "__main__":
