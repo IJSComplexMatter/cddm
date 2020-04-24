@@ -19,7 +19,8 @@ class TestConf(unittest.TestCase):
     def test_set_rfft2lib(self):
         conf.set_rfft2lib("numpy")
         self.assertEqual("numpy",conf.set_rfft2lib("scipy"))
-        self.assertEqual("scipy",conf.set_rfft2lib("mkl_fft"))
+        if conf.SCIPY_INSTALLED:
+            self.assertEqual("scipy",conf.set_rfft2lib("mkl_fft"))
         conf.set_rfft2lib("pyfftw")
         with self.assertRaises(ValueError):
             conf.set_rfft2lib(1)
@@ -27,7 +28,8 @@ class TestConf(unittest.TestCase):
     def test_set_fftlib(self):
         conf.set_fftlib("numpy")
         self.assertEqual("numpy",conf.set_fftlib("scipy"))
-        self.assertEqual("scipy",conf.set_fftlib("mkl_fft"))
+        if conf.SCIPY_INSTALLED:
+            self.assertEqual("scipy",conf.set_fftlib("mkl_fft"))
         conf.set_fftlib("pyfftw")
         with self.assertRaises(ValueError):
             conf.set_fftlib(1)
