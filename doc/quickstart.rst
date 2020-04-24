@@ -27,6 +27,7 @@ In :mod:`cddm.video` there are a few video processing functions that were design
 
 .. doctest::
 
+   >>> import numpy as np
    >>> video = ((np.random.rand(512,512), np.random.rand(512,512)) for i in range(1024))
 
 Check python documentation on *generator expressions* if you are unfamiliar with the above expression. Here, video is an iterable object that can be used to acquire images frame-by-frame without reading the whole data into memory, making it possible to analyze long videos. A valid single-frame video is therefore:
@@ -810,8 +811,11 @@ Here, `diff` is the computed difference data. When you perform the normalization
 Binning and error
 -----------------
 
-Here we will briefly cover the binning modes and the error of the obtained correlation functions with different binning options. In multiple-tau algorithm the binning option defines how the data in each of the levels is calculated. With `binning=1` (default), we take the mean value, with 
+Here we will briefly cover the binning modes and the error of the obtained correlation functions with different binning options. In multiple-tau algorithm the binning option defines how the data in each of the levels is calculated. With `binning=1` (:attr:`.multitau.BINNING_MEAN`) average two measurements when pushing to the next level of the correlator. With `binning=0` (:attr:`.multitau.BINNING_FIRST`) use only the first value when pushing to the next level. With `binning=2` (:attr:`.multitau.BINNING_CHOOSE`) randomly select value when pushing to the next level of the correlator. Default value is `binning=1` (:attr:`.multitau.BINNING_MEAN`), except if `method='diff'`, where `binning=0` (:attr:`.multitau.BINNING_FIRST`) is default, as here the averaging is not supported. 
 
+With `binning=1` the statistical noise is significantly lower than with the other two binning options, at the cost of some slight systematic error introduced by the averaging. The size of this error is small if `level_size` is large enough. `binning=2` (:attr:`.multitau.BINNING_CHOOSE`) is considered experimental. The random selection is expected to remove oscillations in correlation function because of signal beating in some experiments (particle flow with oscillating correlations). Note that you should generally use `binning=1` (:attr:`.multitau.BINNING_MEAN`), except in case you use `method='diff'`, which does not support averaging. 
+
+Using `binning=0` completely removes the systematic error at large delay times at the cost of increasing the statistical error. 
 
 .. _`live_video`:
 

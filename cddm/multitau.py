@@ -42,7 +42,7 @@ import time
 #: placehold for matplotlib plots so that they are not garbage collected diring live view
 _VIEWERS = {}
 
-BINNING_SLICE = 0
+BINNING_FIRST = 0
 """No binning (select every second element)"""
 BINNING_MEAN = 1
 """Binning (take mean value)"""
@@ -95,13 +95,13 @@ def _default_method_and_binning(method,binning):
             binning =  BINNING_MEAN
     elif method  == "diff":
         if binning is None:
-            binning =  BINNING_SLICE
+            binning =  BINNING_FIRST
     else:
         raise ValueError("Unknown method, must be 'corr', 'diff' or 'fft'")
     if method == "diff":
-        supported = (BINNING_CHOOSE,BINNING_SLICE)
+        supported = (BINNING_CHOOSE,BINNING_FIRST)
     else:
-        supported = (BINNING_MEAN,BINNING_SLICE, BINNING_CHOOSE)
+        supported = (BINNING_MEAN,BINNING_FIRST, BINNING_CHOOSE)
 
     if binning not in supported:
         raise ValueError("Binning mode {} not supported for method '{}'".format(binning,method))
@@ -111,7 +111,7 @@ def _get_binning_function(binning):
     """returns binning function"""
     if binning == BINNING_MEAN:
         _bin = mean_data
-    elif binning == BINNING_SLICE:
+    elif binning == BINNING_FIRST:
         _bin = slice_data   
     elif binning == BINNING_CHOOSE:
         _bin = choose_data
