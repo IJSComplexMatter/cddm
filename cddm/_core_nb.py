@@ -72,6 +72,17 @@ def median(array, out):
                 out[i] = max(array[i+1],array[i-1])
     out[0] = out[1]
     out[n-1] = out[n-2]
+    
+@nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _median_slow(array, out):
+    """Performs median filter. slow implementation... for testing"""
+    n = len(array)
+    assert n > 2
+    for i in range(1,n-1):
+        median = np.sort(array[i-1:i+2])[1]
+        out[i] = median
+    out[0] = out[1]
+    out[n-1] = out[n-2]
 
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def decreasing(array, out):
