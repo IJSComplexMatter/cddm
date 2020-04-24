@@ -1031,6 +1031,98 @@ def iacorr_multi(data, t = None, level_size = 2**4, norm = 3, method = "corr", c
                     viewer.plot()
     return data
 
+def triangular_kernel(n):
+    """Returns normalized triangular kernel for a given level integer
+    
+    Examples
+    --------
+    >>> triangular_kernel(0) #zero-th level
+    array([1.])
+    >>> triangular_kernel(1) #first level
+    array([0.25, 0.5 , 0.25])
+    """
+    size = 1
+    power = 2**n
+    for i in range(n):
+        size = size*2 +1
+    out = np.zeros(shape = (size,))
+    
+    for i in range(size//2):
+        out[i] = (i+1)/power/power
+        out[-i-1] = out[i]
+    out[size//2] = 1/power
+    return out
+
+def count_multilevel(count, level_size, binning = True):
+    """Returns effective number of measurements in multilevel data calculated
+    from linear time-space count data.
+    
+    Parameters
+    ----------
+    count : ndarray
+        Count data
+    level_size : int
+        Level size used in multilevel averaging.
+        
+    Returns
+    -------
+    x  : ndarray
+        Multilevel effective count array. Shape of this data depends on the 
+        length of the original data and the provided level_size parameter.
+    """
+    #kernel = triangular_kernel(n)
+    #return 1/(kernel**2).sum()
+
+    size = int(level_size)
+    if size < 2:
+        raise ValueError("level_size must be greater than 1")
+    #determine multitau level (number of decades)
+    level = 0
+    while size * 2**(level) < count.shape[-1]:
+        level +=1
+    
+    shape = (level+1,size)
+    
+    out = np.empty(shape = shape, dtype = FDTYPE)
+    
+
+    
+
+    count2 = count **2
+
+    
+    for l in range(level+1):
+        if binning == True:
+            kernel = triangular_kernel(l)
+        else:
+            kernel = np.array([1./2**l])
+        kernel2 = kernel**2
+        
+        data = np.convolve(kernel2, count2, "same")
+        norm = np.convolve(kernel, count , "same")
+        data_sliced = data[0::2**l][0:size]
+        norm_sliced = norm[0::2**l][0:size]
+        n_sliced = data_sliced.shape[-1]
+        out[l,0:n_sliced] = norm_sliced**3 / data_sliced
+        
+        #missing data... fill nans
+        if n_sliced != size:
+            out[l,n_sliced:] = np.nan
+
+        
+    return out
+
+def ccorr_multi_count(count, period = 1, level_size = 16, binning = True):
+    count_fast = np.linspace(count/period*2, (count- level_size)/period*2 , period*level_size)
+    count_slow = np.linspace(count,1,count)*2
+    data_fast = count_multilevel(count_fast, level_size)
+    data_slow = count_multilevel(count_slow, level_size, binning)
+    xfast, yfast = merge_multilevel(data_fast, mode = "full")
+    xslow, yslow = merge_multilevel(data_slow[1:], mode = "half")
+    t = np.concatenate((xfast, period * xslow * 2), axis = -1)
+    c = np.concatenate((yfast, yslow), axis = -1)    
+    return t, c
+    
 def multilevel(data, level_size = 16):
     """Computes a multi-level version of the linear time-spaced data.
     
@@ -1045,7 +1137,7 @@ def multilevel(data, level_size = 16):
     -------
     x  : ndarray
         Multilevel data array. Shape of this data depends on the length of the original
-        data and the provided parameter
+        data and the provided level_size parameter
     """
     size = int(level_size)
     if size < 2:
@@ -1091,7 +1183,7 @@ def merge_multilevel(data, mode = "full"):
         x0 = np.arange(data.shape[-1])
         y0 = data[0,...]   
         x, y = merge_multilevel(data[1:], mode = "half")
-        return np.concatenate((x0,x),axis = -1), np.concatenate((y0,y),axis = -1)
+        return np.concatenate((x0,x*2),axis = -1), np.concatenate((y0,y),axis = -1)
     elif mode == "half":
         n = data.shape[-1]
         if n%2 != 0:
@@ -1101,7 +1193,7 @@ def merge_multilevel(data, mode = "full"):
         
         x_slow = np.empty((len(data),n), IDTYPE)
         for i,x in enumerate(x_slow):
-            x[:] = np.arange(n)*2**(i+1)
+            x[:] = np.arange(n)*2**(i)
         x = x_slow[:,n//2:].reshape((out_size,))
         data = data[...,n//2:]
         axes = [i for i in range(data.ndim)]
@@ -1111,8 +1203,7 @@ def merge_multilevel(data, mode = "full"):
         return x,y   
     else:
         raise ValueError("Unknown merging mode")
-
-                  
+                 
 def log_average(data, size = 8):
     """Performs log average of normalized linear-spaced data.
     
@@ -1170,7 +1261,7 @@ def log_merge(lin,multi):
     ldata = multilevel(lin, nslow)
     xfast, cfast = merge_multilevel(ldata, mode = "full")
     xslow, cslow = merge_multilevel(multi, mode = "half")
-    t = np.concatenate((xfast, period * xslow), axis = -1)
+    t = np.concatenate((xfast, 2 * period * xslow), axis = -1)
     cc = np.concatenate((cfast, cslow), axis = -1)
     return t, cc
     
@@ -1187,4 +1278,7 @@ def normalize_multi(*args, **kwargs):
         return tuple((normalize(d,*args[1:],**kwargs) for d in args[0]))
     else:
         return tuple((normalize(d,*args[1:],out = o, **kwargs) for d,o in zip(args[0],out)))
-        
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()

@@ -208,6 +208,7 @@ Module Contents
 .. function:: pause(i=1)
 
    Pause in milliseconds needed to update matplotlib or opencv figures
+   For pyqtgraph, it performs app.processEvents()
 
 
 .. function:: play(video, fps=100.0, max_delay=0.1)

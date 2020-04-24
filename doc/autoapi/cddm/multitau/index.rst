@@ -276,6 +276,33 @@ Module Contents
              * **lin, multi** (*acorr_type, acorr_type*) -- If `stats` == False
 
 
+.. function:: triangular_kernel(n)
+
+   Returns normalized triangular kernel for a given level integer
+
+   .. rubric:: Examples
+
+   >>> triangular_kernel(0) #zero-th level
+   array([1.])
+   >>> triangular_kernel(1) #first level
+   array([0.25, 0.5 , 0.25])
+
+
+.. function:: count_multilevel(count, level_size, binning=True)
+
+   Returns effective number of measurements in multilevel data calculated
+   from linear time-space count data.
+
+   :param count: Count data
+   :type count: ndarray
+   :param level_size: Level size used in multilevel averaging.
+   :type level_size: int
+
+   :returns: **x** -- Multilevel effective count array. Shape of this data depends on the
+             length of the original data and the provided level_size parameter.
+   :rtype: ndarray
+
+
 .. function:: multilevel(data, level_size=16)
 
    Computes a multi-level version of the linear time-spaced data.
@@ -286,7 +313,7 @@ Module Contents
    :type level_size: int
 
    :returns: **x** -- Multilevel data array. Shape of this data depends on the length of the original
-             data and the provided parameter
+             data and the provided level_size parameter
    :rtype: ndarray
 
 

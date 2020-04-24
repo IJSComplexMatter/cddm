@@ -699,13 +699,36 @@ Module Contents
    :rtype: ndarray
 
 
-.. function:: calc_weight(x, scale_factor, mode='corr')
+.. function:: average(x, size=1)
 
-   Calculates weight function from normalized correlation data.
+   Performs averaging of normalized linear-spaced data with delay-dependent
+   kernel.
+
+   You must first normalize with :func:`.core.normalize` before averaging!
+
+   :param data: Input array of linear-spaced data
+   :type data: array
+   :param size: Sampling size. Number of data points per each doubling of time.
+                Any positive number is valid.
+   :type size: int
+
+   :returns: **avg** -- Averaged data of same shape as the original data.
+   :rtype: ndarray
+
+
+.. function:: base_weight(avg, scale_factor=1.0, mode='corr')
+
+   Computes weighting function for baseline weighted normalization
+
+
+.. function:: comp_weight(x, y, avg)
+
+   Computes weighting function for compensating weighted normalization
 
 
 .. function:: weighted_sum(x, y, weight)
 
-   Optimizes correlation data from base normalized data and compensated data.
+   Performs weighted sum of two data sets, given the weight data.
+   Weight must be normalized between 0 and 1.
 
 

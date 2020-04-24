@@ -3,7 +3,7 @@
 import unittest
 
 from cddm.map import plot_indexmap, k_indexmap
-class Test(unittest.TestCase):
+class TestMap(unittest.TestCase):
     
     def setUp(self):
         pass

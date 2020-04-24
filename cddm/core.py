@@ -42,7 +42,7 @@ from cddm.print_tools import print1,print2, print_frame_rate, enable_prints, dis
 import time
 from functools import reduce 
 from cddm.fft import _fft
-from cddm._core_nb import log_interpolate,  median_decrease, median_increase,\
+from cddm._core_nb import _log_interpolate,  decreasing, increasing, median,\
    _cross_corr_fft_regular, _cross_corr_fft, \
     _auto_corr_fft_regular,_auto_corr_fft,\
   _cross_corr_regular, _cross_corr, _cross_corr_vec, \
@@ -1011,7 +1011,7 @@ def _default_norm(norm, method, cross = True):
     if method == "diff":
         supported = (1,3) if cross else (1,)
     else:
-        supported = (0,1,2,3,4,5,6,7)
+        supported = (0,1,2,3,6,7,4,5)
     if norm is None:
         norm = supported[-1]
     if norm not in supported:
@@ -1469,19 +1469,23 @@ def _norm_from_ccorr_data(data, norm = None):
     if s1 is None:
         if sq is None:
             default_norm = 0
+            available_norm = 0
         else:
-            default_norm = 5
+            default_norm = 4
+            available_norm = 5
     else:
         if sq is None:
             default_norm = 2
+            available_norm = 2
         else:
-            default_norm = 7 
+            default_norm = 6
+            available_norm = 7
     if norm is None:
         return default_norm
     else:
         if norm not in range(8):
             raise ValueError("Normalization mode must be in range(8)")
-        if  (norm & default_norm) == norm:
+        if  (norm & available_norm) == norm:
             return norm
         else:
             raise ValueError("Normalization mode incompatible with input data.")
@@ -1674,9 +1678,9 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
               scale = scale, mask = mask)
         enable_prints(level)
         
-        comp_data_avg = average(comp_data, size = 1)
-        base_data_avg = average(base_data, size = 1)
-        
+        comp_data_avg = average(median(comp_data), size = 1)
+        base_data_avg = average(median(base_data), size = 1)
+
         _scale_factor = 1. if scale == True else _variance2offset(variance,mask)[...,0]
         weight = base_weight(comp_data_avg, scale_factor = _scale_factor, mode = mode)
 
@@ -1769,17 +1773,19 @@ def average(x, size = 1):
         
     from cddm.multitau import log_average
     t,xl= log_average(x,size)
-    out = log_interpolate(t,xl,np.empty_like(x))
+    out = _log_interpolate(t,xl,np.empty_like(x))
     return out
 
 def base_weight(avg, scale_factor = 1., mode = "corr"):
-    """Computes weighting function for base weighted normalization"""
+    """Computes weighting function for baseline weighted normalization"""
     scale_factor = np.asarray(scale_factor)
     if mode == "corr":
-        d = median_decrease(avg, 0., scale_factor)
+        d = decreasing(avg)
+        d = np.clip(d,0.,scale_factor[...,None])
         return (1 - d/scale_factor[...,None])**2
     elif mode == "diff":
-        d = median_increase(avg, 0., scale_factor*2)
+        d = increasing(avg)
+        d = np.clip(d,0.,scale_factor[...,None]*2)
         return (0.5 * d/scale_factor[...,None])**2
     else:
         raise ValueError("Wrong mode.")

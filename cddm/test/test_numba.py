@@ -1,0 +1,48 @@
+"""tests numba functions"""
+
+import unittest
+import numpy as np
+import numba as nb
+from cddm.conf import F
+
+from cddm._core_nb import median, decreasing, increasing
+
+@nb.guvectorize([(F[:],F[:])],"(n)->(n)")
+def _median_slow(array, out):
+    """Performs median filter. slow implementation... for testing"""
+    n = len(array)
+    assert n > 2
+    for i in range(1,n-1):
+        median = np.sort(array[i-1:i+2])[1]
+        out[i] = median
+    out[0] = out[1]
+    out[n-1] = out[n-2]
+
+class TestNumba(unittest.TestCase):
+    
+    def setUp(self):
+        pass
+
+    def test_median(self):
+        out = median([2.,1.,0.])
+        self.assertTrue(np.allclose([1.,1.,1.], out))
+        out = median([2.,3.,0.,4.,5])
+        self.assertTrue(np.allclose([2.,2.,3.,4.,4.], out))
+        a = np.random.rand(100,2,4)
+        self.assertTrue(np.allclose(median(a), _median_slow(a)))
+        
+        
+    def test_decreasing(self):
+        out = decreasing([2.,1.,2.])
+        self.assertTrue(np.allclose([2.,1.,1.], out))
+        out = decreasing([2.,3.,0.,4.,5])
+        self.assertTrue(np.allclose([2.,2.,0.,0.,0.], out))   
+        
+    def test_increasing(self):
+        out = increasing([2.,1.,3.])
+        self.assertTrue(np.allclose([2.,2.,3.], out))
+        out = increasing([2.,3.,0.,4.,5])
+        self.assertTrue(np.allclose([2.,3.,3.,4.,5.], out)) 
+        
+if __name__ == "__main__":
+    unittest.main()
