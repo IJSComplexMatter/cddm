@@ -5,7 +5,7 @@ the video from a frame iterator or list of data.
 from cddm.sim import simple_brownian_video, seed
 from cddm.viewer import VideoViewer 
 from cddm.video import load, crop
-from conf import NFRAMES, SIMSHAPE, BACKGROUND, DELTA, INTENSITY, SIGMA, SHAPE
+from examples.conf import NFRAMES, SIMSHAPE, BACKGROUND, DELTA, INTENSITY, SIGMA, SHAPE
 
 #: set seed for randum number generator, so that each run is the same
 seed(0)
