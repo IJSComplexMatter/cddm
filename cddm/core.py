@@ -1781,18 +1781,24 @@ def weight_from_data(comp_data, base_data, scale_factor = 1., mode = "corr", nor
     comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
             
     weight = base_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
+    
+    mask =  weight > 0.5
+    comp_data_avg[mask] =  base_data_avg[mask]
+    
+    weight = base_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
 
     if norm & NORM_COMPENSATED:
         #avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
         weight = comp_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
-
         #weight = comp_weight(base_data, comp_data , avg_data)  
 
     if multitau == True:
-        #multilevel data... make sure each weight is a decreasing function
+        # make sure weights are increasing.
         for i,w in enumerate(weight):
             if i > 0:
+                #make first weight equal last weight from previous level
                 weight[i,...,0] = weight[i-1,...,-1]
+                #this way it can only increase when going through level.
             increasing(w,out = w)   
     return weight
     
