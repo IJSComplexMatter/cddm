@@ -1531,18 +1531,39 @@ def _corr2diff(data, variance, mask):
     return data
 
 def _variance2offset(variance, mask):
+    #offset for norm == 2 type of normalization
+    return scale_factor(variance, mask)[..., None]
+    
+def scale_factor(variance, mask = None):
+    """Computes scaling factor for normalization from variance data.
+    
+    You can divide the computed correlation data with this factor, to normalize
+    data between (0,1) for correlation mode or (0,2) for difference mode.
+    
+    Parameters
+    ----------
+    variance : (ndarray, ndarray) or ndarray
+        A variance data (as returned from :func:`.stats`)
+    mask : ndarray
+        A boolean mask array, if computation was performed on masked data,
+        this applys mask to the variance data.
+        
+    Returns
+    -------
+    scale : ndarray
+        A scaling factor for normalization
+    """
     if variance is None:
         raise ValueError("You must provide variance data for normalization")
-    #offset for norm == 2 type of normalization
     try:
         v1, v2 = variance
-        offset = 0.5*np.asarray((v1 + v2))
+        scale = 0.5*np.asarray((v1 + v2))
     except:
-        offset = np.asarray(variance)  
+        scale = np.asarray(variance)  
     if mask is None:
-        return offset[..., None]
+        return scale
     else:
-        return offset[mask, None]
+        return scale[mask]
 
 def _inspect_background(background, norm, mask):
     if background is not None:
@@ -1682,31 +1703,9 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
               scale = scale, mask = mask)
         enable_prints(level)
         
-        comp_data_avg = average(comp_data, size = 2)
-        base_data_avg = average(base_data, size = 2)
-
-        _scale_factor = 1. if scale == True else _variance2offset(variance,mask)[...,0]
-        
-        comp_data_avg[...,0] =  _scale_factor if mode == "corr" else 0.
-        median(comp_data_avg,comp_data_avg)
-        comp_data_avg[...,0] =  _scale_factor if mode == "corr" else 0.
-        median(comp_data_avg,comp_data_avg)
-        comp_data_avg[...,0] =  _scale_factor if mode == "corr" else 0.
-                
-        weight = base_weight(comp_data_avg, scale_factor = _scale_factor, mode = mode)
-
-        if norm & NORM_COMPENSATED:
-            #avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
-            weight = comp_weight(comp_data_avg, scale_factor = _scale_factor, mode = mode)
-
-            #weight = comp_weight(base_data, comp_data , avg_data)  
-
-        if len(data[1].shape) > 1:
-            #multilevel data... make sure each weight is a decreasing function
-            for i,w in enumerate(weight):
-                if i > 0:
-                    weight[i,...,0] = weight[i-1,...,-1]
-                increasing(w,out = w)
+        _scale_factor = 1. if scale == True else scale_factor(variance,mask)
+        _multitau = True if len(data[1].shape) > 1 else False
+        weight = weight_from_data(comp_data, base_data, scale_factor = _scale_factor, mode = mode, norm = norm, multitau = _multitau)
 
         return weighted_sum(base_data,comp_data, weight)
         
@@ -1771,6 +1770,31 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         result /= _scale_factor
     return result
 
+def weight_from_data(comp_data, base_data, scale_factor = 1., mode = "corr", norm = NORM_BASELINE, multitau = False):
+    comp_data_avg = average(comp_data, size = 2)
+    base_data_avg = average(base_data, size = 2)
+
+    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
+    median(comp_data_avg,comp_data_avg)
+    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
+    median(comp_data_avg,comp_data_avg)
+    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
+            
+    weight = base_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
+
+    if norm & NORM_COMPENSATED:
+        #avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
+        weight = comp_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
+
+        #weight = comp_weight(base_data, comp_data , avg_data)  
+
+    if multitau == True:
+        #multilevel data... make sure each weight is a decreasing function
+        for i,w in enumerate(weight):
+            if i > 0:
+                weight[i,...,0] = weight[i-1,...,-1]
+            increasing(w,out = w)   
+    return weight
     
 
 def average(x, size = 1):
