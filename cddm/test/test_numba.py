@@ -16,7 +16,8 @@ class TestNumba(unittest.TestCase):
         out = median([2.,3.,0.,4.,5])
         self.assertTrue(np.allclose([2.,2.,3.,4.,4.], out))
         a = np.random.rand(100,2,4)
-        self.assertTrue(np.allclose(median(a), _median_slow(a)))
+        b = a.copy()
+        self.assertTrue(np.allclose(median(b,b), _median_slow(a)))
         
         
     def test_decreasing(self):

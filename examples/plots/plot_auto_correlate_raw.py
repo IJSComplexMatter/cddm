@@ -1,16 +1,18 @@
 """
-Plots raw correlation data and demonstrates how to merge data.
+Plots raw correlation data and demonstrates how to merge data. First you must
+run
 
 $ auto_correlate_multi.py 
 """
 from cddm.multitau import log_merge
-
 import matplotlib.pyplot as plt
+import os.path as p
+from examples.conf import DATA_PATH
+
 #: load the normalized data to numpy files
 import numpy as np
-
-lin_data = np.load("auto_correlate_multi_raw_fast.npy")
-multi_level = np.load("auto_correlate_multi_raw_slow.npy")
+lin_data = np.load(p.join(DATA_PATH,"auto_correlate_multi_raw_fast.npy"))
+multi_level = np.load(p.join(DATA_PATH,"auto_correlate_multi_raw_slow.npy"))
 
 (i,j) = (4,12)
 

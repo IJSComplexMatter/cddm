@@ -1,7 +1,7 @@
 """
 Demonstrates the use and equivalence of method and mode options
 """
-from auto_correlate import fft_array
+from examples.auto_correlate import fft_array
 from cddm.core import acorr, normalize, stats
 
 import matplotlib.pyplot as plt

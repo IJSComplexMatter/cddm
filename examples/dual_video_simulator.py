@@ -8,8 +8,8 @@ from cddm.video import multiply, load, crop
 import matplotlib.pyplot as plt
 
 # uppercase values
-from conf import NFRAMES, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, \
-    INTENSITY, SIGMA, SHAPE
+from examples.conf import NFRAMES, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, \
+    INTENSITY, SIGMA, SHAPE,DUST1_PATH,DUST2_PATH
 
 #random time according to Eq.7 from the SoftMatter paper
 t1, t2 = create_random_times1(NFRAMES,n = N_PARAMETER)
@@ -23,8 +23,8 @@ video = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = BACKGROUND,
 video = crop(video, roi = ((0,SHAPE[0]), (0,SHAPE[1])))
 
 #: apply dust particles
-dust1 = plt.imread('dust1.png')[...,0] #float normalized to (0,1)
-dust2 = plt.imread('dust2.png')[...,0]
+dust1 = plt.imread(DUST1_PATH)[...,0] #float normalized to (0,1)
+dust2 = plt.imread(DUST2_PATH)[...,0]
 dust = ((dust1,dust2),)*NFRAMES
 
 video = multiply(video, dust)

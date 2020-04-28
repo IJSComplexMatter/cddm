@@ -1,12 +1,14 @@
 """
 Demonstrates how to compute cross- correlation function with the 
-out-of-memory version of the multitau algorithm with the mask parameter
+out-of-memory version of the multitau algorithm on masked data.
 """
+
 from cddm.video import mask
-from mask_array import mask as m
 from cddm.multitau import iccorr_multi
 from cddm.viewer import MultitauViewer
-import cross_correlate_multi_live
+
+from examples.mask_array import mask as m
+import examples.cross_correlate_multi_live as cross_correlate_multi_live 
 import importlib
 importlib.reload(cross_correlate_multi_live) #recreates fft iterator
 

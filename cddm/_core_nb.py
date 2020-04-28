@@ -36,6 +36,7 @@ def convolve(a, out):
     assert n > 2  
     for i in range(1,n-1):
         out[i] = 0.25*(a[i-1]+2*a[i]+a[i+1])
+        #out[i]= a[i]
     out[n-1] = out[n-2]
     out[0] = out[1]
 
@@ -59,19 +60,23 @@ def median(array, out):
     """Performs median filter."""
     n = len(array)
     assert n > 2
+    result_out = 0.
     for i in range(1,n-1):
         if array[i] < array[i+1]:
             if array[i] < array[i-1]:
-                out[i] = min(array[i+1],array[i-1])
+                result = min(array[i+1],array[i-1])
             else:
-                out[i] = array[i]
+                result = array[i]
         else:
             if array[i] < array[i-1]:
-                out[i] = array[i]
+                result = array[i]
             else:
-                out[i] = max(array[i+1],array[i-1])
+                result = max(array[i+1],array[i-1])
+        out[i-1] = result_out
+        result_out = result
+    out[i] = result_out
+    out[n-1] = result_out
     out[0] = out[1]
-    out[n-1] = out[n-2]
     
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _median_slow(array, out):

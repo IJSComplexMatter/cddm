@@ -10,10 +10,10 @@ from cddm.fft import rfft2, normalize_fft
 from cddm.multitau import iccorr_multi, normalize_multi, log_merge
 
 import numpy as np
-from examples.conf import NFRAMES, PERIOD, SHAPE, KIMAX, KJMAX, DATA_PATH
+from conf import NFRAMES, PERIOD, SHAPE, KIMAX, KJMAX
 
 #: see video_simulator for details, loads sample video
-import examples.dual_video_simulator as dual_video_simulator
+import dual_video_simulator
 import importlib
 importlib.reload(dual_video_simulator) #recreates iterator
 
@@ -39,7 +39,6 @@ fft = rfft2(video, kimax = KIMAX, kjmax = KJMAX)
 #fft = normalize_fft(fft)
 
 if __name__ == "__main__":
-    import os.path as p
 
     #we will show live calculation with the viewer
     viewer = MultitauViewer(scale = True)
@@ -58,12 +57,9 @@ if __name__ == "__main__":
     #: save the normalized data to numpy files
     for norm in (0,1,2,3,4,5,6,7):
         fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
-        if norm == 3:
-            np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_fast.npy".format(norm)),fast)
-            np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_slow.npy".format(norm)),slow)
         x,y = log_merge(fast, slow)
         
-        np.save(p.join(DATA_PATH,"cross_correlate_multi_norm_{}_data.npy".format(norm)),y)
-    np.save(p.join(DATA_PATH,"cross_correlate_multi_t.npy"),x)
+        np.save("cross_correlate_norm_{}_data.npy".format(norm),y)
+    np.save("cross_correlate_t.npy".format(norm),x)
     
     viewer.show()

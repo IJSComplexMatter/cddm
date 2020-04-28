@@ -45,3 +45,11 @@ KJSIZE = KJMAX+1
 D = 0.5*(DELTA*2*np.pi/SIZE)**2
 #: effective period of the dual camera experiment
 PERIOD = N_PARAMETER * 2
+
+import os.path as p
+
+#: data paths
+PATH = p.split(p.abspath(__file__))[0]
+DATA_PATH = p.join(PATH, "data")
+DUST1_PATH = p.join(DATA_PATH, "dust1.png")
+DUST2_PATH = p.join(DATA_PATH, "dust1.png")

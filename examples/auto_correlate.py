@@ -12,11 +12,11 @@ from cddm.multitau import log_average
 import numpy as np
 
 #: see video_simulator for details, loads sample video
-import video_simulator
+import examples.video_simulator as video_simulator
 import importlib
 importlib.reload(video_simulator) #recreates iterator
 
-from conf import KIMAX, KJMAX, SHAPE, NFRAMES
+from examples.conf import KIMAX, KJMAX, SHAPE, NFRAMES, DATA_PATH
 
 
 #: create window for multiplication...
@@ -42,6 +42,7 @@ fft = rfft2(video, kimax = KIMAX, kjmax = KJMAX)
 fft_array, = asarrays(fft, NFRAMES)
 
 if __name__ == "__main__":
+    import os.path as p
 
     #: now perform auto correlation calculation with default parameters 
     data = acorr(fft_array)
@@ -61,7 +62,7 @@ if __name__ == "__main__":
     x,y = log_average(data_lin, size = 16)
     
     #: save the normalized data to numpy files
-    np.save("auto_correlate_t.npy",x)
-    np.save("auto_correlate_data.npy",y)
+    np.save(p.join(DATA_PATH, "auto_correlate_t.npy"),x)
+    np.save(p.join(DATA_PATH, "auto_correlate_data.npy"),y)
 
 

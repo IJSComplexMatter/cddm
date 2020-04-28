@@ -4,14 +4,15 @@ Plots raw correlation data and demonstrates how to merge data.
 $ cross_correlate_multi_live.py 
 """
 from cddm.multitau import log_merge
-from conf import PERIOD
+from examples.conf import PERIOD, DATA_PATH
+import os.path as p
 
 import matplotlib.pyplot as plt
 #: load the normalized data to numpy files
 import numpy as np
 
-lin_data = np.load("cross_correlate_multi_raw_fast.npy")
-multi_level = np.load("cross_correlate_multi_raw_slow.npy")
+lin_data = np.load(p.join(DATA_PATH,"cross_correlate_multi_raw_fast.npy"))
+multi_level = np.load(p.join(DATA_PATH,"cross_correlate_multi_raw_slow.npy"))
 
 (i,j) = (4,2)
 

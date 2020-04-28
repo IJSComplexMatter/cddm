@@ -33,7 +33,7 @@
 Module Contents
 ---------------
 
-.. data:: BINNING_SLICE
+.. data:: BINNING_FIRST
    :annotation: = 0
 
    No binning (select every second element)
@@ -289,6 +289,21 @@ Module Contents
 
 
 .. function:: count_multilevel(count, level_size, binning=True)
+
+   Returns effective number of measurements in multilevel data calculated
+   from linear time-space count data.
+
+   :param count: Count data
+   :type count: ndarray
+   :param level_size: Level size used in multilevel averaging.
+   :type level_size: int
+
+   :returns: **x** -- Multilevel effective count array. Shape of this data depends on the
+             length of the original data and the provided level_size parameter.
+   :rtype: ndarray
+
+
+.. function:: count_multilevel2(count, level_size, binning=True)
 
    Returns effective number of measurements in multilevel data calculated
    from linear time-space count data.

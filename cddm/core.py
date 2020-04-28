@@ -1657,6 +1657,10 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     #determine default normalization if not specified by user
     norm = _default_norm_from_data(data, method, norm)
 
+    if len(data[1].shape) > 1 and norm & NORM_WEIGHTED:
+        #if multilevel data, subtracted or baseline is best, so force it here.
+        norm = norm & NORM_SUBTRACTED
+
     # scale factor for normalization 
     if scale == True:
         _scale_factor = _variance2offset(variance,mask)
@@ -1678,15 +1682,24 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
               scale = scale, mask = mask)
         enable_prints(level)
         
-        comp_data_avg = average(median(comp_data), size = 1)
-        base_data_avg = average(median(base_data), size = 1)
+        comp_data_avg = average(comp_data, size = 2)
+        base_data_avg = average(base_data, size = 2)
 
         _scale_factor = 1. if scale == True else _variance2offset(variance,mask)[...,0]
+        
+        comp_data_avg[...,0] =  _scale_factor if mode == "corr" else 0.
+        median(comp_data_avg,comp_data_avg)
+        comp_data_avg[...,0] =  _scale_factor if mode == "corr" else 0.
+        median(comp_data_avg,comp_data_avg)
+        comp_data_avg[...,0] =  _scale_factor if mode == "corr" else 0.
+        
         weight = base_weight(comp_data_avg, scale_factor = _scale_factor, mode = mode)
-
+        
         if norm & NORM_COMPENSATED:
-            avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
-            weight = comp_weight(base_data, comp_data , avg_data)  
+            #avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
+            weight = comp_weight(comp_data_avg, scale_factor = _scale_factor, mode = mode)
+
+            #weight = comp_weight(base_data, comp_data , avg_data)  
 
         return weighted_sum(base_data,comp_data, weight)
         
@@ -1789,14 +1802,32 @@ def base_weight(avg, scale_factor = 1., mode = "corr"):
         return (0.5 * d/scale_factor[...,None])**2
     else:
         raise ValueError("Wrong mode.")
+
+def comp_weight(avg, scale_factor = 1., mode = "corr"):
+    """Computes weighting function for baseline weighted normalization"""
+    scale_factor = np.asarray(scale_factor)
+    if mode == "corr":
+        d = decreasing(avg)
+        g1 = np.clip(d,0.,scale_factor[...,None])/scale_factor[...,None]
+        var2 = (1 - g1)**2
+        var1 = 1 + g1**2
+        return var2/(var1 + var2)
+    elif mode == "diff":
+        d = increasing(avg)
+        d = np.clip(d,0.,scale_factor[...,None]*2)/scale_factor[...,None]/2.
+        var2 = (d)**2
+        var1 = 1 + (-d + 1.)**2
+        return var2/(var1 + var2)
+    else:
+        raise ValueError("Wrong mode.")
     
-def comp_weight(x, y, avg):
-    """Computes weighting function for compensating weighted normalization"""
-    var1 = (x - avg) **2
-    var1 = average(var1, size = 1)
-    var2 = (y - avg) **2
-    var2 = average(var2, size = 1)
-    return var2/(var2+var1)   
+#def comp_weight(x, y, avg):
+#    """Computes weighting function for compensating weighted normalization"""
+#    var1 = (x - avg) **2
+#    var1 = average(var1, size = 1)
+#    var2 = (y - avg) **2
+#    var2 = average(var2, size = 1)
+#    return var2/(var2+var1)   
     
 def weighted_sum(x, y, weight):
     """Performs weighted sum of two data sets, given the weight data.

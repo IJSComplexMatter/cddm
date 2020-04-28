@@ -24,7 +24,7 @@ def seed(value):
     np.random.seed(value)
     numba_seed(value)
 
-def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, velocity = 0.):
+def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, velocity = (0.,0.)):
     """Returns an brownian walk iterator.
      
     Given the initial coordinates x0, it callculates and yields next `count` coordinates.
@@ -39,9 +39,9 @@ def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, veloci
         Shape of the simulation region in pixels.
     delta : float
         Defines an average step in pixel coordinates (when dt = 1).
-    dt : float
-        Simulation time step.
-    velocity : (float,float)
+    dt : float, optional
+        Simulation time step (1 by default).
+    velocity : (float,float), optional
         Defines an average velocity (vi,vj) in pixel coordinates per unit time step
         (when dt = 1).
         

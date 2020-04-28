@@ -49,7 +49,7 @@ For testing, we will build a sample video of a simulated Brownian motion of 100 
    >>> seed(0) #sets numba and numpy seeds for random number generators  
    >>> plot_random_walk(count = 1024, particles = 6, shape = (512+32,512+32)) 
 
-.. plot:: examples/plot_random_walk.py
+.. plot:: examples/plots/plot_random_walk.py
 
    2D random walk simulation of 6 particles. Green dots indicate start positions, red dots are the end positions of the particles. 
 
@@ -119,7 +119,7 @@ In FFT processing, it is common to apply a window function before the computatio
    >>> from cddm.window import plot_windows
    >>> plot_windows()
 
-.. plot:: examples/plot_windows.py
+.. plot:: examples/plots/plot_windows.py
    
    There are four 2D windowing functions that you can use.
     
@@ -157,7 +157,7 @@ Also, in DDM experiments there is usually a cutoff wavenumber above which there 
 
 Here, the resulting fft object is of the same video data type. We have used two arguments `kimax` and `kjmax` for cropping. The result of this cropping is a video of FFTs, where the shape of each frame (in our case it is a single frame of the multi-frame data type) is :math:`(2*k_{imax}+1, k_{jmax} +1)`. As in the uncropped rfft2, the zero wave vector is found at[0,0], element [31,31] are for the largest wave vector k = (31,31), element [-1,0] == [62,0] of the cropped fft is the Fourier coefficient of k = (-1,0).  The original rfft2 frame shape in our case is (512,257), and therefore the max possible k value for our dataset is :math:`k_{max} = (\pm 257,257)`. With kimax and kjmax we have reduced the computation size for the correlation function calculation from (512*257) to (63*32) different k vectors, which significantly improves the speed and lowers the memory requirements.
 
-.. plot:: examples/plot_kmap.py
+.. plot:: examples/plots/plot_kmap.py
 
    We take only a small subset of the original k-values.
 
@@ -316,7 +316,7 @@ Here, `t` is the log-spaced time delay array, `log_data` is the log-spaced corre
    >>> text = plt.ylabel("G/Var")
    >>> plt.show()
 
-.. plot:: examples/plot_auto_correlate_data.py
+.. plot:: examples/plots/plot_auto_correlate_data.py
 
    Log-spaced data example. In the first axis, you can access negative coefficients. 
 
@@ -430,7 +430,7 @@ Here, `lin_data` and `multi_level` are normalized correlation data (numpy arrays
 
 Here, `x` is the log-spaced time delay array, `y` is the merged correlation data. 
 
-.. plot:: examples/plot_auto_correlate_raw.py
+.. plot:: examples/plots/plot_auto_correlate_raw.py
 
    All levels of the multilevel data and the merged data (black).
 
@@ -447,7 +447,7 @@ We can compare the log merged results with the log averaged results:
    >>> plt.show()
 
 
-.. plot:: examples/plot_auto_correlate_multi_data.py
+.. plot:: examples/plots/plot_auto_correlate_multi_data.py
 
    Data obtained using multiple tau algorithm is comparable to the log averaged linear data. Slight discrepancy comes from the difference between the averaging performed with the :func:`.multitau.log_average` and the effective averaging of the multiple tau algorithm. 
 
@@ -494,8 +494,8 @@ Now, set up random time sequence and video of the simulated cross-DDM experiment
 
 Here the parameter `n` defines the random triggering scheme as explained in the paper_. The effective period of the trigger is in our case :math:`period = 2 * n`. We will apply some dust particles to each frame in order to simulate different static background on the two cameras. If your working directory is in the `examples` folder you can load dust images::
 
-   >>> dust1 = plt.imread('dust1.png')[...,0] #float normalized to (0,1)
-   >>> dust2 = plt.imread('dust2.png')[...,0]
+   >>> dust1 = plt.imread('data/dust1.png')[...,0] #float normalized to (0,1)
+   >>> dust2 = plt.imread('data/dust2.png')[...,0]
    >>> dust = ((dust1,dust2),)*nframes
    >>> video = multiply(video, dust)
 
@@ -590,7 +590,7 @@ Here, `lin_data` and `multi_level` are normalized correlation data (numpy arrays
 
 Here, `x` is the log-spaced time delay array, `y` is the merged correlation data. Raw data and the merged results is shown below. 
 
-.. plot:: examples/plot_cross_correlate_raw.py
+.. plot:: examples/plots/plot_cross_correlate_raw.py
 
    All levels of the multilevel data and the merged data (black).
 
@@ -705,7 +705,7 @@ There are four weighted normalization modes, that are supported only for methods
    >>> legend = plt.legend()
    >>> plt.show()
 
-.. plot:: examples/plot_cross_correlate_multi_norm.py
+.. plot:: examples/plots/plot_cross_correlate_multi_norm.py
 
    Normalization mode 3 works best for small time delays, mode 2 works best for large delays and is more noisy at smaller delays. Mode 6 and 7 are weighted sums of mode 2 and 3 and have a lower noise in general.
 
@@ -804,12 +804,12 @@ Here, `diff` is the computed difference data. When you perform the normalization
    >>> legend = plt.legend()
    >>> plt.show()
 
-.. plot:: examples/method_and_mode.py
+.. plot:: examples/plots/plot_method_and_mode.py
 
    Auto-correlation performed with different calculation methods and normalized with different modes are all equivalent representations.
 
-Binning and error
------------------
+Binning & Error
+---------------
 
 Here we will briefly cover the binning modes and the error of the obtained correlation functions with different binning options. In multiple-tau algorithm the binning option defines how the data in each of the levels is calculated. With `binning=1` (:attr:`.multitau.BINNING_MEAN`) average two measurements when pushing to the next level of the correlator. With `binning=0` (:attr:`.multitau.BINNING_FIRST`) use only the first value when pushing to the next level. With `binning=2` (:attr:`.multitau.BINNING_CHOOSE`) randomly select value when pushing to the next level of the correlator. Default value is `binning=1` (:attr:`.multitau.BINNING_MEAN`), except if `method='diff'`, where `binning=0` (:attr:`.multitau.BINNING_FIRST`) is default, as here the averaging is not supported. 
 
@@ -869,7 +869,7 @@ Sometimes, you may not want to compute the correlation function for the rectangu
    >>> plot_indexmap(m) 
    >>> plt.show()
 
-.. plot:: examples/mask_array.py
+.. plot:: examples/masked/mask_array.py
 
    Example FFT mask array.
 
@@ -899,7 +899,7 @@ Now you can calculate the masked fft data.
    >>> data, bg, var = iccorr_multi(fft_masked, t1, t2, period = 32, 
    ...   level_size = 16, viewer = viewer)
 
-.. plot:: examples/cross_correlate_multi_masked.py
+.. plot:: examples/masked/cross_correlate_multi_masked.py
 
    Because we have computed data over a sector of width 90 degrees, we average only over the computed data values (marked with yellow dots in graph right).
 

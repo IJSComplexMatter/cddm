@@ -721,9 +721,9 @@ Module Contents
    Computes weighting function for baseline weighted normalization
 
 
-.. function:: comp_weight(x, y, avg)
+.. function:: comp_weight(avg, scale_factor=1.0, mode='corr')
 
-   Computes weighting function for compensating weighted normalization
+   Computes weighting function for baseline weighted normalization
 
 
 .. function:: weighted_sum(x, y, weight)

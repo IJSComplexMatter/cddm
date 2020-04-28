@@ -28,7 +28,7 @@ Module Contents
    Seed for numba and numpy random generator
 
 
-.. function:: brownian_walk(x0, count=1024, shape=(256, 256), delta=1, dt=1, velocity=0.0)
+.. function:: brownian_walk(x0, count=1024, shape=(256, 256), delta=1, dt=1, velocity=(0.0, 0.0))
 
    Returns an brownian walk iterator.
 
@@ -42,11 +42,11 @@ Module Contents
    :type shape: (int,int)
    :param delta: Defines an average step in pixel coordinates (when dt = 1).
    :type delta: float
-   :param dt: Simulation time step.
-   :type dt: float
+   :param dt: Simulation time step (1 by default).
+   :type dt: float, optional
    :param velocity: Defines an average velocity (vi,vj) in pixel coordinates per unit time step
                     (when dt = 1).
-   :type velocity: (float,float)
+   :type velocity: (float,float), optional
 
    :Yields: **coordinates** (*ndarray*) -- Coordinates 2D array for the particles. The second axis is the x,y coordinate.
 

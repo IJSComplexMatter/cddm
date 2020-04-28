@@ -2,6 +2,7 @@
 
 import numpy as np
 import cddm.conf
+from examples.conf import DATA_PATH, DUST1_PATH, DUST2_PATH
 
 #: set verbose level
 cddm.conf.set_verbose(2)
@@ -12,22 +13,26 @@ cddm.conf.set_verbose(2)
 #: width and height of the frame
 SIZE = 512
 #: how many frames to simulate
-NFRAMES = 1024
+NFRAMES = 1024*16
 #: max k in the first axis
-KIMAX = 31
+KIMAX = 41
 #: max k in the second axis
-KJMAX = 31
+KJMAX = 41
 #: n parameter of the random triggering 
 N_PARAMETER = 16
 #: the delta parameter for the simulator
-DELTA1 = 1
-DELTA2 = 4
+DELTA1 = 1.
+DELTA2 = 4.
 #: image static background value
 BACKGROUND = 200
 #: peak intensity of the particles
-INTENSITY = 5
+INTENSITY1 = 5
+INTENSITY2 = 5
 #: sigma of the gaussian of the particles
-SIGMA = 3
+SIGMA1 = 5
+SIGMA2 = 3
+#: mean velocity of particles
+VELOCITY = (0.0,0.0)
 
 MARGIN = 0
 

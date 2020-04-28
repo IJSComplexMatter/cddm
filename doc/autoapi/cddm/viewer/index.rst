@@ -36,6 +36,7 @@ Module Contents
 
    .. rubric:: Examples
 
+   >>> from cddm.viewer import VideoViewer
    >>> video = (np.random.randn(256,256) for i in range(256))
    >>> vg = VideoViewer(video, 256, title = "iterator example") #must set nframes, because video has no __len__
 

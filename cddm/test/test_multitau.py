@@ -5,7 +5,6 @@ from cddm.core import stats
 from cddm.conf import FDTYPE, CDTYPE
 from cddm.video import fromarrays
 
-
 class TestMulti(unittest.TestCase):
     
     def setUp(self):
@@ -43,6 +42,37 @@ class TestMulti(unittest.TestCase):
         
         data,bg,var = multitau.iacorr_multi(fromarrays((self.test_data1,)),count = 64, level_size = 16,  norm = norm)
         data = multitau.normalize_multi(data,bg,var, norm = norm)
+        x_, out = multitau.log_merge(*data)
+        self.assertTrue(np.allclose(out0,out))
+        
+    def test_equivalence_diff_1(self):
+        norm = 1
+        bg, var = stats(self.test_data1)
+        data= multitau.acorr_multi(self.test_data1, level_size = 16, norm = norm, method = "corr", binning = 0)
+        data = multitau.normalize_multi(data,bg,var, norm = norm)
+        x_, out0 = multitau.log_merge(*data)
+        data = multitau.ccorr_multi(self.test_data1,self.test_data1, level_size = 16, norm = norm, method = "diff", binning = 0)
+        data = multitau.normalize_multi(data,bg,var, norm = norm)
+        x_, out = multitau.log_merge(*data)
+        self.assertTrue(np.allclose(out0,out))
+        
+        data,bg,var = multitau.iacorr_multi(fromarrays((self.test_data1,)),count = 64, level_size = 16,  norm = norm, method = "diff", binning = 0)
+        data = multitau.normalize_multi(data,bg,var, norm = norm)
+        x_, out = multitau.log_merge(*data)
+        self.assertTrue(np.allclose(out0,out))
+        
+    def test_equivalence_diff_3(self):
+        norm = 3
+        bg, var = stats(self.test_data1)
+        data= multitau.acorr_multi(self.test_data1, level_size = 16, norm = 1, method = "corr", binning = 0)
+        data = multitau.normalize_multi(data,bg,var, norm = 1)
+        x_, out0 = multitau.log_merge(*data)
+        data = multitau.ccorr_multi(self.test_data1,self.test_data1, level_size = 16, norm = norm, method = "diff", binning = 0)
+        data = multitau.normalize_multi(data,bg,var, norm = norm)
+        x_, out = multitau.log_merge(*data)
+        self.assertTrue(np.allclose(out0,out))
+        data,bg,var = multitau.iacorr_multi(fromarrays((self.test_data1,)),count = 64, level_size = 16,  norm = 1, method = "diff", binning = 0)
+        data = multitau.normalize_multi(data,bg,var, norm = 1)
         x_, out = multitau.log_merge(*data)
         self.assertTrue(np.allclose(out0,out))
 
