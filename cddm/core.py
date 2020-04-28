@@ -1011,7 +1011,7 @@ def _default_norm(norm, method, cross = True):
     if method == "diff":
         supported = (1,3) if cross else (1,)
     else:
-        supported = (0,1,2,3,6,7,4,5)
+        supported = (0,1,2,3,4,5,7,6) #so that 6 is default
     if norm is None:
         norm = supported[-1]
     if norm not in supported:
@@ -1657,9 +1657,9 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     #determine default normalization if not specified by user
     norm = _default_norm_from_data(data, method, norm)
 
-    if len(data[1].shape) > 1 and norm & NORM_WEIGHTED:
-        #if multilevel data, subtracted or baseline is best, so force it here.
-        norm = norm & NORM_SUBTRACTED
+#    if len(data[1].shape) > 1 and norm & NORM_WEIGHTED:
+#        #if multilevel data, subtracted or baseline is best, so force it here.
+#        norm = norm & NORM_SUBTRACTED
 
     # scale factor for normalization 
     if scale == True:
@@ -1692,14 +1692,21 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         comp_data_avg[...,0] =  _scale_factor if mode == "corr" else 0.
         median(comp_data_avg,comp_data_avg)
         comp_data_avg[...,0] =  _scale_factor if mode == "corr" else 0.
-        
+                
         weight = base_weight(comp_data_avg, scale_factor = _scale_factor, mode = mode)
-        
+
         if norm & NORM_COMPENSATED:
             #avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
             weight = comp_weight(comp_data_avg, scale_factor = _scale_factor, mode = mode)
 
             #weight = comp_weight(base_data, comp_data , avg_data)  
+
+        if len(data[1].shape) > 1:
+            #multilevel data... make sure each weight is a decreasing function
+            for i,w in enumerate(weight):
+                if i > 0:
+                    weight[i,...,0] = weight[i-1,...,-1]
+                increasing(w,out = w)
 
         return weighted_sum(base_data,comp_data, weight)
         
@@ -1763,6 +1770,8 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     if scale == True:
         result /= _scale_factor
     return result
+
+    
 
 def average(x, size = 1):
     """Performs averaging of normalized linear-spaced data with delay-dependent
