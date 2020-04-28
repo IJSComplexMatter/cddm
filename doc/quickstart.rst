@@ -11,7 +11,7 @@ This is a step-by-step guide that aims to demonstrate two of the most typical us
 For this guide you do not need the actual data because we will construct a sample
 video. We will be simulating a set of spherical particles undergoing 2D Brownian. Simulation is performed on-the-fly with the Brownian motion simulator that is included with this package. In real world experiments you will have to stream the videos either directly from the cameras with the library of your choice, or read data files from the disk. **This package does not provide the tools for reading the data**, so it is up to the user to provide the link between the image readout and the correlation computation functions. You can use imageio_ or any other tool for loading recorded videos.
 
-To proceed, you can copy-paste the examples below in your python shell. Or, open the source files under each of the plots in this document and run those in your favorite python development environment.
+To proceed, you can copy-paste the examples below in your python shell. Or, if you have the package source downloaded and *examples/* folder in your `sys.path`, open the source files under each of the plots in this document and run them in your favorite python development environment.
 
 Video processing
 ----------------
@@ -869,7 +869,7 @@ Sometimes, you may not want to compute the correlation function for the rectangu
    >>> plot_indexmap(m) 
    >>> plt.show()
 
-.. plot:: examples/masked/mask_array.py
+.. plot:: examples/mask_array.py
 
    Example FFT mask array.
 
@@ -899,7 +899,7 @@ Now you can calculate the masked fft data.
    >>> data, bg, var = iccorr_multi(fft_masked, t1, t2, period = 32, 
    ...   level_size = 16, viewer = viewer)
 
-.. plot:: examples/masked/cross_correlate_multi_masked.py
+.. plot:: examples/cross_correlate_multi_masked.py
 
    Because we have computed data over a sector of width 90 degrees, we average only over the computed data values (marked with yellow dots in graph right).
 
