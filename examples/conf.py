@@ -52,4 +52,4 @@ import os.path as p
 PATH = p.split(p.abspath(__file__))[0]
 DATA_PATH = p.join(PATH, "data")
 DUST1_PATH = p.join(DATA_PATH, "dust1.png")
-DUST2_PATH = p.join(DATA_PATH, "dust1.png")
+DUST2_PATH = p.join(DATA_PATH, "dust2.png")

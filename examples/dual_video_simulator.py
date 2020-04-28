@@ -2,7 +2,7 @@
 Bulds sample dual-camera video and demonstrates how to use VideoViewer to inspect 
 dual camera video from a frame iterator or list of data.
 """
-from cddm.sim import simple_brownian_video, create_random_times1
+from cddm.sim import simple_brownian_video, create_random_times1, seed
 from cddm.viewer import VideoViewer 
 from cddm.video import multiply, load, crop
 import matplotlib.pyplot as plt
@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 # uppercase values
 from examples.conf import NFRAMES, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, \
     INTENSITY, SIGMA, SHAPE,DUST1_PATH,DUST2_PATH
+
+#: set seed for randum number generator, so that each run is the same
+seed(0)
 
 #random time according to Eq.7 from the SoftMatter paper
 t1, t2 = create_random_times1(NFRAMES,n = N_PARAMETER)
