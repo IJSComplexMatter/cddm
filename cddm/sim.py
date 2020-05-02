@@ -19,6 +19,43 @@ from cddm.conf import FDTYPE
 
 from cddm._sim_nb import mirror, numba_seed, make_step, draw_points, draw_psf
 
+def _inspect_frame_dtype(dtype):
+    dtype = np.dtype(dtype)
+    if dtype not in ("uint8", "uint16"):
+        raise ValueError("Unsupported dtype")
+    return dtype
+
+def form_factor(shape = (512,512), sigma = 3, intensity = 5, navg = 100, dtype = "uint8"):
+    """Computes point spread function form factor.
+    
+    Draws a PSF randomly in the frame and computes FFT, returns average absolute
+    of the FFT
+    
+    Parameters
+    ----------
+    shape : (int,int)
+        Frame  shape
+    sigma : float
+        Sigma of the PSF
+    intensity : uint8
+        Intensity value
+    navg : int
+        Specifies how many FFTs are averaged.
+        
+    Returns
+    -------
+    out : ndarray
+        Average absolute value of the FFT of the PSF.
+    """
+    out = 0.
+    dtype = _inspect_frame_dtype(dtype)
+    for i in range(navg):
+        im = np.zeros(shape, dtype)
+        coord = np.random.rand(1,2) if navg > 1 else np.array([[0,0]],FDTYPE)
+        im = draw_psf(im, coord,np.array([intensity], dtype),np.array([sigma], FDTYPE))
+        out += np.abs(np.fft.rfft2(im))
+    return out/navg
+
 def seed(value):
     """Seed for numba and numpy random generator"""
     np.random.seed(value)
@@ -116,7 +153,7 @@ def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1
         yield data
              
 def particles_video(particles, t1, shape = (256,256), t2 = None, 
-                 background = 0, intensity = 10, sigma = None, noise = 0.):
+                 background = 0, intensity = 10, sigma = None, noise = 0., dtype = "uint8"):
     """Creates brownian particles video
     
     Parameters
@@ -137,14 +174,17 @@ def particles_video(particles, t1, shape = (256,256), t2 = None,
         Sigma of the gaussian spread function for the particle
     noise : float, optional
         Intensity of the random noise
+    dtype : dtype
+        Numpy dtype of frames, either uint8 or uint16
         
     Yields
     ------
     frames : tuple of ndarrays
         A single-frame or dual-frame images (ndarrays).
     """
+    dtype = _inspect_frame_dtype(dtype)
         
-    background = np.zeros(shape = shape,dtype = "uint8") + background
+    background = np.zeros(shape = shape,dtype = dtype) + background
     height, width = shape
     
         
@@ -157,18 +197,18 @@ def particles_video(particles, t1, shape = (256,256), t2 = None,
     def get_frame(data, noise):
         im = background.copy()
         if noise > 0.:
-            n = np.uint8(np.random.poisson(noise, shape))
+            n = np.asarray(np.random.poisson(noise, shape),dtype = dtype)
             im = np.add(im, n, im)
 
         if sigma is None:
-            _int = np.asarray(intensity, "uint8")
+            _int = np.asarray(intensity, dtype)
             if _int.ndim == 0:
-                _int = np.asarray([intensity] * len(data), "uint8")
+                _int = np.asarray([intensity] * len(data), dtype)
             im = draw_points(im, data, _int)
         else:
-            _int = np.asarray(intensity, "uint8")
+            _int = np.asarray(intensity, dtype)
             if _int.ndim == 0:
-                _int = np.asarray([intensity] * len(data), "uint8")
+                _int = np.asarray([intensity] * len(data),dtype)
             _sigma = np.asarray(sigma,FDTYPE)
             if _sigma.ndim == 0:
                 _sigma = np.asarray([sigma] * len(data),FDTYPE)
@@ -270,7 +310,7 @@ def create_random_times2(nframes,n = 20):
     t2[mask] = t1[mask]
     return t1, t2 
 
-def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, intensity = 5, sigma = 3, noise = 0, **kw):
+def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, intensity = 5, sigma = 3, noise = 0, dtype = "uint8", **kw):
     """DDM or c-DDM video generator.
 
     
@@ -290,6 +330,8 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
         Sigma of the gaussian spread function for the particle
     noise : float, optional
         Intensity of the random noise
+    dtype : dtype
+        Numpy dtype of frames, either uint8 or uint16
     kw : extra arguments
         Extra keyward arguments that are passed to :func:`brownian_particles`
         
@@ -308,7 +350,7 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
     kw["count"] = count 
     kw["shape"] = shape
     p = brownian_particles(**kw) 
-    return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, noise = noise) 
+    return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, noise = noise, dtype = dtype) 
 
 #
 #if __name__ == "__main__":

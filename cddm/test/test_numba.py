@@ -11,10 +11,10 @@ class TestNumba(unittest.TestCase):
         pass
 
     def test_median(self):
-        out = median([2.,1.,0.])
-        self.assertTrue(np.allclose([1.,1.,1.], out))
+        out = median([2.,3.,0.])
+        self.assertTrue(np.allclose([2.,2.,0.], out))
         out = median([2.,3.,0.,4.,5])
-        self.assertTrue(np.allclose([2.,2.,3.,4.,4.], out))
+        self.assertTrue(np.allclose([2.,2.,3.,4.,5.], out))
         a = np.random.rand(100,2,4)
         b = a.copy()
         self.assertTrue(np.allclose(median(b,b), _median_slow(a)))

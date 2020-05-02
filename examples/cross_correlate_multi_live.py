@@ -50,17 +50,13 @@ if __name__ == "__main__":
     
     #: now perform auto correlation calculation with default parameters and show live
     data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer)
-    
-    #perform normalization and merge data
-    fast, slow = normalize_multi(data, bg, var,  scale = True)
-    x,y = log_merge(fast, slow)
-    
+
     #: save the normalized data to numpy files
     for norm in (0,1,2,3,4,5,6,7):
         fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
-        if norm == 3:
-            np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_fast.npy".format(norm)),fast)
-            np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_slow.npy".format(norm)),slow)
+        if norm in (2,3):
+            np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_fast_norm_{}.npy".format(norm)),fast)
+            np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_slow_norm_{}.npy".format(norm)),slow)
         x,y = log_merge(fast, slow)
         
         np.save(p.join(DATA_PATH,"cross_correlate_multi_norm_{}_data.npy".format(norm)),y)

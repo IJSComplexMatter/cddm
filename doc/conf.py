@@ -34,7 +34,8 @@ release = '0.1.0'
 
 extensions = ['sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
-	"sphinx.ext.doctest",    
+	"sphinx.ext.doctest",
+        'sphinx.ext.inheritance_diagram',    
 	'autoapi.extension',
 	'matplotlib.sphinxext.plot_directive'
     ]

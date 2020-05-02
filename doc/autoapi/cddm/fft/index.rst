@@ -14,6 +14,22 @@
 Module Contents
 ---------------
 
+.. function:: fft2_crop(x, kimax=None, kjmax=None)
+
+   Crops fft2 data.
+
+   :param x: FFT2 data (as returned by np.rfft2 or np.fft2 for instance). FFT2 must be over the
+             last two axes.
+   :type x: ndarray
+   :param kimax: Max k value over the first (-2) axis of the FFT.
+   :type kimax: int, optional
+   :param kjmax: Max k value over the second (-1) axis of the FFT.
+   :type kjmax: int, optional
+
+   :returns: **out** -- Cropped fft array.
+   :rtype: ndarray
+
+
 .. function:: rfft2(video, kimax=None, kjmax=None, overwrite_x=False)
 
    A generator that performs rfft2 on a sequence of multi-frame data.

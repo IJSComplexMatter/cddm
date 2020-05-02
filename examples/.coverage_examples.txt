@@ -16,3 +16,4 @@ cross_correlate_multi_subtracted.py
 plots/plot_method_and_mode.py
 mask_array.py
 cross_correlate_multi_masked.py
+plots/plot_cross_correlate_weighted.py

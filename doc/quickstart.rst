@@ -682,16 +682,22 @@ When calculation of the correlation function is performed with NORM_WEIGHTED nor
 * **subtracted** : `norm = NORM_SUBTRACTED` (`norm = 2`), supported methods: `'corr'` and `'fft'`. Here we compensate for baseline error and for the linear error introduced by the not-known-in-advance background data. This requires one to track the delay-dependent sum of the data, which further slows down the computation
 * **subtracted and compensated** : `norm = NORM_COMPENSATED | NORM_SUBTRACTED` (`norm = 3`), which does both the *subtracted* and *compensated* normalizations. `'diff'` method supported only in cross-analysis and not in auto-analysis.
 
-There are four weighted normalization modes, that are supported only for methods: `'corr'` and `'fft'`. These are:
+NORM_COMPENSATED data is better for low lag times, while NORM_BASELINE has less noise and a more stable baseline at larger lag times. To improve the correlation data you can do a weighted sum of both data as shown in the example below:
+
+.. plot:: examples/plots/plot_cross_correlate_weighted.py
+
+    Demonstrates how to perform weighted sum of norm = 2 and norm = 3 data. First, norm 3 data is taken as a first estimator, data is denoised and weights are calculated and a weighted sum of norm 3 and norm 2 data is performed.
+
+The above example shows how the weighted normalization is performed internally when called with appropriate flags in the :func:`normalize` and :func:`normalize_multi` functions. There are four weighted normalization modes, that are supported only for methods: `'corr'` and `'fft'`. These are:
 
 * **baseline weighted** : `norm = NORM_WEIGHTED` (`norm = 4`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is to promote large delay data from *baseline* data and short delay from *compensated* data.
-* **compensating weighted** : `norm = NORM_COMPENSATED | NORM_WEIGHTED` (`norm = 5`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is based on statistical estimators. This is an experimental implementation. The computational method to obtain the statistical estimator might change in future versions.
+* **compensating weighted** : `norm = NORM_COMPENSATED | NORM_WEIGHTED` (`norm = 5`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is based on statistical estimators. This is an experimental implementation. The computational method to obtain the statistical estimator might change in future versions. Currently, this works well for binning = 0 or binning = 2, and not for binning = 1.
 * **subtracted and baseline weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
-* **subtracted and compensating weighted** : `norm = NORM_SUBTRACTED | NORM_COMPENSATED | NORM_WEIGHTED` (`norm = 7`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is based on statistical estimators. This is an experimental implementation. The computational method to obtain the statistical estimator might change in future versions.
+* **subtracted and compensating weighted** : `norm = NORM_SUBTRACTED | NORM_COMPENSATED | NORM_WEIGHTED` (`norm = 7`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is based on statistical estimators. This is an experimental implementation. The computational method to obtain the statistical estimator might change in future versions. Currently, this works well for binning = 0 or binning = 2, and not for binning = 1.
 
 .. note ::
 
-   norm 7 and norm 5 are considered experimental. The computational method to obtain the statistical estimator for weighting functions might change in future versions.
+   norm 7 and norm 5 are considered experimental. The computational method to obtain the statistical estimator for weighting functions might change in future versions. Currently, this norm modes work well for binning = 0 or binning = 2, and not for binning = 1.
 
 .. doctest:: 
    
@@ -811,11 +817,11 @@ Here, `diff` is the computed difference data. When you perform the normalization
 Binning & Error
 ---------------
 
-Here we will briefly cover the binning modes and the error of the obtained correlation functions with different binning options. In multiple-tau algorithm the binning option defines how the data in each of the levels is calculated. With `binning=1` (:attr:`.multitau.BINNING_MEAN`) average two measurements when pushing to the next level of the correlator. With `binning=0` (:attr:`.multitau.BINNING_FIRST`) use only the first value when pushing to the next level. With `binning=2` (:attr:`.multitau.BINNING_CHOOSE`) randomly select value when pushing to the next level of the correlator. Default value is `binning=1` (:attr:`.multitau.BINNING_MEAN`), except if `method='diff'`, where `binning=0` (:attr:`.multitau.BINNING_FIRST`) is default, as here the averaging is not supported. 
+Here we will briefly cover the binning modes and the error of the obtained correlation functions with different binning options. In multiple-tau algorithm the binning option defines how the data in each of the levels is calculated. With `binning=1` (:data:`.multitau.BINNING_MEAN`) average two measurements when adding to the next level of the correlator. With `binning=0` (:data:`.multitau.BINNING_FIRST`) use only the first value when adding to the next level. With `binning=2` (:data:`.multitau.BINNING_CHOOSE`) randomly select value when adding to the next level of the correlator. Default value is `binning=1` (:data:`.multitau.BINNING_MEAN`), except if `method='diff'`, where `binning=0` (:data:`.multitau.BINNING_FIRST`) is default, as here the averaging is not supported. 
 
-With `binning=1` the statistical noise is significantly lower than with the other two binning options, at the cost of some slight systematic error introduced by the averaging. The size of this error is small if `level_size` is large enough. `binning=2` (:attr:`.multitau.BINNING_CHOOSE`) is considered experimental. The random selection is expected to remove oscillations in correlation function because of signal beating in some experiments (particle flow with oscillating correlations). Note that you should generally use `binning=1` (:attr:`.multitau.BINNING_MEAN`), except in case you use `method='diff'`, which does not support averaging. 
+With `binning=1` the statistical noise is significantly lower than with the other two binning options, at the cost of some slight systematic error introduced by the averaging. The size of this error is small if `level_size` is large enough. `binning=2` (:data:`.multitau.BINNING_CHOOSE`) is considered experimental. The random selection is expected to remove oscillations in correlation function because of signal beating in some experiments (particle flow with oscillating correlations). Note that you should generally use `binning=1` (:data:`.multitau.BINNING_MEAN`), except in case you use `method='diff'`, which does not support averaging. 
 
-Using `binning=0` completely removes the systematic error at large delay times at the cost of increasing the statistical error. 
+Using `binning=0` completely removes the systematic error at large delay times at the cost of increasing the statistical error. This is demonstrated in the examples below.
 
 .. _`live_video`:
 

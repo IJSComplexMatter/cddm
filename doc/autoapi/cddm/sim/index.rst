@@ -23,6 +23,26 @@
 Module Contents
 ---------------
 
+.. function:: form_factor(shape=(512, 512), sigma=3, intensity=5, navg=100, dtype='uint8')
+
+   Computes point spread function form factor.
+
+   Draws a PSF randomly in the frame and computes FFT, returns average absolute
+   of the FFT
+
+   :param shape: Frame  shape
+   :type shape: (int,int)
+   :param sigma: Sigma of the PSF
+   :type sigma: float
+   :param intensity: Intensity value
+   :type intensity: uint8
+   :param navg: Specifies how many FFTs are averaged.
+   :type navg: int
+
+   :returns: **out** -- Average absolute value of the FFT of the PSF.
+   :rtype: ndarray
+
+
 .. function:: seed(value)
 
    Seed for numba and numpy random generator
@@ -77,7 +97,7 @@ Module Contents
             Length of the array equals number of particles.
 
 
-.. function:: particles_video(particles, t1, shape=(256, 256), t2=None, background=0, intensity=10, sigma=None, noise=0.0)
+.. function:: particles_video(particles, t1, shape=(256, 256), t2=None, background=0, intensity=10, sigma=None, noise=0.0, dtype='uint8')
 
    Creates brownian particles video
 
@@ -97,6 +117,8 @@ Module Contents
    :type sigma: float
    :param noise: Intensity of the random noise
    :type noise: float, optional
+   :param dtype: Numpy dtype of frames, either uint8 or uint16
+   :type dtype: dtype
 
    :Yields: **frames** (*tuple of ndarrays*) -- A single-frame or dual-frame images (ndarrays).
 
@@ -129,7 +151,7 @@ Module Contents
    Create trigger times for c-ddm experiments based on Eq.8 from the paper
 
 
-.. function:: simple_brownian_video(t1, t2=None, shape=(256, 256), background=0, intensity=5, sigma=3, noise=0, **kw)
+.. function:: simple_brownian_video(t1, t2=None, shape=(256, 256), background=0, intensity=5, sigma=3, noise=0, dtype='uint8', **kw)
 
    DDM or c-DDM video generator.
 
@@ -148,6 +170,8 @@ Module Contents
    :type sigma: float
    :param noise: Intensity of the random noise
    :type noise: float, optional
+   :param dtype: Numpy dtype of frames, either uint8 or uint16
+   :type dtype: dtype
    :param kw: Extra keyward arguments that are passed to :func:`brownian_particles`
    :type kw: extra arguments
 

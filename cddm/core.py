@@ -42,7 +42,8 @@ from cddm.print_tools import print1,print2, print_frame_rate, enable_prints, dis
 import time
 from functools import reduce 
 from cddm.fft import _fft
-from cddm._core_nb import _log_interpolate,  decreasing, increasing, median,\
+from cddm.avg import weight_from_data, weighted_sum
+from cddm._core_nb import \
    _cross_corr_fft_regular, _cross_corr_fft, \
     _auto_corr_fft_regular,_auto_corr_fft,\
   _cross_corr_regular, _cross_corr, _cross_corr_vec, \
@@ -1535,10 +1536,10 @@ def _variance2offset(variance, mask):
     return scale_factor(variance, mask)[..., None]
     
 def scale_factor(variance, mask = None):
-    """Computes scaling factor for normalization from variance data.
+    """Computes the normalization scaling factor from the variance data.
     
-    You can divide the computed correlation data with this factor, to normalize
-    data between (0,1) for correlation mode or (0,2) for difference mode.
+    You can divide the computed correlation data with this factor to normalize
+    data between (0,1) for correlation mode, or (0,2) for difference mode.
     
     Parameters
     ----------
@@ -1684,7 +1685,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
 
     # scale factor for normalization 
     if scale == True:
-        _scale_factor = _variance2offset(variance,mask)
+        _scale_factor = scale_factor(variance,mask)
     
     print2("   * background : {}".format(background is not None))
     print2("   * variance   : {}".format(variance is not None))
@@ -1701,12 +1702,27 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         norm_base = norm & NORM_SUBTRACTED
         base_data = normalize(data, background, variance, norm = norm_base,  mode = mode, 
               scale = scale, mask = mask)
-        enable_prints(level)
+        
+        _multilevel = True if len(data[1].shape) > 1 else False
+        
+        x_avg,y_avg = _data_estimator(comp_data, size = 8, n = 3, multilevel = _multilevel)
         
         _scale_factor = 1. if scale == True else scale_factor(variance,mask)
-        _multitau = True if len(data[1].shape) > 1 else False
-        weight = weight_from_data(comp_data, base_data, scale_factor = _scale_factor, mode = mode, norm = norm, multitau = _multitau)
+        
+        if _multilevel:
+            shape = np.array(comp_data.shape)
+            shape[1:-1] = 1
+            _x_interp = np.arange(comp_data.shape[-1])
+            x_interp = np.empty(shape = shape, dtype = int)
+            for x_level in x_interp:
+                x_level[...] = _x_interp
+                _x_interp *= 2
+        else:
+            x_interp = np.arange(data[1].shape[-1])
+        
+        weight = weight_from_data(x_interp, x_avg, y_avg, scale_factor = _scale_factor, mode = mode, norm = norm)
 
+        enable_prints(level) 
         return weighted_sum(base_data,comp_data, weight)
         
     count = data[1]
@@ -1767,113 +1783,82 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
             if mode == "corr":
                 result = _diff2corr(result, variance, mask)
     if scale == True:
-        result /= _scale_factor
+        result /= _scale_factor[...,None]
     return result
 
-def weight_from_data(comp_data, base_data, scale_factor = 1., mode = "corr", norm = NORM_BASELINE, multitau = False):
-    comp_data_avg = average(comp_data, size = 2)
-    base_data_avg = average(base_data, size = 2)
+#def weight_from_data(base_data, comp_data,  scale_factor = 1., mode = "corr", norm = NORM_BASELINE, multitau = False):
+#    comp_data_avg = average(comp_data)
+#    base_data_avg = average(base_data)
+#
+#    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
+#    median(comp_data_avg,comp_data_avg)
+#    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
+#    median(comp_data_avg,comp_data_avg)
+#    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
+#            
+#    weight = base_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
+#    
+#    #mask =  weight > 0.5
+#    #comp_data_avg[mask] =  base_data_avg[mask]
+#    #median(comp_data_avg,comp_data_avg)
+#    
+#    #weight = base_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
+#
+#    if norm & NORM_COMPENSATED:
+#        #avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
+#        weight = comp_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
+#        #weight = comp_weight2(base_data, comp_data , comp_data_avg)  
+#
+#    if multitau == True:
+#        n = weight.shape[-1]
+#        # make sure weights are increasing.
+#        for i,w in enumerate(weight):
+#            if i > 0:
+#                #make first weight equal last weight from previous level
+#                weight[i,...,n//2] = weight[i-1,...,-1]
+#                #this way it can only increase when going through level.
+#            increasing(w,out = w)   
+#    return weight
 
-    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
-    median(comp_data_avg,comp_data_avg)
-    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
-    median(comp_data_avg,comp_data_avg)
-    comp_data_avg[...,0] =  scale_factor if mode == "corr" else 0.
-            
-    weight = base_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
-    
-    mask =  weight > 0.5
-    comp_data_avg[mask] =  base_data_avg[mask]
-    
-    weight = base_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
 
-    if norm & NORM_COMPENSATED:
-        #avg_data = weighted_sum(base_data_avg, comp_data_avg, weight)
-        weight = comp_weight(comp_data_avg, scale_factor = scale_factor, mode = mode)
-        #weight = comp_weight(base_data, comp_data , avg_data)  
-
-    if multitau == True:
-        # make sure weights are increasing.
-        for i,w in enumerate(weight):
-            if i > 0:
-                #make first weight equal last weight from previous level
-                weight[i,...,0] = weight[i-1,...,-1]
-                #this way it can only increase when going through level.
-            increasing(w,out = w)   
-    return weight
-    
-
-def average(x, size = 1):
-    """Performs averaging of normalized linear-spaced data with delay-dependent
-    kernel. 
-    
-    You must first normalize with :func:`.core.normalize` before averaging!
-    
-    Parameters
-    ----------
-    data : array
-        Input array of linear-spaced data
-    size : int
-        Sampling size. Number of data points per each doubling of time.
-        Any positive number is valid.
-        
-    Returns
-    -------
-    avg : ndarray
-       Averaged data of same shape as the original data.
-    """
-        
-    from cddm.multitau import log_average
-    t,xl= log_average(x,size)
-    out = _log_interpolate(t,xl,np.empty_like(x))
-    return out
-
-def base_weight(avg, scale_factor = 1., mode = "corr"):
-    """Computes weighting function for baseline weighted normalization"""
-    scale_factor = np.asarray(scale_factor)
-    if mode == "corr":
-        d = decreasing(avg)
-        d = np.clip(d,0.,scale_factor[...,None])
-        return (1 - d/scale_factor[...,None])**2
-    elif mode == "diff":
-        d = increasing(avg)
-        d = np.clip(d,0.,scale_factor[...,None]*2)
-        return (0.5 * d/scale_factor[...,None])**2
+def _data_estimator(data, size = 8, n = 3, multilevel = False):
+    from cddm.multitau import log_average, merge_multilevel
+    from cddm.avg import denoise
+    if multilevel == False:
+        x,y = log_average(data,size)
     else:
-        raise ValueError("Wrong mode.")
+        x,y = merge_multilevel(data)
+    return x, denoise(y, n = n, out = y)
 
-def comp_weight(avg, scale_factor = 1., mode = "corr"):
-    """Computes weighting function for baseline weighted normalization"""
-    scale_factor = np.asarray(scale_factor)
-    if mode == "corr":
-        d = decreasing(avg)
-        g1 = np.clip(d,0.,scale_factor[...,None])/scale_factor[...,None]
-        var2 = (1 - g1)**2
-        var1 = 1 + g1**2
-        return var2/(var1 + var2)
-    elif mode == "diff":
-        d = increasing(avg)
-        d = np.clip(d,0.,scale_factor[...,None]*2)/scale_factor[...,None]/2.
-        var2 = (d)**2
-        var1 = 1 + (-d + 1.)**2
-        return var2/(var1 + var2)
-    else:
-        raise ValueError("Wrong mode.")
-    
-#def comp_weight(x, y, avg):
-#    """Computes weighting function for compensating weighted normalization"""
-#    var1 = (x - avg) **2
-#    var1 = average(var1, size = 1)
-#    var2 = (y - avg) **2
-#    var2 = average(var2, size = 1)
-#    return var2/(var2+var1)   
-    
-def weighted_sum(x, y, weight):
-    """Performs weighted sum of two data sets, given the weight data.
-    Weight must be normalized between 0 and 1.
-    """   
-    return x * weight + (1.- weight) * y
-    
+
+#def average(x, size = 2):
+#    """Performs averaging of normalized linear-spaced data with delay-dependent
+#    kernel. 
+#    
+#    You must first normalize with :func:`.core.normalize` before averaging!
+#    
+#    Parameters
+#    ----------
+#    data : array
+#        Input array of linear-spaced data
+#    size : int
+#        Sampling size. Number of data points per each doubling of time.
+#        Any positive number is valid.
+#        
+#    Returns
+#    -------
+#    avg : ndarray
+#       Averaged data of same shape as the original data.
+#    """
+#        
+#    from cddm.multitau import log_average
+#    x = np.asarray(x)
+#    t,xl= log_average(x,size)
+#    new_t = np.arange(x.shape[-1])
+#    out = log_interpolate(new_t,t,xl)
+#    return out
+
+
 
 #if __name__ == "__main__":
 #    import doctest

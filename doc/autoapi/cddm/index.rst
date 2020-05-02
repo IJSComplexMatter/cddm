@@ -29,6 +29,7 @@ Submodules
    :titlesonly:
    :maxdepth: 1
 
+   avg/index.rst
    conf/index.rst
    core/index.rst
    decorators/index.rst

@@ -650,6 +650,23 @@ Module Contents
              * **acorr_data** (*acorr_type*) -- If `stats` == False
 
 
+.. function:: scale_factor(variance, mask=None)
+
+   Computes the normalization scaling factor from the variance data.
+
+   You can divide the computed correlation data with this factor to normalize
+   data between (0,1) for correlation mode, or (0,2) for difference mode.
+
+   :param variance: A variance data (as returned from :func:`.stats`)
+   :type variance: (ndarray, ndarray) or ndarray
+   :param mask: A boolean mask array, if computation was performed on masked data,
+                this applys mask to the variance data.
+   :type mask: ndarray
+
+   :returns: **scale** -- A scaling factor for normalization
+   :rtype: ndarray
+
+
 .. function:: take_data(data, mask)
 
    Selects correlation(difference) data at given masked indices.
@@ -697,38 +714,5 @@ Module Contents
 
    :returns: **out** -- Normalized data.
    :rtype: ndarray
-
-
-.. function:: average(x, size=1)
-
-   Performs averaging of normalized linear-spaced data with delay-dependent
-   kernel.
-
-   You must first normalize with :func:`.core.normalize` before averaging!
-
-   :param data: Input array of linear-spaced data
-   :type data: array
-   :param size: Sampling size. Number of data points per each doubling of time.
-                Any positive number is valid.
-   :type size: int
-
-   :returns: **avg** -- Averaged data of same shape as the original data.
-   :rtype: ndarray
-
-
-.. function:: base_weight(avg, scale_factor=1.0, mode='corr')
-
-   Computes weighting function for baseline weighted normalization
-
-
-.. function:: comp_weight(avg, scale_factor=1.0, mode='corr')
-
-   Computes weighting function for baseline weighted normalization
-
-
-.. function:: weighted_sum(x, y, weight)
-
-   Performs weighted sum of two data sets, given the weight data.
-   Weight must be normalized between 0 and 1.
 
 

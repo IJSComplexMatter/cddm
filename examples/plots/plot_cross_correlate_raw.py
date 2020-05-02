@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 #: load the normalized data to numpy files
 import numpy as np
 
-lin_data = np.load(p.join(DATA_PATH,"cross_correlate_multi_raw_fast.npy"))
-multi_level = np.load(p.join(DATA_PATH,"cross_correlate_multi_raw_slow.npy"))
+lin_data = np.load(p.join(DATA_PATH,"cross_correlate_multi_raw_fast_norm_2.npy"))
+multi_level = np.load(p.join(DATA_PATH,"cross_correlate_multi_raw_slow_norm_2.npy"))
 
 (i,j) = (4,2)
 

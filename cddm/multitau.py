@@ -36,6 +36,8 @@ from cddm.print_tools import print_progress,  print_frame_rate, enable_prints, d
 from cddm.print_tools import print1, print2
 
 from cddm._core_nb import mean, choose, convolve, _calc_stats_vec
+from cddm.core import _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor
+from cddm.avg import weighted_sum,weight_from_data
 
 import time
 
@@ -1301,6 +1303,14 @@ def log_average(data, size = 8):
     ldata = multilevel(data, size*2)
     return merge_multilevel(ldata)
 
+def _period_from_data(lin, multi):
+    nfast = lin.shape[-1]
+    nslow = multi.shape[-1]
+    period = nfast // nslow
+    if nfast % nslow != 0:
+        raise ValueError("Fast and slow data are not compatible")
+    return period
+
 def log_merge(lin,multi):
     """Merges normalized multi-tau data.
     
@@ -1321,11 +1331,8 @@ def log_merge(lin,multi):
     x, y : ndarray, ndarray
         Time and log-spaced data arrays.
     """
-    nfast = lin.shape[-1]
+    period = _period_from_data(lin, multi)
     nslow = multi.shape[-1]
-    period = nfast // nslow
-    if nfast % nslow != 0:
-        raise ValueError("Fast and slow data are not compatible")
 
     ldata = multilevel(lin, nslow)
     xfast, cfast = merge_multilevel(ldata, mode = "full")
@@ -1333,8 +1340,22 @@ def log_merge(lin,multi):
     t = np.concatenate((xfast, 2 * period * xslow), axis = -1)
     cc = np.concatenate((cfast, cslow), axis = -1)
     return t, cc
-    
-def normalize_multi(*args, **kwargs):
+ 
+
+def t_multilevel(shape, period = 1):
+    """Returns broadcasteable time array of multilevel data with a given shape
+    """
+    shape = np.array(shape)
+    shape[1:-1] = 1 #these are for broadcasting only, so set to one
+    out = np.empty(shape = shape, dtype = int)
+    x = np.arange(shape[-1]) * period*2
+    for o in out:
+        o[...,:] = x
+        x *= 2
+    return out
+        
+def normalize_multi(data, background = None, variance = None, norm = None,  mode = "corr", 
+              scale = False, mask = None):
     """A multitau version of :func:`.core.normalize`.
     
     Performs normalization of data returned by :func:`ccorr_multi`,
@@ -1342,11 +1363,63 @@ def normalize_multi(*args, **kwargs):
     
     See documentation of :func:`.core.normalize`.
     """
-    out = kwargs.pop("out", None)
-    if out is None:
-        return tuple((normalize(d,*args[1:],**kwargs) for d in args[0]))
+
+    print1("Normalizing...")
+    lin, multi = data
+    
+    #determine what kind of data is there ('diff' or 'corr')
+    method = _method_from_data(lin)
+    scale = _inspect_scale(scale)
+    mode = _inspect_mode(mode)
+    #determine default normalization if not specified by user
+    norm = _default_norm_from_data(lin, method, norm)
+    
+    print2("   * background : {}".format(background is not None))
+    print2("   * variance   : {}".format(variance is not None))
+    print2("   * norm       : {}".format(norm))
+    print2("   * scale      : {}".format(scale))
+    print2("   * mode       : {}".format(mode))
+    print2("   * mask       : {}".format(mask is not None))
+    
+    level = disable_prints()
+    
+    
+    if (norm & NORM_WEIGHTED):
+    
+        norm_comp = (norm & NORM_SUBTRACTED)|NORM_COMPENSATED
+        norm_base = norm & NORM_SUBTRACTED        
+        
+        lin_comp = normalize(lin, background = background, variance = variance, norm = norm_comp, mode = mode,
+                  scale = scale, mask = mask)
+        multi_comp = normalize(multi, background = background, variance = variance, norm = norm_comp, mode = mode,
+                  scale = scale, mask = mask) 
+        
+        lin_base = normalize(lin, background = background, variance = variance, norm = norm_base, mode = mode,
+                  scale = scale, mask = mask)
+        multi_base = normalize(multi, background = background, variance = variance, norm = norm_base, mode = mode,
+                  scale = scale, mask = mask)   
+  
+        _scale_factor = 1. if scale == True else scale_factor(variance,mask)
+
+        #get data estimator
+        x, y = log_merge(lin_comp, multi_comp)
+        
+        x_lin = np.arange(lin_comp.shape[-1])
+        weight = weight_from_data(x_lin, x, y, scale_factor = _scale_factor, mode = mode, norm = norm)
+        lin = weighted_sum(lin_base,lin_comp, weight)
+        
+        period = _period_from_data(lin_comp, multi_comp)
+        x_multi = t_multilevel(multi_comp.shape, period = period)
+        weight = weight_from_data(x_multi, x, y, scale_factor = _scale_factor, mode = mode, norm = norm)
+        multi = weighted_sum(multi_base,multi_comp, weight)        
+
     else:
-        return tuple((normalize(d,*args[1:],out = o, **kwargs) for d,o in zip(args[0],out)))
+        lin = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,
+                  scale = scale, mask = mask)
+        multi = normalize(multi, background = background, variance = variance, norm = norm, mode = mode,
+                  scale = scale, mask = mask)  
+    enable_prints(level)        
+    return lin, multi
 
 if __name__ == "__main__":
     import doctest

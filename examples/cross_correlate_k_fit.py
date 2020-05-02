@@ -15,7 +15,7 @@ import os.path as path
 
 SHOW_FITS = False
 #: which norm modes to fit
-NORMS = (1,2,3,6)
+NORMS = (1,2,3,6,7)
 
 colors = ["C{}".format(i) for i in range(10)]
 
@@ -28,7 +28,7 @@ def fit_data(x, data, title = "", ax = None):
     popt = [0.1,1,0]
     for i, (k, y) in enumerate(data):
         try:
-            popt,pcov = curve_fit(_g1, x, y, p0 = popt)    
+            popt,pcov = curve_fit(_g1, x,y, p0 = popt)    
             if ax is not None:
                 ax.semilogx(x,y,"o",color = colors[i%len(colors)],fillstyle='none')
                 ax.semilogx(x,_g1(x,*popt), color = colors[i%len(colors)])
@@ -77,7 +77,7 @@ for i,norm in enumerate(NORMS):
     popt,pcov = curve_fit(_lin, x, f)
     ax.plot(x,_lin(x,*popt), "--", color = colors[i], label = "fit norm = {}".format(norm))
     err = np.sqrt(np.diag(pcov))/popt
-    print("Measured D (norm = {}): {:.3e} (1 +- {:.3f})".format(norm, popt[0], err[0]))
+    print("Measured D (norm = {}): {:.3e} (1 +- {:.4f})".format(norm, popt[0], err[0]))
 
 ax.plot(x,_lin(x,D), "k-", label = "true")
 print("True D: {:.3e}".format(D))

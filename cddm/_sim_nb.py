@@ -8,7 +8,7 @@ import numpy as np
 import numba as nb
 import math
 
-from cddm.conf import U8,F,I, NUMBA_TARGET, NUMBA_PARALLEL , NUMBA_CACHE, NUMBA_FASTMATH
+from cddm.conf import U16,U8,F,I, NUMBA_TARGET, NUMBA_PARALLEL , NUMBA_CACHE, NUMBA_FASTMATH
 
 @nb.vectorize([F(F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def mirror(x,x0,x1):
@@ -43,13 +43,13 @@ def make_step(x,scale, velocity):
     return x + np.random.randn()*scale + velocity   
 
      
-@nb.jit([U8(I,F,I,F,F,U8)],nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.jit([U8(I,F,I,F,F,U8),U16(I,F,I,F,F,U16)],nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def psf_gauss(x,x0,y,y0,sigma,intensity):
     """Gaussian point-spread function. This is used to calculate pixel value
     for a given pixel coordinate x,y and particle position x0,y0."""
     return intensity*math.exp(-0.5*((x-x0)**2+(y-y0)**2)/(sigma**2))
                  
-@nb.jit(["uint8[:,:],float64[:,:],uint8[:]"], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
+@nb.jit([U8[:,:](U8[:,:],F[:,:],U8[:]),U16[:,:](U16[:,:],F[:,:],U16[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
 def draw_points(im, points, intensity):
     """Draws pixels to image from a given points array"""
     data = points
@@ -60,7 +60,7 @@ def draw_points(im, points, intensity):
         im[int(data[j,0]),int(data[j,1])] = im[int(data[j,0]),int(data[j,1])] + intensity[j] 
     return im   
         
-@nb.jit([U8[:,:](U8[:,:],F[:,:],U8[:],F[:])], nopython = True, parallel = NUMBA_PARALLEL, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
+@nb.jit([U8[:,:](U8[:,:],F[:,:],U8[:],F[:]),U16[:,:](U16[:,:],F[:,:],U16[:],F[:])], nopython = True, parallel = NUMBA_PARALLEL, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
 def draw_psf(im, points, intensity, sigma):
     """Draws psf to image from a given points array"""
     assert points.shape[1] == 2

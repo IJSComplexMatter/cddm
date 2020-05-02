@@ -13,7 +13,7 @@ cddm.conf.set_verbose(2)
 #: width and height of the frame
 SIZE = 512
 #: how many frames to simulate
-NFRAMES = 1024*16
+NFRAMES = 1024*4
 #: max k in the first axis
 KIMAX = 41
 #: max k in the second axis

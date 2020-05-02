@@ -22,7 +22,7 @@ def mean(a,b):
 
 @nb.vectorize([F(F,F),C(C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def choose(a,b):
-    """Chooses data, randomly"""
+    """Chooses data randomly"""
     r = np.random.rand()
     if r >= 0.5:
         return a
@@ -34,33 +34,70 @@ def convolve(a, out):
     """Convolves input array with kernel [0.25,0.5,0.25]"""
     n = len(out)
     assert n > 2  
+    result = a[0]
     for i in range(1,n-1):
-        out[i] = 0.25*(a[i-1]+2*a[i]+a[i+1])
-        #out[i]= a[i]
-    out[n-1] = out[n-2]
-    out[0] = out[1]
+        out[i-1] = result
+        result = 0.25*(a[i-1]+2*a[i]+a[i+1])
 
-@nb.guvectorize([(I64[:],F[:],F[:],F[:])],"(m),(m),(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _log_interpolate(x,y,dummy, out):
-    n = len(x)
-    out[...] = y[-1]
-    out[0] = y[0]
-    for i in range(1,n-1):
-        deltax = x[i+1] - x[i]
-        a = (y[i+1] - y[i])/np.log(x[i+1]/x[i])
-        offset = y[i] - a * np.log(x[i])
-        index = x[i]
-        for j in range(deltax):
-            assert index >= 0 or index < len(dummy)
-            out[index] = offset + a * np.log(x[i]+j)
-            index = index + 1
-                    
+    out[i] = result
+    out[-1] = a[-1]
+
+@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def interpolate(x_new, x,y,out):
+    """Linear interpolation"""
+    assert len(x) >= 2
+    for i in range(len(x_new)):
+        xi = x_new[i]
+        for j in range(1,len(x)):
+            x0 = x[j-1]
+            x1 = x[j]
+            if xi <= x1:
+                #interpolate or extrapolate backward
+                deltay = y[j] - y[j-1]
+                deltax = x1 - x0
+                out[i] = (xi - x0) * deltay/ deltax +  y[j-1]
+                break
+        #extrapolate forward
+        if xi > x1:
+            deltay = y[-1] - y[-2]
+            deltax = x1 - x0
+            out[i] = (xi - x0) * deltay/deltax +  y[-2]            
+
+@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n), (m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def log_interpolate(x_new, x,y, out):
+    """Linear interpolation in semilogx space."""
+    assert len(x) >= 2
+    for i in range(len(x_new)):
+        xi = x_new[i]
+        log = False
+        if xi > 1:
+            xi = np.log(xi)
+            log = True
+        for j in range(1,len(x)):
+            x0 = x[j-1]
+            x1 = x[j]            
+            if x0 >= 1 and log == True:
+                x0 = np.log(x0)
+                x1 = np.log(x1)
+            if x_new[i] <= x[j]:
+                #interpolate or extrapolate backward
+                deltay = y[j] - y[j-1]
+                deltax = x1-x0
+                out[i] = (xi - x0) * deltay / deltax +  y[j-1]
+                break
+        #extrapolate forward for data points outside of the domain
+        if xi > x1:            
+            deltay = y[-1] - y[-2]
+            deltax = x1 - x0
+            out[i] = (xi - x0) * deltay/deltax +  y[-2]    
+
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def median(array, out):
     """Performs median filter."""
     n = len(array)
     assert n > 2
-    result_out = 0.
+    result_out = array[0]
+    out[-1] = array[-1]
     for i in range(1,n-1):
         if array[i] < array[i+1]:
             if array[i] < array[i-1]:
@@ -75,8 +112,16 @@ def median(array, out):
         out[i-1] = result_out
         result_out = result
     out[i] = result_out
-    out[n-1] = result_out
-    out[0] = out[1]
+    #out[n-1] = result_out
+    #out[0] = out[1]
+
+@nb.vectorize([F(F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
+def weighted_sum(x, y, weight):
+    """Performs weighted sum of two data sets, given the weight data.
+    Weight must be normalized between 0 and 1. Performs:
+    `x * weight + (1.- weight) * y`
+    """ 
+    return x * weight + (1.- weight) * y
     
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _median_slow(array, out):
@@ -86,8 +131,10 @@ def _median_slow(array, out):
     for i in range(1,n-1):
         median = np.sort(array[i-1:i+2])[1]
         out[i] = median
-    out[0] = out[1]
-    out[n-1] = out[n-2]
+    out[0] = array[0]
+    out[-1] = array[-1]
+    #out[0] = out[1]
+    #out[n-1] = out[n-2]
 
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def decreasing(array, out):

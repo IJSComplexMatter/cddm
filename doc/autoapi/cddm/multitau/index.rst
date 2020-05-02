@@ -380,7 +380,12 @@ Module Contents
    :rtype: ndarray, ndarray
 
 
-.. function:: normalize_multi(*args, **kwargs)
+.. function:: t_multilevel(shape, period=1)
+
+   Returns broadcasteable time array of multilevel data with a given shape
+
+
+.. function:: normalize_multi(data, background=None, variance=None, norm=None, mode='corr', scale=False, mask=None)
 
    A multitau version of :func:`.core.normalize`.
 

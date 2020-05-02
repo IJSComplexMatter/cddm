@@ -26,7 +26,7 @@ Module Contents
 
 .. function:: choose(a, b)
 
-   Chooses data, randomly
+   Chooses data randomly
 
 
 .. function:: convolve(a, out)
@@ -34,9 +34,26 @@ Module Contents
    Convolves input array with kernel [0.25,0.5,0.25]
 
 
+.. function:: interpolate(x_new, x, y, out)
+
+   Linear interpolation
+
+
+.. function:: log_interpolate(x_new, x, y, out)
+
+   Linear interpolation in semilogx space.
+
+
 .. function:: median(array, out)
 
    Performs median filter.
+
+
+.. function:: weighted_sum(x, y, weight)
+
+   Performs weighted sum of two data sets, given the weight data.
+   Weight must be normalized between 0 and 1. Performs:
+   `x * weight + (1.- weight) * y`
 
 
 .. function:: decreasing(array, out)

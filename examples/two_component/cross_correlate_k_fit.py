@@ -13,7 +13,7 @@ from conf import D1, D2
 
 SHOW_FITS = False
 #: which norm modes to fit
-NORMS = (2,3,6)
+NORMS = (2,3,6,7)
 
 colors = ["C{}".format(i) for i in range(10)]
 
@@ -42,7 +42,7 @@ def _lin(x,k):
 def load_and_fit(norm):
     x = np.load("cross_correlate_t.npy")
     y = np.load("cross_correlate_norm_{}_data.npy".format(norm))
-    k_data = k_select(y, angle = 0, sector = 15)
+    k_data = k_select(y, angle = 0, sector = 50)
     if SHOW_FITS:
         fig = plt.figure()
         ax = fig.subplots()  
