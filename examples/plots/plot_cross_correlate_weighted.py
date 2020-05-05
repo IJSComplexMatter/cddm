@@ -35,13 +35,13 @@ x,y = log_merge(lin_3, multi_3)
 #: denoised data, used as a estimator for the weight
 yd = denoise(decreasing(np.clip(denoise(y),0,1)))
 
-ax1.semilogx(x,yd[i,j], label = "g1")
-
 x,y = log_merge(lin_2, multi_2)
 ax2.semilogx(x,y[i,j], label = "norm 2")
 
 x,y = log_merge(lin_3, multi_3)
 ax2.semilogx(x,y[i,j], label = "norm 3")
+
+ax1.semilogx(x,yd[i,j], label = "g1")
 
 #: now calculate weights and do weighted sum.
 

@@ -698,7 +698,7 @@ To improve the correlation data you can do a weighted sum of both data as shown 
    >>> lin_2, multi_2 = normalize_multi(data, bg, var, norm = 2, scale = True)
    >>> lin_3, multi_3 = normalize_multi(data, bg, var, norm = 3, scale = True)
 
-Then, correlation data estimator is calculated from the compensated data. Denoising and shaping is applied:
+Then, correlation data estimator is calculated from the compensated data. Denoising is applied, data is clipped between (0,1) because we have scaled the data. If fata is not scaled, you can use the :func:`core.scale_factor` to compute the proper scaling factor. Data is shaped so that it is monotonously decreasing:
 
 .. doctest::
    
@@ -715,7 +715,7 @@ This way we have built a correlation data estimator that is then used to interpo
    >>> w = weight_from_data(y, pre_filter = False)
    >>> w = log_interpolate(x_new, x, w)
 
-Here we have used `pre_filter = False` option, because we have already filtered the data. With `pre_filter=True` same denoising is performed as in the example above. The calculated weight is for the baseline data. You can do weighted sum
+Here we have used `pre_filter = False` option, because we have already filtered the data. With `pre_filter=True` same denoising is performed as in the example above. The calculated weight is for the baseline data (norm = 2). The weight for the compensated data is :math:`1 - w`. You can do the weighted sum:
 
 .. doctest::
 
@@ -731,16 +731,18 @@ For the multilevel part, the procedure is the same, except that the x coordinate
    >>> w = log_interpolate(x_new, x, w)
    >>> multi = weighted_sum(multi_2,multi_3, w)
 
-for details, see source code in the example below.
+for details, see source code in the example below. The weights `w`and `1 - w` are for norm = 2 and norm = 3 data, respectively.
 
 .. plot:: examples/plots/plot_cross_correlate_weighted.py
 
     Demonstrates how to perform weighted sum of norm = 2 and norm = 3 data. First, norm 3 data is taken as a first estimator, data is denoised and weights are calculated and a weighted sum of norm 3 and norm 2 data is performed.
 
-The above example shows how the weighted normalization is performed internally when called with appropriate flags in the :func:`normalize` and :func:`normalize_multi` functions. There are two weighted normalization modes that are supported only for methods: `'corr'` and `'fft'`. These are:
+The above example shows how the weighted normalization is performed internally, when calculated in :func:`normalize` and :func:`normalize_multi` functions with weighted normalization mode. There are two weighted normalization modes that are supported only for calculation methods: `'corr'` and `'fft'`. These are:
 
 * **weighted** : `norm = NORM_WEIGHTED` (`norm = 4`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is to promote large delay data from *baseline* data and short delay from *compensated* data.
 * **subtracted and weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
+
+Note that for the calculation of the correlation data with e.g. :func:`.multitau.ccorr_multi`, `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) is identical to `norm = NORM_SUBTRACTED | NORM_COMPENSATED` (`norm = 3`), and `norm = NORM_WEIGHTED` (`norm = 4`) is identical to `norm = NORM_COMPENSATED` (`norm = 1`). In the normalization, the results are different, as shown in graphs below.
 
 .. note ::
 
