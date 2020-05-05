@@ -288,27 +288,12 @@ Module Contents
    array([0.25, 0.5 , 0.25])
 
 
-.. function:: count_multilevel(count, level_size, binning=True)
+.. function:: multilevel_count(count, level_size, binning=True)
 
    Returns effective number of measurements in multilevel data calculated
    from linear time-space count data.
 
-   :param count: Count data
-   :type count: ndarray
-   :param level_size: Level size used in multilevel averaging.
-   :type level_size: int
-
-   :returns: **x** -- Multilevel effective count array. Shape of this data depends on the
-             length of the original data and the provided level_size parameter.
-   :rtype: ndarray
-
-
-.. function:: count_multilevel2(count, level_size, binning=True)
-
-   Returns effective number of measurements in multilevel data calculated
-   from linear time-space count data.
-
-   :param count: Count data
+   :param count: Count data,
    :type count: ndarray
    :param level_size: Level size used in multilevel averaging.
    :type level_size: int

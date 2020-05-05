@@ -627,22 +627,22 @@ Here, k_data is an iterator of (`k_avg`, `data_avg`) elements, where `k_avg` is 
    For rectangular-shaped video frames, the unit size in k-space is identical in both dimensions, and you do not need to provide the `shape` argument, however, for non-rectangular data, the step size in k-space is not identical. The `shape` argument is used to calculate unit steps for proper k-visualization and averaging.
   
 
-In the examples in this guide we were simulating Brownian motion of particles, so the correlation function decays exponentially. The obtained relaxation rate is proportional to the square of the wave vector, so we can obtain the diffusion constant and compare the results with the theoretical prediction. See the source of the plots below to perform k-averaging and fitting in python.
+In the examples in this guide we were simulating Brownian motion of particles, so the correlation function decays exponentially. The obtained relaxation rate is proportional to the square of the wave vector, so we can obtain the diffusion constant and compare the results with the theoretical prediction. See the source of the plots below to perform k-averaging and fitting in python. The example below demonstrates how to fit data, that was normalized with different normalization modes (see next section for details on normalization modes).
 
 .. plot:: examples/cross_correlate_k_fit.py
 
-   Results from the fitting of the cross-correlation function computed with :func:`.multitau.iccorr_multi` using subtract_background = False option. For this example, the *norm = 3* datapoint are closest to the theoretically predicted value shown in graph with the black line.
+   Results from the fitting of the cross-correlation function computed with :func:`.multitau.iccorr_multi` using subtract_background = False option. For this example, the *norm = 6* datapoint are closest to the theoretically predicted value shown in graph with the black line.
 
-As can be seen, normalization with *norm = 3* appears to work best with this data. For further details and examples, you are encouraged to browse the source, API reference and examples.
+As can be seen, normalization with *norm = 6* and *norm = 7* appears to work best with this data. *norm = 6* normalization mode is the default mode used in the normalization procedure. It is a weighted normalization mode that works best on most data. It is computationally most complex, and there may be times when you will use different normalizations. These are explained in the next section.
 
 .. _normalization:
 
 Norm & Method
 -------------
 
-Correlation function can be computed and normalized with different normalization types. This is controlled both in the computation functions, e.g. :func:`.core.acorr` and in the normalize functions, e.g. :func:`.core.normalize` with the `norm` flags. This works in combination with the method used in the calculation. Each of the computation functions accepts the `method` argument that controls the computation method.
+Correlation function can be computed and normalized with different normalization modes. This is controlled both in the computation functions, e.g. :func:`.core.acorr` and in the normalize functions, e.g. :func:`.core.normalize` with the `norm` flags. This works in combination with the method used in the calculation. Each of the computation functions accepts the `method` argument that controls the computation method. This way you can tune the accuracy and speed of the calculation of the correlation function. By now we have used the default values for the calculation methods and normalization modes, which work well for most data, but in some specific cases you might want to change these default settings.
 
-In addition, the normalized data can be viewed in two different data representations, either with `mode = 'corr'`, for standard correlation data representation, or `mode = 'diff'`, for difference (or image structure function) representation of the data. These options are explained in this section.
+In addition, the normalized data can be viewed in two different data representations, either with `mode = 'corr'` (the default representation), for standard correlation data representation, or `mode = 'diff'`, for difference (or image structure function) representation of the data. These options are explained in this section.
 
 The methods
 +++++++++++
@@ -655,8 +655,8 @@ When computing the correlation function there are three different methods to cho
 
 There are no restrictions in `norm` selection if you use the first two methods, the differential method, however, support `norm = 1` or `norm = 3` in cross-correlation analysis and `norm = 1` in auto-correlation analysis.
 
-Norm flags and methods
-++++++++++++++++++++++
+Norm flags
+++++++++++
 
 By default, computation and normalization is performed using
 
@@ -675,34 +675,83 @@ There is a helper function, to build normalization flags:
    >>> norm_flags(compensated = False, subtracted = True, weighted = True)
    6
 
-When calculation of the correlation function is performed with NORM_WEIGHTED norm, a full calculation is performed. This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in eight different ways. For standard (unbiased/ non-weighted) normalization do:
+When calculation of the correlation function is performed with NORM_WEIGHTED norm, a full calculation is performed. This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in six different ways. 
 
-* **baseline** : `norm = NORM_BASELINE` (`norm = 0`), supported methods: `'corr'` and `'fft'` here we remove the baseline error introduced by the non-zero background frame, which produces an offset in the correlation data. For this to work, you must provide the background data to the :func:`.multitau.normalize_multi` or :func:`.core.normalize`
-* **compensated** : `norm = NORM_COMPENSATED` (`norm = 1`), here we compensate the statistical error introduced at smaller delay times. Basically, we normalize the data as if we had calculated the cross-difference function instead of the cross-correlation. This requires one to calculate the delay-dependent squares of the intensities, which slows down the computation when `method = 'corr' or 'fft'`.
-* **subtracted** : `norm = NORM_SUBTRACTED` (`norm = 2`), supported methods: `'corr'` and `'fft'`. Here we compensate for baseline error and for the linear error introduced by the not-known-in-advance background data. This requires one to track the delay-dependent sum of the data, which further slows down the computation
-* **subtracted and compensated** : `norm = NORM_COMPENSATED | NORM_SUBTRACTED` (`norm = 3`), which does both the *subtracted* and *compensated* normalizations. `'diff'` method supported only in cross-analysis and not in auto-analysis.
+Standard normalization
+''''''''''''''''''''''
+For standard (non-weighted) normalization do:
 
-NORM_COMPENSATED data is better for low lag times, while NORM_BASELINE has less noise and a more stable baseline at larger lag times. To improve the correlation data you can do a weighted sum of both data as shown in the example below:
+* **baseline** : `norm = NORM_BASELINE` (`norm = 0`), supported methods: `'corr'` and `'fft'` here we remove the baseline error introduced by the non-zero background frame, which produces an offset in the correlation data. For this to work, you must provide the background data to the :func:`.multitau.normalize_multi` or :func:`.core.normalize`.
+* **compensated** : `norm = NORM_COMPENSATED` (`norm = 1`), here we compensate the statistical error introduced at smaller delay times. Basically, we normalize the data as if we had calculated the cross-difference function instead of the cross-correlation. This requires one to calculate the delay-dependent squares of the intensities, so one extra channel, which slows down the computation when `method = 'corr' or 'fft'`.
+* **subtracted** : `norm = NORM_SUBTRACTED` (`norm = 2`), supported methods: `'corr'` and `'fft'`. Here we compensate for baseline error and for the linear error introduced by the not-known-in-advance background data. This requires one to track the delay-dependent sum of the data, so two extra channels.
+* **subtracted and compensated** : `norm = NORM_COMPENSATED | NORM_SUBTRACTED` (`norm = 3`), which does both the *subtracted* and *compensated* normalizations. Here, `'diff'` method is supported only in cross-analysis and not in auto-analysis. This is the most complex computation mode, as there are three additional channels to track.
+
+`norm 1` or `norm 3` data is better for low lag times, while `norm 0` or `norm 2` has less noise and a more stable baseline at larger lag times. 
+
+Weighted normalization
+''''''''''''''''''''''
+
+To improve the correlation data you can do a weighted sum of both data as shown in the example below. First, data is normalized with compensated (and background subtracted) and baseline (and background subtracted) modes:
+
+.. doctest::
+
+   >>> lin_2, multi_2 = normalize_multi(data, bg, var, norm = 2, scale = True)
+   >>> lin_3, multi_3 = normalize_multi(data, bg, var, norm = 3, scale = True)
+
+Then, correlation data estimator is calculated from the compensated data. Denoising and shaping is applied:
+
+.. doctest::
+   
+   >>> from cddm.avg import denoise, decreasing
+   >>> x,y = log_merge(lin_3, multi_3)
+   >>> y = denoise(decreasing(np.clip(denoise(y),0,1)))
+
+This way we have built a correlation data estimator that is then used to interpolate weighting array. For linear part of the data you can build this using.
+
+.. doctest::
+
+   >>> from cddm.avg import weight_from_data, weighted_sum, log_interpolate
+   >>> x_new = np.arange(lin_3.shape[-1])
+   >>> w = weight_from_data(y, pre_filter = False)
+   >>> w = log_interpolate(x_new, x, w)
+
+Here we have used `pre_filter = False` option, because we have already filtered the data. With `pre_filter=True` same denoising is performed as in the example above. The calculated weight is for the baseline data. You can do weighted sum
+
+.. doctest::
+
+   >>> lin = weighted_sum(lin_2,lin_3, w)
+
+For the multilevel part, the procedure is the same, except that the x coordinates for the interpolator are different. There is a helper function to build the x coordinates of the multilevel data:
+
+.. doctest::
+
+   >>> from cddm.multitau import t_multilevel
+   >>> x_new = t_multilevel(multi_3.shape, period = 32) 
+   >>> w = weight_from_data(y, pre_filter = False)
+   >>> w = log_interpolate(x_new, x, w)
+   >>> multi = weighted_sum(multi_2,multi_3, w)
+
+for details, see source code in the example below.
 
 .. plot:: examples/plots/plot_cross_correlate_weighted.py
 
     Demonstrates how to perform weighted sum of norm = 2 and norm = 3 data. First, norm 3 data is taken as a first estimator, data is denoised and weights are calculated and a weighted sum of norm 3 and norm 2 data is performed.
 
-The above example shows how the weighted normalization is performed internally when called with appropriate flags in the :func:`normalize` and :func:`normalize_multi` functions. There are four weighted normalization modes, that are supported only for methods: `'corr'` and `'fft'`. These are:
+The above example shows how the weighted normalization is performed internally when called with appropriate flags in the :func:`normalize` and :func:`normalize_multi` functions. There are two weighted normalization modes that are supported only for methods: `'corr'` and `'fft'`. These are:
 
-* **baseline weighted** : `norm = NORM_WEIGHTED` (`norm = 4`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is to promote large delay data from *baseline* data and short delay from *compensated* data.
-* **compensating weighted** : `norm = NORM_COMPENSATED | NORM_WEIGHTED` (`norm = 5`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is based on statistical estimators. This is an experimental implementation. The computational method to obtain the statistical estimator might change in future versions. Currently, this works well for binning = 0 or binning = 2, and not for binning = 1.
-* **subtracted and baseline weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
-* **subtracted and compensating weighted** : `norm = NORM_SUBTRACTED | NORM_COMPENSATED | NORM_WEIGHTED` (`norm = 7`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is based on statistical estimators. This is an experimental implementation. The computational method to obtain the statistical estimator might change in future versions. Currently, this works well for binning = 0 or binning = 2, and not for binning = 1.
+* **weighted** : `norm = NORM_WEIGHTED` (`norm = 4`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is to promote large delay data from *baseline* data and short delay from *compensated* data.
+* **subtracted and weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
 
 .. note ::
 
-   norm 7 and norm 5 are considered experimental. The computational method to obtain the statistical estimator for weighting functions might change in future versions. Currently, this norm modes work well for binning = 0 or binning = 2, and not for binning = 1.
+   :data:`.core.NORM_COMPENSATED` flag is ignored when working with weighted normalization. Therefore, `norm = 5` is identical to `norm = 4`, and `norm = 7` is identical to `norm = 6`. This might change in the future.
+
+Instead of manually calculating the weights, you can use the `norm` argument and pass it to the normalizing functions, like: 
 
 .. doctest:: 
    
    >>> i,j = 4,15
-   >>> for norm in (0,1,2,3,6,7):
+   >>> for norm in (0,1,2,3,4,6):
    ...    fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
    ...    x,y = log_merge(fast, slow)
    ...    ax = plt.semilogx(x,y[i,j], label =  "norm = {}".format(norm) )
@@ -713,11 +762,14 @@ The above example shows how the weighted normalization is performed internally w
 
 .. plot:: examples/plots/plot_cross_correlate_multi_norm.py
 
-   Normalization mode 3 works best for small time delays, mode 2 works best for large delays and is more noisy at smaller delays. Mode 6 and 7 are weighted sums of mode 2 and 3 and have a lower noise in general.
+   Normalization mode 3 works best for small time delays, mode 2 works best for large delays and is more noisy at smaller delays. Mode 6 is weighted sums of mode 2 and 3 and have a lower noise in general. Mode 4 is weighted sums of mode 0 and 1. Here, the main contribution of the noise comes from the background, so it is important that background subtraction is performed.
 
-If you know which normalization mode you are going to use, you may reduce the computational effort in some cases. For instance, the main reason to use modes 2 and 3 (or 6 and 7) is to properly remove the two different background frames from both cameras. Usually, this background frame is not known until the experiment is finished, so the background subtraction is done after the calculation of the correlation function is performed. However, this requires that we track two extra channels that are measuring the delay-dependent data sum for each of the camera, or one additional channel that is measuring the delay-dependent sum of the squares of the data on both cameras. This significantly slows down the computation by a factor of 3 approximately.
+Auto background removal
+'''''''''''''''''''''''
 
-One way to partially overcome this limitation is to use the `auto_background` option and to define a large enough `chunk_size` 
+If you know which normalization mode you are going to use, you may reduce the computational effort in some cases. For instance, the main reason to use modes 2 and 3 (or 6) is to properly remove the two different background frames from both cameras. Usually, this background frame is not known until the experiment is finished, so the background subtraction is done after the calculation of the correlation function is performed. However, this requires that we track two extra channels that are measuring the delay-dependent data sum for each of the camera, or one additional channel that is measuring the delay-dependent sum of the squares of the data on both cameras. This significantly slows down the computation by a factor of 3 approximately.
+
+One way to partially overcome this limitation is to use the `auto_background` option and to define a large enough `chunk_size`. 
 
 .. doctest::
 
@@ -728,7 +780,7 @@ This way we have forced the algorithm to work with chunks of data of length 128,
 .. doctest:: 
    
    >>> i,j = 4,15
-   >>> for norm in (0,1,2,3,6,7):
+   >>> for norm in (0,1,2,3,4,6):
    ...    fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
    ...    x,y = log_merge(fast, slow)
    ...    ax = plt.semilogx(x,y[i,j], label =  "norm = {}".format(norm) )
@@ -743,7 +795,7 @@ This way we have forced the algorithm to work with chunks of data of length 128,
 
 .. note::
    
-   If the background is properly subtracted before the calculation of the correlation function, the output of  `normalize` functions with norm = 0 and norm = 2 are identical, and the output of `normalize` function with norm = 1 and norm = 3 are identical. In the case above, background has not been fully subtracted, so there is still a small difference.
+   If the background is properly subtracted before the calculation of the correlation function, the output of  `normalize` functions with norm = 0 and norm = 2 are identical, and the output of `normalize` function with norm = 1 and norm = 3 are identical, and so the output of norm = 4 is identical to norm = 6. In the case above, background has not been fully subtracted, so there is still a small difference.
 
 In some experiments, it may be sufficient to work with norm = 0, and you can  work with::
 
@@ -759,7 +811,7 @@ This will allow you to normalize either to `baseline` or `compensated`, but the 
 
 .. note::
 
-   In non-ergodic systems auto-background subtraction may not work sufficiently well, so you are encouraged to work with norm = 3 or (6 or 7) during the calculation, and later decide on the normalization procedure. You should calculate with norm < 3 only if you need to gain the speed, or to reduce the memory requirements.
+   In non-ergodic systems auto-background subtraction may not work sufficiently well, so you are encouraged to work with norm = 3 or 6  during the calculation, and later decide on the normalization procedure. You should calculate with norm < 3 only if you need to gain the speed, or to reduce the memory requirements.
 
 .. _method_and_norm:
 
@@ -822,6 +874,10 @@ Here we will briefly cover the binning modes and the error of the obtained corre
 With `binning=1` the statistical noise is significantly lower than with the other two binning options, at the cost of some slight systematic error introduced by the averaging. The size of this error is small if `level_size` is large enough. `binning=2` (:data:`.multitau.BINNING_CHOOSE`) is considered experimental. The random selection is expected to remove oscillations in correlation function because of signal beating in some experiments (particle flow with oscillating correlations). Note that you should generally use `binning=1` (:data:`.multitau.BINNING_MEAN`), except in case you use `method='diff'`, which does not support averaging. 
 
 Using `binning=0` completely removes the systematic error at large delay times at the cost of increasing the statistical error. This is demonstrated in the examples below.
+
+.. plot:: examples/cross_correlate_error.py
+
+   Demonstrates error
 
 .. _`live_video`:
 

@@ -39,7 +39,7 @@ Module Contents
    Linear interpolation
 
 
-.. function:: log_interpolate(x_new, x, y, out)
+.. function:: log_interpolate(x_new, x, y, out=None)
 
    Linear interpolation in semilogx space.
 
@@ -64,5 +64,17 @@ Module Contents
 .. function:: increasing(array, out)
 
    Performs increasing filter. Each next element must be greater or equal
+
+
+.. function:: weight_from_g1(g1)
+
+   Computes weight for weighted normalization from normalized and scaled
+   correlation function
+
+
+.. function:: weight_from_d(d)
+
+   Computes weight for weighted normalization from normalized and scaled
+   image structure function
 
 

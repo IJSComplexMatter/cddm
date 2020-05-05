@@ -11,9 +11,9 @@ from scipy.optimize import curve_fit
 #diffusion constant
 from conf import D1, D2
 
-SHOW_FITS = False
+SHOW_FITS = True
 #: which norm modes to fit
-NORMS = (2,3,6,7)
+NORMS = (3,6,7)
 
 colors = ["C{}".format(i) for i in range(10)]
 
@@ -23,7 +23,7 @@ def _g1(x,f1,f2,a,b,c):
 
 def fit_data(x, data, title = "", ax = None):
     """performs fitting and plotting of cross correlation data"""
-    popt = [0.1,0.1,1,0.5,0]
+    popt = [1.2e-2,7e-5,1,0.4,0]
     for i, (k, y) in enumerate(data):
         try:
             popt,pcov = curve_fit(_g1, x, y, p0 = popt)    
@@ -42,7 +42,7 @@ def _lin(x,k):
 def load_and_fit(norm):
     x = np.load("cross_correlate_t.npy")
     y = np.load("cross_correlate_norm_{}_data.npy".format(norm))
-    k_data = k_select(y, angle = 0, sector = 50)
+    k_data = k_select(y, angle = 45, sector = 30)
     if SHOW_FITS:
         fig = plt.figure()
         ax = fig.subplots()  

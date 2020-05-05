@@ -13,7 +13,7 @@ import os.path as p
 i,j = 4,15
 
 #: plot the results
-for norm in (0,1,2,3,6,7):
+for norm in (0,1,2,3,4,6):
     x = np.load(p.join(DATA_PATH,"cross_correlate_multi_t.npy".format(norm)))
     y = np.load(p.join(DATA_PATH,"cross_correlate_multi_norm_{}_data.npy".format(norm)))
     plt.semilogx(x,y[i,j], label =  "norm = {}".format(norm) )

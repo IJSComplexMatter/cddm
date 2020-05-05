@@ -14,11 +14,11 @@
 Module Contents
 ---------------
 
-.. function:: fft2_crop(x, kimax=None, kjmax=None)
+.. function:: rfft2_crop(x, kimax=None, kjmax=None)
 
-   Crops fft2 data.
+   Crops rfft2 data.
 
-   :param x: FFT2 data (as returned by np.rfft2 or np.fft2 for instance). FFT2 must be over the
+   :param x: FFT2 data (as returned by np.rfft2 for instance). FFT2 must be over the
              last two axes.
    :type x: ndarray
    :param kimax: Max k value over the first (-2) axis of the FFT.

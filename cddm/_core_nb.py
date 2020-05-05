@@ -7,6 +7,10 @@ import numpy as np
 import numba as nb
 from cddm.conf import C,F, I64, NUMBA_TARGET, NUMBA_FASTMATH, NUMBA_CACHE
 from cddm.fft import _fft, _ifft
+from cddm.decorators import doc_inherit
+
+
+
 
 #Some useful functions
 
@@ -64,7 +68,7 @@ def interpolate(x_new, x,y,out):
             out[i] = (xi - x0) * deltay/deltax +  y[-2]            
 
 @nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n), (m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def log_interpolate(x_new, x,y, out):
+def _log_interpolate(x_new, x,y, out):
     """Linear interpolation in semilogx space."""
     assert len(x) >= 2
     for i in range(len(x_new)):
@@ -90,6 +94,14 @@ def log_interpolate(x_new, x,y, out):
             deltay = y[-1] - y[-2]
             deltax = x1 - x0
             out[i] = (xi - x0) * deltay/deltax +  y[-2]    
+
+def log_interpolate(x_new, x,y, out = None):
+    """Linear interpolation in semilogx space."""
+    #wrapped to suprres divide by zero warning numba issuu #4793
+    with np.errstate(divide='ignore'):
+        return _log_interpolate(x_new, x,y, out)
+    
+log_interpolate.__doc__ = _log_interpolate.__doc__
 
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def median(array, out):
@@ -540,4 +552,21 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
     d2 = d2 + d*d
     
     return tmp + (0.5 * d2)
+
+@nb.vectorize([F(F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_g1(g1):
+    """Computes weight for weighted normalization from normalized and scaled 
+    correlation function"""
+    tmp1 = (g1 - 1)**2
+    tmp2 = g1**2 + 1
+    return tmp1/tmp2
+    
+@nb.vectorize([F(F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_d(d):
+    """Computes weight for weighted normalization from normalized and scaled 
+    image structure function"""
+    g1 = 1 - d/2.
+    tmp1 = (g1 - 1)**2
+    tmp2 = g1**2 + 1
+    return tmp1/tmp2
 

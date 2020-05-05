@@ -21,7 +21,7 @@ KJMAX = 41
 #: n parameter of the random triggering 
 N_PARAMETER = 16
 #: the delta parameter for the simulator
-DELTA1 = 1.
+DELTA1 = 1.5
 DELTA2 = 4.
 #: image static background value
 BACKGROUND = 200

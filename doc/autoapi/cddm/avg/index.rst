@@ -12,7 +12,7 @@
 Module Contents
 ---------------
 
-.. function:: log_interpolate(x_new, x, y, out)
+.. function:: log_interpolate(x_new, x, y, out=None)
 
    Linear interpolation in semilogx space.
 
@@ -49,6 +49,18 @@ Module Contents
    `x * weight + (1.- weight) * y`
 
 
+.. function:: weight_from_g1(g1)
+
+   Computes weight for weighted normalization from normalized and scaled
+   correlation function
+
+
+.. function:: weight_from_d(d)
+
+   Computes weight for weighted normalization from normalized and scaled
+   image structure function
+
+
 .. function:: denoise(x, n=3, out=None)
 
    Denoises data. A sequence of median and convolve filters.
@@ -64,30 +76,9 @@ Module Contents
    :rtype: ndarray
 
 
-.. function:: base_weight(corr, scale_factor=1.0, mode='corr', pre_filter=True, out=None)
+.. function:: weight_from_data(corr, scale_factor=1.0, mode='corr', pre_filter=True, out=None)
 
-   Computes weighting function for baseline weighted normalization.
-
-   :param corr: Correlation (or difference) data
-   :type corr: ndarray
-   :param scale_factor: Scaling factor as returned by :func:`.core.scale_factor`. If not provided,
-                        corr data must be computed with scale = True option.
-   :type scale_factor: ndarray
-   :param mode: Representation mode, either 'corr' (default) or 'diff'
-   :type mode: str
-   :param pre_filter: Whether to perform denoising and filtering. If set to False, user has
-                      to perform data filtering.
-   :type pre_filter: bool
-   :param out: Output array
-   :type out: ndarray, optional
-
-   :returns: **out** -- Weight data for weighted sum calculation.
-   :rtype: ndarray
-
-
-.. function:: comp_weight(corr, scale_factor=1.0, mode='corr', pre_filter=True, out=None)
-
-   Computes weighting function for compensating weighted normalization.
+   Computes weighting function for weighted normalization.
 
    :param corr: Correlation (or difference) data
    :type corr: ndarray
@@ -101,31 +92,6 @@ Module Contents
    :type pre_filter: bool
    :param out: Output array
    :type out: ndarray, optional
-
-   :returns: **out** -- Weight data for weighted sum calculation.
-   :rtype: ndarray
-
-
-.. function:: weight_from_data(x, xp, yp, scale_factor=1.0, mode='corr', norm=WEIGHT_BASELINE, pre_filter=True)
-
-   Computes weight at given x values from correlation data points (xp, yp).
-
-   :param x: x-values of the interpolated values
-   :type x: ndarray
-   :param xp: x-values of the correlation data
-   :type xp: ndarray
-   :param yp: y-values of the correlation data, correlation data is over the last axis.
-   :type yp: ndarray
-   :param scale_factor: Scaling factor as returned by :func:`.core.scale_factor`. If not provided,
-                        corr data must be computed with scale = True option.
-   :type scale_factor: ndarray
-   :param mode: Representation mode, either 'corr' (default) or 'diff'
-   :type mode: str
-   :param norm: Weighting mode, 1 or odd for compensated, 0 or even for baseline.
-   :type norm: int
-   :param pre_filter: Whether to perform denoising and filtering. If set to False, user has
-                      to perform data filtering.
-   :type pre_filter: bool
 
    :returns: **out** -- Weight data for weighted sum calculation.
    :rtype: ndarray

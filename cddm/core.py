@@ -43,7 +43,7 @@ import time
 from functools import reduce 
 from cddm.fft import _fft
 from cddm.avg import weight_from_data, weighted_sum
-from cddm._core_nb import \
+from cddm._core_nb import log_interpolate,\
    _cross_corr_fft_regular, _cross_corr_fft, \
     _auto_corr_fft_regular,_auto_corr_fft,\
   _cross_corr_regular, _cross_corr, _cross_corr_vec, \
@@ -1720,8 +1720,8 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         else:
             x_interp = np.arange(data[1].shape[-1])
         
-        weight = weight_from_data(x_interp, x_avg, y_avg, scale_factor = _scale_factor, mode = mode, norm = norm)
-
+        weight = weight_from_data(y_avg, scale_factor = _scale_factor, mode = mode)
+        weight = log_interpolate(x_interp,x_avg, weight)
         enable_prints(level) 
         return weighted_sum(base_data,comp_data, weight)
         

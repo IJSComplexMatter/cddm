@@ -1,19 +1,19 @@
 """
 """
 
-from cddm.viewer import MultitauViewer
+# from cddm.viewer import MultitauViewer
 from cddm.video import multiply, normalize_video, crop
 from cddm.window import blackman
-from cddm.fft import rfft2, normalize_fft, fft2_crop
+from cddm.fft import rfft2, normalize_fft, rfft2_crop
 from cddm.sim import form_factor
-from cddm.multitau import iccorr_multi, normalize_multi, log_merge, count_multilevel, ccorr_multi_count, ccorr_multi_count2
+from cddm.multitau import iccorr_multi, normalize_multi, log_merge,  ccorr_multi_count
 import matplotlib.pyplot as plt
 from cddm.conf import FDTYPE
 
 import numpy as np
 from examples.two_component.conf import NFRAMES, PERIOD, SHAPE, KIMAX, KJMAX, D1, D2, SIGMA1, SIGMA2, INTENSITY1,INTENSITY2
 
-#: see video_simulator for details, loads sample video
+# #: see video_simulator for details, loads sample video
 import examples.two_component.dual_video_simulator as dual_video_simulator
 import importlib
 
@@ -22,7 +22,7 @@ window = blackman(SHAPE)
 #: we must create a video of windows for multiplication
 window_video = ((window,window),)*NFRAMES
 
-NRUN = 40
+NRUN = 1
 
 def calculate():
     out = None
@@ -79,8 +79,8 @@ except NameError:
 
 
 #compute form factors, for relative signal amplitudes
-formf1 = fft2_crop(form_factor(SHAPE, sigma = SIGMA1, intensity = INTENSITY1), 51, 0)
-formf2 = fft2_crop(form_factor(SHAPE, sigma = SIGMA2, intensity = INTENSITY2), 51, 0)
+formf1 = rfft2_crop(form_factor(SHAPE, sigma = SIGMA1, intensity = INTENSITY1), 51, 0)
+formf2 = rfft2_crop(form_factor(SHAPE, sigma = SIGMA2, intensity = INTENSITY2), 51, 0)
 
 def g1(x,i,j):
     a = formf1[i,j]**2

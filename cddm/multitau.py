@@ -37,7 +37,7 @@ from cddm.print_tools import print1, print2
 
 from cddm._core_nb import mean, choose, convolve, _calc_stats_vec
 from cddm.core import _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor
-from cddm.avg import weighted_sum,weight_from_data
+from cddm.avg import weighted_sum,weight_from_data, log_interpolate
 
 import time
 
@@ -1058,14 +1058,14 @@ def triangular_kernel(n):
     out[size//2] = 1/power
     return out
 
-def count_multilevel(count, level_size, binning = True):
+def multilevel_count(count, level_size, binning = True):
     """Returns effective number of measurements in multilevel data calculated
     from linear time-space count data.
     
     Parameters
     ----------
     count : ndarray
-        Count data
+        Count data,
     level_size : int
         Level size used in multilevel averaging.
         
@@ -1090,11 +1090,7 @@ def count_multilevel(count, level_size, binning = True):
     
     out = np.empty(shape = shape, dtype = FDTYPE)
     
-
-    
-
     count2 = count **2
-
     
     for l in range(level+1):
         if binning == True:
@@ -1113,88 +1109,20 @@ def count_multilevel(count, level_size, binning = True):
         #missing data... fill nans
         if n_sliced != size:
             out[l,n_sliced:] = np.nan
-
         
     return out
-
-def count_multilevel2(count, level_size, binning = True):
-    """Returns effective number of measurements in multilevel data calculated
-    from linear time-space count data.
-    
-    Parameters
-    ----------
-    count : ndarray
-        Count data
-    level_size : int
-        Level size used in multilevel averaging.
-        
-    Returns
-    -------
-    x  : ndarray
-        Multilevel effective count array. Shape of this data depends on the 
-        length of the original data and the provided level_size parameter.
-    """
-    #kernel = triangular_kernel(n)
-    #return 1/(kernel**2).sum()
-
-    size = int(level_size)
-    if size < 2:
-        raise ValueError("level_size must be greater than 1")
-    #determine multitau level (number of decades)
-    level = 0
-    while size * 2**(level) < count.shape[-1]:
-        level +=1
-    
-    shape = (level+1,size)
-    
-    out = np.empty(shape = shape, dtype = FDTYPE)
-    
-    count2 = count **2
-
-    
-    for l in range(level+1):
-        if binning == True:
-            kernel = np.array([1])
-        else:
-            kernel = np.array([1./2**l])
-        kernel2 = kernel**2
-        
-        data = np.convolve(kernel2, count2, "same")
-        norm = np.convolve(kernel, count , "same")
-        data_sliced = data[0::2**l][0:size]
-        norm_sliced = norm[0::2**l][0:size]
-        n_sliced = data_sliced.shape[-1]
-        out[l,0:n_sliced] = norm_sliced**3 / data_sliced
-        
-        #missing data... fill nans
-        if n_sliced != size:
-            out[l,n_sliced:] = np.nan
-
-        
-    return out
-
 
 def ccorr_multi_count(count, period = 1, level_size = 16, binning = True):
-    count_fast = np.linspace(count/period*2, (count- level_size)/period*2 , period*level_size)
+    count_fast = np.linspace(count/period*2, (count - level_size)/period*2 , period*level_size)
     count_slow = np.linspace(count,1,count)*2
-    data_fast = count_multilevel(count_fast, level_size, binning = True)
-    data_slow = count_multilevel(count_slow, level_size, binning)
-    xfast, yfast = merge_multilevel(data_fast, mode = "full")
-    xslow, yslow = merge_multilevel(data_slow[1:], mode = "half")
-    t = np.concatenate((xfast, period * xslow * 2), axis = -1)
-    c = np.concatenate((yfast, yslow), axis = -1)    
-    return t, c
+    count_slow = multilevel_count(count_slow, level_size, binning)  
+    return count_fast, count_slow[1:]
 
-def ccorr_multi_count2(count, period = 1, level_size = 16, binning = True):
-    count_fast = np.linspace(count/period*2, (count- level_size)/period*2 , period*level_size)
-    count_slow = np.linspace(count,1,count)*2
-    data_fast = count_multilevel2(count_fast, level_size)
-    data_slow = count_multilevel2(count_slow, level_size, binning)
-    xfast, yfast = merge_multilevel(data_fast, mode = "full")
-    xslow, yslow = merge_multilevel(data_slow[1:], mode = "half")
-    t = np.concatenate((xfast, period * xslow * 2), axis = -1)
-    c = np.concatenate((yfast, yslow), axis = -1)    
-    return t, c
+def acorr_multi_count(count, period = 1, level_size = 16, binning = True):
+    count_fast = np.linspace(count/period, (count - level_size)/period , period*level_size)
+    count_slow = np.linspace(count,1,count)
+    count_slow = multilevel_count(count_slow, level_size, binning)  
+    return count_fast, count_slow[1:]
     
 def multilevel(data, level_size = 16):
     """Computes a multi-level version of the linear time-spaced data.
@@ -1303,6 +1231,11 @@ def log_average(data, size = 8):
     ldata = multilevel(data, size*2)
     return merge_multilevel(ldata)
 
+def log_average_count(count, size = 8):
+    data = multilevel_count(count, size * 2, binning = True)
+    x, y = merge_multilevel(data, mode = "full")
+    return x, y
+
 def _period_from_data(lin, multi):
     nfast = lin.shape[-1]
     nslow = multi.shape[-1]
@@ -1340,6 +1273,17 @@ def log_merge(lin,multi):
     t = np.concatenate((xfast, 2 * period * xslow), axis = -1)
     cc = np.concatenate((cfast, cslow), axis = -1)
     return t, cc
+
+def log_merge_count(lin_count,multi_count):
+    period = _period_from_data(lin_count, multi_count)
+    nslow = multi_count.shape[-1]
+
+    ldata = multilevel_count(lin_count, nslow)
+    xfast, cfast = merge_multilevel(ldata, mode = "full")
+    xslow, cslow = merge_multilevel(multi_count, mode = "half")
+    t = np.concatenate((xfast, 2 * period * xslow), axis = -1)
+    cc = np.concatenate((cfast, cslow), axis = -1)
+    return t, cc    
  
 
 def t_multilevel(shape, period = 1):
@@ -1405,12 +1349,14 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
         x, y = log_merge(lin_comp, multi_comp)
         
         x_lin = np.arange(lin_comp.shape[-1])
-        weight = weight_from_data(x_lin, x, y, scale_factor = _scale_factor, mode = mode, norm = norm)
+        weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode)
+        weight = log_interpolate(x_lin,x,weight)
         lin = weighted_sum(lin_base,lin_comp, weight)
         
         period = _period_from_data(lin_comp, multi_comp)
         x_multi = t_multilevel(multi_comp.shape, period = period)
-        weight = weight_from_data(x_multi, x, y, scale_factor = _scale_factor, mode = mode, norm = norm)
+        weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode,)
+        weight = log_interpolate(x_multi,x,weight)
         multi = weighted_sum(multi_base,multi_comp, weight)        
 
     else:
@@ -1421,6 +1367,6 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
     enable_prints(level)        
     return lin, multi
 
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
+#if __name__ == "__main__":
+#    import doctest
+#    doctest.testmod()

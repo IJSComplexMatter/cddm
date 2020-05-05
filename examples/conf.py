@@ -3,7 +3,7 @@ import numpy as np
 import cddm.conf
 
 #: set verbose level
-cddm.conf.set_verbose(2)
+#cddm.conf.set_verbose(2)
 
 #settable parameters, you can change these 
 #-----------------------------------------
