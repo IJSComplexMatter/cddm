@@ -675,7 +675,7 @@ There is a helper function, to build normalization flags:
    >>> norm_flags(compensated = False, subtracted = True, weighted = True)
    6
 
-When calculation of the correlation function is performed with NORM_WEIGHTED norm, a full calculation is performed. This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in six different ways. 
+When calculation of the correlation function is performed with `norm = NORM_SUBTRACTED | NORM_WEIGHTED` or with `norm = NORM_SUBTRACTED | NORM_COMPENSATED`, a full calculation is performed. This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in six different ways.
 
 Standard normalization
 ''''''''''''''''''''''
@@ -691,14 +691,19 @@ For standard (non-weighted) normalization do:
 Weighted normalization
 ''''''''''''''''''''''
 
-To improve the correlation data you can do a weighted sum of both data as shown in the example below. First, data is normalized with compensated (and background subtracted) and baseline (and background subtracted) modes:
+There are two weighted normalization modes that are supported only for calculation methods: `'corr'` and `'fft'`. These are:
+
+* **weighted** : `norm = NORM_WEIGHTED` (`norm = 4`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is to promote large delay data from *baseline* data and short delay from *compensated* data.
+* **subtracted and weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
+
+To describe how these work internally, we will perform weighted normalization manually. First, data is normalized with compensated (and background subtracted) and baseline (and background subtracted) modes:
 
 .. doctest::
 
    >>> lin_2, multi_2 = normalize_multi(data, bg, var, norm = 2, scale = True)
    >>> lin_3, multi_3 = normalize_multi(data, bg, var, norm = 3, scale = True)
 
-Then, correlation data estimator is calculated from the compensated data. Denoising is applied, data is clipped between (0,1) because we have scaled the data. If fata is not scaled, you can use the :func:`core.scale_factor` to compute the proper scaling factor. Data is shaped so that it is monotonously decreasing:
+Then, correlation data estimator is calculated from the compensated data. Denoising is applied, data is clipped between (0,1) because we have scaled the data. If data is not scaled, you can use the :func:`core.scale_factor` to compute the proper scaling factor. Data is shaped so that it is monotonously decreasing:
 
 .. doctest::
    
@@ -737,18 +742,13 @@ for details, see source code in the example below. The weights `w`and `1 - w` ar
 
     Demonstrates how to perform weighted sum of norm = 2 and norm = 3 data. First, norm 3 data is taken as a first estimator, data is denoised and weights are calculated and a weighted sum of norm 3 and norm 2 data is performed.
 
-The above example shows how the weighted normalization is performed internally, when calculated in :func:`normalize` and :func:`normalize_multi` functions with weighted normalization mode. There are two weighted normalization modes that are supported only for calculation methods: `'corr'` and `'fft'`. These are:
-
-* **weighted** : `norm = NORM_WEIGHTED` (`norm = 4`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is to promote large delay data from *baseline* data and short delay from *compensated* data.
-* **subtracted and weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
-
 Note that for the calculation of the correlation data with e.g. :func:`.multitau.ccorr_multi`, `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) is identical to `norm = NORM_SUBTRACTED | NORM_COMPENSATED` (`norm = 3`), and `norm = NORM_WEIGHTED` (`norm = 4`) is identical to `norm = NORM_COMPENSATED` (`norm = 1`). In the normalization, the results are different, as shown in graphs below.
 
 .. note ::
 
    :data:`.core.NORM_COMPENSATED` flag is ignored when working with weighted normalization. Therefore, `norm = 5` is identical to `norm = 4`, and `norm = 7` is identical to `norm = 6`. This might change in the future.
 
-Instead of manually calculating the weights, you can use the `norm` argument and pass it to the normalizing functions, like: 
+Instead of manually calculating the weights, you can use the `norm` argument and pass it to the normalize functions, like: 
 
 .. doctest:: 
    
