@@ -1,17 +1,22 @@
-"""
+"""In this example we run the simulator of two-component particle brownian motion
+several times to calculate multiple correlation functions with different normalization
+procedures and binning = 1 and binning = 0. Then we plot the mean standard deviation of the data
+points and compare that with the simple model error estimator.
+
+This is a lengthy run... it will take a while to complete the experiment.
 """
 
 # from cddm.viewer import MultitauViewer
-from cddm.video import multiply, normalize_video, crop
+from cddm.video import multiply, normalize_video
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft, rfft2_crop
-from cddm.sim import form_factor
-from cddm.multitau import iccorr_multi, normalize_multi, log_merge,  ccorr_multi_count
+from cddm.sim import form_factor, seed
+from cddm.multitau import iccorr_multi, normalize_multi, log_merge,  ccorr_multi_count, log_merge_count
 import matplotlib.pyplot as plt
-from cddm.conf import FDTYPE
+
 
 import numpy as np
-from examples.two_component.conf import NFRAMES, PERIOD, SHAPE, KIMAX, KJMAX, D1, D2, SIGMA1, SIGMA2, INTENSITY1,INTENSITY2
+from examples.two_component.conf import NFRAMES, PERIOD, SHAPE, D1, D2, SIGMA1, SIGMA2, INTENSITY1,INTENSITY2
 
 # #: see video_simulator for details, loads sample video
 import examples.two_component.dual_video_simulator as dual_video_simulator
@@ -22,47 +27,46 @@ window = blackman(SHAPE)
 #: we must create a video of windows for multiplication
 window_video = ((window,window),)*NFRAMES
 
-NRUN = 1
+NRUN = 8
 
-def calculate():
+def calculate(binning = 1):
     out = None
     
     for i in range(NRUN):
+        
         print("Run {}/{}".format(i+1,NRUN))
     
         importlib.reload(dual_video_simulator) #recreates iterator
         
+        #reset seed... because we use seed(0) in dual_video_simulator
+        seed(i)
+        
         t1, t2 = dual_video_simulator.t1, dual_video_simulator.t2 
         
-        #:perform the actual multiplication
-        #video = multiply(dual_video_simulator.video, window_video)
+        video = multiply(dual_video_simulator.video, window_video)
         
         #: if the intesity of light source flickers you can normalize each frame to the intensity of the frame
         #video = normalize_video(video)
         
         #: perform rfft2 and crop results, to take only first kimax and first kjmax wavenumbers.
-        fft = rfft2(dual_video_simulator.video, kimax = 51, kjmax = 0)
+        fft = rfft2(video, kimax = 51, kjmax = 0)
         
         #: you can also normalize each frame with respect to the [0,0] component of the fft
         #: this it therefore equivalent to  normalize_video
         #fft = normalize_fft(fft)
     
-    #    #we will show live calculation with the viewer
-    #    viewer = MultitauViewer(scale = True)
-    #    
-    #    #initial mask parameters
-    #    viewer.k = 15
-    #    viewer.sector = 30
-        
         #: now perform auto correlation calculation with default parameters and show live
-        data, bg, var = iccorr_multi(fft, t1, t2, level_size = 16, binning = 0,
-                 period = PERIOD)
+        data, bg, var = iccorr_multi(fft, t1, t2, level_size = 16, binning = binning,
+                 period = PERIOD, auto_background = True)
         #perform normalization and merge data
         
+        #5 and 7 are redundand, but we are calulating it for easier indexing
         for norm in (0,1,2,3,4,5,6,7):
         
             fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
-            x,y = log_merge(fast, slow)
+            
+            #we merge with binning (averaging) of linear data enabled/disabled
+            x,y = log_merge(fast, slow, binning = binning)
         
             if out is None:
                 out = np.empty(shape = (NRUN,8)+ y.shape, dtype = y.dtype)
@@ -70,12 +74,14 @@ def calculate():
             else:
                 out[i,norm] = y 
         
-    return x, out, fast.shape, slow.shape
+    return x, out
 
 try:
     out
 except NameError:
-    x,out, fast_shape, slow_shape = calculate()
+    x,data_0 = calculate(0)
+    x,data_1 = calculate(1)
+    out = [data_0, data_1]
 
 
 #compute form factors, for relative signal amplitudes
@@ -87,63 +93,56 @@ def g1(x,i,j):
     b = formf2[i,j]**2
     return a/(a+b)*np.exp(-D1*(i**2+j**2)*x)+b/(a+b)*np.exp(-D2*(i**2+j**2)*x)
 
-x,t = ccorr_multi_count(NFRAMES, period = PERIOD, level_size = 16, binning = False)
+
+for binning in (0,1):
+    plt.figure()
+
+    clin,cmulti = ccorr_multi_count(NFRAMES, period = PERIOD, level_size = 16, binning = binning)
+    
+    #get eefective count in aveariging... 
+    x,n = log_merge_count(clin, cmulti, binning = binning)
+    data = out[binning]
+    
+    i,j = (16,0)
+    
+    y = g1(x,i,j)
+    
+    #error estimators using a simple model of independent data.
+    err2 = ((1+y**2)/2./n)**0.5 
+    err3 = (((1-y)**2)/n)**0.5
+    err6 = (0.5*(y**2-1)**2 / (y**2+1)/n)**0.5
+    
+    ax = plt.subplot(121)
+    ax.set_xscale("log")
+    plt.xlabel("delay time")
+    plt.title("Correlation @ k =({},{})".format(i,j))
+    
+    
+    for norm in (2,3,6):
+        std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
+        ax.errorbar(x,data[0,norm,i,j],std[norm], fmt='.',label = "norm = {}".format(norm))
+    
+    ax.plot(x,g1(x,i,j), "k",label = "true")
+    
+    plt.legend()
+    
+    
+    plt.subplot(122)
+    plt.title("Mean error (std)")
+    
+    for norm in (2,3,6):
+        std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
+        plt.semilogx(x,std[norm],label = "norm = {}".format(norm))
+    
+    plt.semilogx(x,err2,"k:", label = "norm 2 (expected)")
+    plt.semilogx(x,err3,"k--", label = "norm 3 (expected)")
+    plt.semilogx(x,err6,"k-", label = "norm 6 (expected)")
+    
+    plt.xlabel("delay time")
+    
+    plt.legend()
 
 
-err = 1/(t**0.5)
-
-data = out.mean(axis = 0)
-std = out.std(axis = 0)
-
-i,j = (31,0)
-y = g1(x,i,j)
-
-err1 = err/2**0.5+ (1*y**4*err+0.*y**2*err)*(1- 1/2**0.5)
-
-err1 = (1-y**2)*err/2**0.5+ y**2*err
-
-err1 = ((1+y**2)/2.)**0.5 * err
-
-err2 = err*(1-y)
-
-
-errsum = (1/(1/err1**2 + 1/err2**2))**0.5
 
 
 
-ax = plt.subplot(121)
-ax.set_xscale("log")
-plt.xlabel("delay time")
-plt.title("Correlation @ k =({},{})".format(i,j))
-
-
-for norm in (2,3,6,7):
-    std = (((out[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
-    #ax.errorbar(x,data[norm,i,j],std[norm]/(NRUN**0.5), fmt='.',label = "norm = {}".format(norm))
-    ax.errorbar(x,out[0,norm,i,j],std[norm], fmt='.',label = "norm = {}".format(norm))
-
-ax.plot(x,g1(x,i,j), "k",label = "true")
-
-plt.legend()
-
-
-plt.subplot(122)
-plt.title("Mean error (std)")
-
-
-plt.semilogx(x,err1,"k-")
-plt.semilogx(x,err2,"k--")
-#plt.semilogx(x,errsum[i,j],"k:")
-
-
-for norm in (2,3,6,7):
-    std = (((out[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
-    plt.semilogx(x,std[norm],label = "norm = {}".format(norm))
-
-#meanout = (out[:,2,:,:,:]/err1**2 + out[:,3,:,:,:]/err2**2)/(1/err1**2 + 1/err2**2) 
-
-#std = (((meanout[:,i,j,:] - y)**2).mean(axis = 0))**0.5
-#plt.semilogx(x,std,label = "mean".format(norm))
-plt.xlabel("delay time")
-
-plt.legend()

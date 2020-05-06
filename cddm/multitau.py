@@ -71,6 +71,8 @@ def choose_data(data, axis = 0, out_axis = None, r = None):
     If specified, also moves axis to out_axis."""
     if out_axis is None:
         out_axis = axis
+    if r is None:
+        r = np.random.rand()
     f = np.moveaxis(data,axis,-1)
     n = f.shape[-1] #this makes it possible to bin also odd-sized data.. skip one element
     f1 = np.moveaxis(f[...,0:n-1:2],-1,out_axis)
@@ -377,7 +379,7 @@ def acorr_multi(f, t = None,  level_size = 2**4, norm = None, method = None, ali
     return _compute_multi(f, t1 = t, axis = axis, period = period, level_size = level_size, align = align,
                          binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask)
     
-def _add_data1(i,x, out, binning = True):
+def _add_data1(i,x, out, binning = True, r = None):
     chunk_size = out.shape[-2]
     n_decades = out.shape[0]
     
@@ -392,7 +394,11 @@ def _add_data1(i,x, out, binning = True):
             if binning == BINNING_MEAN:
                 x = mean(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:])
             elif binning == BINNING_CHOOSE:
-                x = choose(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:])
+                if r is None:
+                    r = np.randomd.rand()
+                x = x if r > 0.5 else out[j-1,...,index_top-1,:]
+                out[j,...,index_low,:] = x
+                #x = choose(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:])
             else:
                 out[j,...,index_low,:] = x
             
@@ -417,6 +423,8 @@ def _add_data2(i,x1, x2, out1, out2, binning = True, r = None):
                 x1 = mean(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
                 x2 = mean(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
             elif binning == BINNING_CHOOSE:
+                if r is None:
+                    r = np.randomd.rand()
                 x1 = x1 if r > 0.5 else out1[j-1,...,index_top-1,:]
                 x2 = x2 if r > 0.5 else out2[j-1,...,index_top-1,:]
                 out1[j,...,index_low,:] = x1
@@ -670,24 +678,24 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                         if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
                             _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning, r) 
                     else:
-                        _add_data1(i,x1, fdata1, binning)
+                        _add_data1(i,x1, fdata1, binning,r)
                         if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
-                            _add_data1(i,abs2(x1),sq1,binning)
+                            _add_data1(i,abs2(x1),sq1,binning,r)
         else:
             if bg1 is not None:
                 x1 = x1 - bg1
             if bg2 is not None and cross:
                 x2 = x2 - bg2
                 
+            r = np.random.rand() 
             if cross == True:
-                r = np.random.rand()
                 _add_data2(i,x1, x2, fdata1,fdata2, binning,r)
                 if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
                     _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning,r)
             else:
-                _add_data1(i,x1, fdata1,binning)
+                _add_data1(i,x1, fdata1,binning,r)
                 if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
-                    _add_data1(i,abs2(x1),sq1,binning)                
+                    _add_data1(i,abs2(x1),sq1,binning,r)                
                 
         if i % (half_chunk_size) == half_chunk_size -1: 
 
@@ -1058,7 +1066,7 @@ def triangular_kernel(n):
     out[size//2] = 1/power
     return out
 
-def multilevel_count(count, level_size, binning = True):
+def multilevel_count(count, level_size, binning = BINNING_MEAN):
     """Returns effective number of measurements in multilevel data calculated
     from linear time-space count data.
     
@@ -1075,6 +1083,7 @@ def multilevel_count(count, level_size, binning = True):
         Multilevel effective count array. Shape of this data depends on the 
         length of the original data and the provided level_size parameter.
     """
+    binning = int(binning)
     #kernel = triangular_kernel(n)
     #return 1/(kernel**2).sum()
 
@@ -1093,10 +1102,10 @@ def multilevel_count(count, level_size, binning = True):
     count2 = count **2
     
     for l in range(level+1):
-        if binning == True:
+        if binning == BINNING_MEAN:
             kernel = triangular_kernel(l)
         else:
-            kernel = np.array([1./2**l])
+            kernel = np.array([1.]) #np.array([1./2**l])
         kernel2 = kernel**2
         
         data = np.convolve(kernel2, count2, "same")
@@ -1116,15 +1125,30 @@ def ccorr_multi_count(count, period = 1, level_size = 16, binning = True):
     count_fast = np.linspace(count/period*2, (count - level_size)/period*2 , period*level_size)
     count_slow = np.linspace(count,1,count)*2
     count_slow = multilevel_count(count_slow, level_size, binning)  
+    if binning != BINNING_MEAN:
+        n = count_slow.shape[0]
+        c = 2**(np.arange(n))
+        count_slow = count_slow/c[:,None]
+    
     return count_fast, count_slow[1:]
 
 def acorr_multi_count(count, period = 1, level_size = 16, binning = True):
     count_fast = np.linspace(count/period, (count - level_size)/period , period*level_size)
     count_slow = np.linspace(count,1,count)
     count_slow = multilevel_count(count_slow, level_size, binning)  
+    if binning != BINNING_MEAN:
+        n = count_slow.shape[0]
+        c = 2**(np.arange(n))
+        count_slow = count_slow/c[:,None]
+        
     return count_fast, count_slow[1:]
+
+def _inspect_binning(binning):
+    if binning not in (BINNING_CHOOSE, BINNING_MEAN, BINNING_FIRST):
+        raise ValueError("Unsupported binning mode")
+    return binning
     
-def multilevel(data, level_size = 16):
+def multilevel(data, level_size = 16, binning = BINNING_MEAN):
     """Computes a multi-level version of the linear time-spaced data.
     
     Parameters
@@ -1133,6 +1157,8 @@ def multilevel(data, level_size = 16):
         Normalized correlation data 
     level_size : int
         Level size
+    binning : int
+        Binning mode, either BINNING_FIRST or BINNING_MEAN (default).
         
     Returns
     -------
@@ -1140,6 +1166,7 @@ def multilevel(data, level_size = 16):
         Multilevel data array. Shape of this data depends on the length of the original
         data and the provided level_size parameter
     """
+    binning = _inspect_binning(binning)
     size = int(level_size)
     if size < 2:
         raise ValueError("level_size must be greater than 1")
@@ -1161,7 +1188,12 @@ def multilevel(data, level_size = 16):
         if n_sliced != size:
             out[l,...,n_sliced:] = np.nan
         if l != level:
-            data = convolve(data)[...,::2]
+            if binning == BINNING_MEAN:
+                data = convolve(data)[...,::2]
+            elif binning == BINNING_CHOOSE:
+                data = data[...,::2]
+            else:
+                data = choose_data(data, axis = -1)
     return out
 
 def merge_multilevel(data, mode = "full"):
@@ -1244,7 +1276,7 @@ def _period_from_data(lin, multi):
         raise ValueError("Fast and slow data are not compatible")
     return period
 
-def log_merge(lin,multi):
+def log_merge(lin,multi, binning = BINNING_MEAN):
     """Merges normalized multi-tau data.
     
     You must first normalize with :func:`normalize_multi` before merging!
@@ -1258,27 +1290,31 @@ def log_merge(lin,multi):
         Linear data
     multi : ndarray
         Multilevel data
+    binning : int
+        Binning mode used for multilevel calculation of the linear part of the data.
+        either BINNING_FIRST or BINNING_MEAN (default).
         
     Returns
     -------
     x, y : ndarray, ndarray
         Time and log-spaced data arrays.
     """
+    binning = _inspect_binning(binning)
     period = _period_from_data(lin, multi)
     nslow = multi.shape[-1]
 
-    ldata = multilevel(lin, nslow)
+    ldata = multilevel(lin, nslow, binning)
     xfast, cfast = merge_multilevel(ldata, mode = "full")
     xslow, cslow = merge_multilevel(multi, mode = "half")
     t = np.concatenate((xfast, 2 * period * xslow), axis = -1)
     cc = np.concatenate((cfast, cslow), axis = -1)
     return t, cc
 
-def log_merge_count(lin_count,multi_count):
+def log_merge_count(lin_count,multi_count, binning = BINNING_MEAN):
     period = _period_from_data(lin_count, multi_count)
     nslow = multi_count.shape[-1]
 
-    ldata = multilevel_count(lin_count, nslow)
+    ldata = multilevel_count(lin_count, nslow, binning = binning)
     xfast, cfast = merge_multilevel(ldata, mode = "full")
     xslow, cslow = merge_multilevel(multi_count, mode = "half")
     t = np.concatenate((xfast, 2 * period * xslow), axis = -1)

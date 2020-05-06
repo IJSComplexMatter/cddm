@@ -59,10 +59,13 @@ def calculate(binning = 1):
                  period = PERIOD, auto_background = True)
         #perform normalization and merge data
         
+        #5 and 7 are redundand, but we are calulating it for easier indexing
         for norm in (0,1,2,3,4,5,6,7):
         
             fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
-            x,y = log_merge(fast, slow)
+            
+            #we merge with binning (averaging) of linear data enabled/disabled
+            x,y = log_merge(fast, slow, binning = binning)
         
             if out is None:
                 out = np.empty(shape = (NRUN,8)+ y.shape, dtype = y.dtype)
@@ -88,16 +91,17 @@ for binning in (0,1):
     clin,cmulti = ccorr_multi_count(NFRAMES, period = PERIOD, level_size = 16, binning = binning)
     
     #get eefective count in aveariging... 
-    x,n = log_merge_count(clin, cmulti)
+    x,n = log_merge_count(clin, cmulti, binning = binning)
     data = out[binning]
     
     i,j = (16,0)
     
     y = g1(x,i,j)
     
-    #in the simple model of independent dat
-    err1 = ((1+y**2)/2./n)**0.5 
-    err2 = (((1-y)**2)/n)**0.5
+    #error estimators using a simple model of independent data.
+    err2 = ((1+y**2)/2./n)**0.5 
+    err3 = (((1-y)**2)/n)**0.5
+    err6 = (0.5*(y**2-1)**2 / (y**2+1)/n)**0.5
     
     ax = plt.subplot(121)
     ax.set_xscale("log")
@@ -121,8 +125,9 @@ for binning in (0,1):
         std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
         plt.semilogx(x,std[norm],label = "norm = {}".format(norm))
     
-    plt.semilogx(x,err1,"k-")
-    plt.semilogx(x,err2,"k--")
+    plt.semilogx(x,err2,"k:", label = "norm 2 (expected)")
+    plt.semilogx(x,err3,"k--", label = "norm 3 (expected)")
+    plt.semilogx(x,err6,"k-", label = "norm 6 (expected)")
     
     plt.xlabel("delay time")
     
