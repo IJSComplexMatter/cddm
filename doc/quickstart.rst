@@ -875,11 +875,12 @@ Here we will briefly cover the binning modes and the error of the obtained corre
 
 With `binning=1` the statistical noise is significantly lower than with the other two binning options, at the cost of some slight systematic error introduced by the averaging. The size of this error is small if `level_size` is large enough. `binning=2` (:data:`.multitau.BINNING_CHOOSE`) is considered experimental. The random selection is expected to remove oscillations in correlation function because of signal beating in some experiments (particle flow with oscillating correlations). Note that you should generally use `binning=1` (:data:`.multitau.BINNING_MEAN`), except in case you use `method='diff'`, which does not support averaging. 
 
-Using `binning=0` completely removes the systematic error at large delay times at the cost of increasing the statistical error. This is demonstrated in the examples below.
+Using `binning=0` completely removes the systematic error at the cost of increasing the statistical error. This is demonstrated in the example below. Please read the source code for details.
 
 .. plot:: examples/cross_correlate_error.py
 
-   Demonstrates error
+   Calculation of the standard deviation of data points. Several runs of the same experiment were performed to obtain different realizations of the calculated correlation function. Top graph is for binning = 0, lower graph is for binning = 1 in both the calculation and data merging steps. See source code for details. When the decay of the correlation function is shorter than the effective period of the triggering of the irregular time-spaced correlation calculation, the colected datapoint are statistically independent and there is a simple error-model estimator (in black) that compares well with the actual data point error (in color).
+ 
 
 .. _`live_video`:
 
