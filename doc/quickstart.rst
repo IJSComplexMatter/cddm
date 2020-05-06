@@ -879,7 +879,7 @@ Using `binning=0` completely removes the systematic error at the cost of increas
 
 .. plot:: examples/cross_correlate_error.py
 
-   Calculation of the standard deviation of data points. Several runs of the same experiment were performed to obtain different realizations of the calculated correlation function. Top graph is for binning = 0, lower graph is for binning = 1 in both the calculation and data merging steps. See source code for details. When the decay of the correlation function is shorter than the effective period of the triggering of the irregular time-spaced correlation calculation, the colected datapoint are statistically independent and there is a simple error-model estimator (in black) that compares well with the actual data point error (in color).
+   Calculation of the standard deviation of data points. Several runs of the same experiment were performed to obtain different realizations of the calculated correlation function. Top graph is for binning = 0, lower graph is for binning = 1 in both the calculation and data merging steps. See source code for details. When the decay of the correlation function is shorter than the effective period of the triggering of the irregular time-spaced correlation calculation, the collected datapoint are statistically independent and there is a simple error-model estimator (in black) that compares well with the actual data point error (in color).
  
 
 .. _`live_video`:
