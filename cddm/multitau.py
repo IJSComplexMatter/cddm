@@ -1068,7 +1068,10 @@ def triangular_kernel(n):
 
 def multilevel_count(count, level_size, binning = BINNING_MEAN):
     """Returns effective number of measurements in multilevel data calculated
-    from linear time-space count data.
+    from linear time-space count data using :func:`multilevel`
+    
+    This function can be used to estimate the effective number of realizations
+    of each data point in multilevel data for error estimation.
     
     Parameters
     ----------
@@ -1076,6 +1079,8 @@ def multilevel_count(count, level_size, binning = BINNING_MEAN):
         Count data,
     level_size : int
         Level size used in multilevel averaging.
+    binning : int
+        Binning mode that was used in :func:`multilevel`
         
     Returns
     -------
@@ -1122,6 +1127,26 @@ def multilevel_count(count, level_size, binning = BINNING_MEAN):
     return out
 
 def ccorr_multi_count(count, period = 1, level_size = 16, binning = True):
+    """Returns an effective count data for the equivalent multilevel cross-correlation
+    calculation. 
+    
+    Parameters
+    ----------
+    count : int
+        Number of frames processed
+    period : int
+        The period argument used in correlation calculation
+    level_size : int
+        Level size used in correlation calculation
+    binning, int
+        Binning mode used in correlation calculation
+        
+    Returns
+    -------
+    cf,cs : ndarray, ndarray
+        Count arrays for the linear part and the multilevel part of the multilevel
+        correlation calculation.
+    """
     count_fast = np.linspace(count/period*2, (count - level_size)/period*2 , period*level_size)
     count_slow = np.linspace(count,1,count)*2
     count_slow = multilevel_count(count_slow, level_size, binning)  
@@ -1133,6 +1158,27 @@ def ccorr_multi_count(count, period = 1, level_size = 16, binning = True):
     return count_fast, count_slow[1:]
 
 def acorr_multi_count(count, period = 1, level_size = 16, binning = True):
+    """Returns an effective count data for the equivalent multilevel auto-correlation
+    calculation. 
+    
+    Parameters
+    ----------
+    count : int
+        Number of frames processed
+    period : int
+        The period argument used in correlation calculation
+    level_size : int
+        Level size used in correlation calculation
+    binning, int
+        Binning mode used in correlation calculation
+        
+    Returns
+    -------
+    cf,cs : ndarray, ndarray
+        Count arrays for the linear part and the multilevel part of the multilevel
+        correlation calculation,  
+    """ 
+    
     count_fast = np.linspace(count/period, (count - level_size)/period , period*level_size)
     count_slow = np.linspace(count,1,count)
     count_slow = multilevel_count(count_slow, level_size, binning)  
@@ -1264,6 +1310,24 @@ def log_average(data, size = 8):
     return merge_multilevel(ldata)
 
 def log_average_count(count, size = 8):
+    """Returns effective number of measurements in data calculated
+    from linear time-space count data using :func:`log_average`
+    
+    This function can be used to estimate the effective number of realizations
+    of each data point in multilevel data for error estimation.
+    
+    Parameters
+    ----------
+    count : ndarray
+        Count data, as returned by the `ccorr` or `acorr` functions
+    size : int
+        Sampling size that was used in :func:`log_average`
+        
+    Returns
+    -------
+    x, y : ndarray, ndarray
+        Time and log-spaced effetive count arrays.
+    """
     data = multilevel_count(count, size * 2, binning = True)
     x, y = merge_multilevel(data, mode = "full")
     return x, y
@@ -1311,6 +1375,25 @@ def log_merge(lin,multi, binning = BINNING_MEAN):
     return t, cc
 
 def log_merge_count(lin_count,multi_count, binning = BINNING_MEAN):
+    """Merges multi-tau count data. This function cab be used to obtain
+    effective count data of results merged by :func:`log_merge`. You must
+    first call equivalent count function, like :func:`ccorr_multi_count`.
+    
+    
+    Parameters
+    ----------
+    lin_count : ndarray
+        Linear data count
+    multi_count : ndarray
+        Multilevel data count
+    binning : int
+        Binning mode used in :func:`log_merge`
+        
+    Returns
+    -------
+    x, y : ndarray, ndarray
+        Time and log-spaced count arrays.
+    """
     period = _period_from_data(lin_count, multi_count)
     nslow = multi_count.shape[-1]
 
