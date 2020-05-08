@@ -14,7 +14,6 @@ from cddm.sim import form_factor, seed
 from cddm.multitau import iccorr_multi, normalize_multi, log_merge,  ccorr_multi_count, log_merge_count
 import matplotlib.pyplot as plt
 
-
 import numpy as np
 from examples.two_component.conf import NFRAMES, PERIOD, SHAPE, D1, D2, SIGMA1, SIGMA2, INTENSITY1,INTENSITY2
 
@@ -27,7 +26,7 @@ window = blackman(SHAPE)
 #: we must create a video of windows for multiplication
 window_video = ((window,window),)*NFRAMES
 
-NRUN = 8
+NRUN = 8*8
 
 def calculate(binning = 1):
     out = None
@@ -80,13 +79,13 @@ try:
     out
 except NameError:
     x,data_0 = calculate(0)
-    x,data_1 = calculate(1)
-    out = [data_0, data_1]
+    #x,data_1 = calculate(1)
+    out = [data_0, data_0]
 
 
 #compute form factors, for relative signal amplitudes
-formf1 = rfft2_crop(form_factor(SHAPE, sigma = SIGMA1, intensity = INTENSITY1), 51, 0)
-formf2 = rfft2_crop(form_factor(SHAPE, sigma = SIGMA2, intensity = INTENSITY2), 51, 0)
+formf1 = rfft2_crop(form_factor(SHAPE, sigma = SIGMA1, intensity = INTENSITY1, dtype = "uint16"), 51, 0)
+formf2 = rfft2_crop(form_factor(SHAPE, sigma = SIGMA2, intensity = INTENSITY2, dtype = "uint16"), 51, 0)
 
 def g1(x,i,j):
     a = formf1[i,j]**2
@@ -94,7 +93,7 @@ def g1(x,i,j):
     return a/(a+b)*np.exp(-D1*(i**2+j**2)*x)+b/(a+b)*np.exp(-D2*(i**2+j**2)*x)
 
 
-for binning in (0,1):
+for binning in (0,):
     plt.figure()
 
     clin,cmulti = ccorr_multi_count(NFRAMES, period = PERIOD, level_size = 16, binning = binning)
@@ -103,7 +102,7 @@ for binning in (0,1):
     x,n = log_merge_count(clin, cmulti, binning = binning)
     data = out[binning]
     
-    i,j = (16,0)
+    i,j = (11,0)
     
     y = g1(x,i,j)
     
@@ -119,8 +118,8 @@ for binning in (0,1):
     
     
     for norm in (2,3,6):
-        std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
-        ax.errorbar(x,data[0,norm,i,j],std[norm], fmt='.',label = "norm = {}".format(norm))
+        std = (((data[:,norm,i,j,:] - y)**2).mean(axis = 0))**0.5
+        ax.errorbar(x,data[:,norm,i,j].mean(0),std, fmt='.',label = "norm = {}".format(norm))
     
     ax.plot(x,g1(x,i,j), "k",label = "true")
     
@@ -131,8 +130,9 @@ for binning in (0,1):
     plt.title("Mean error (std)")
     
     for norm in (2,3,6):
-        std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
-        plt.semilogx(x,std[norm],label = "norm = {}".format(norm))
+        y = data[:,norm,i,j,:].mean(0)
+        std = (((data[:,norm,i,j,:] - y)**2).mean(axis = 0))**0.5
+        plt.semilogx(x,std,label = "norm = {}".format(norm))
     
     plt.semilogx(x,err2,"k:", label = "norm 2 (expected)")
     plt.semilogx(x,err3,"k--", label = "norm 3 (expected)")

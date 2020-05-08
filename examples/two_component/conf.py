@@ -13,7 +13,7 @@ cddm.conf.set_verbose(2)
 #: width and height of the frame
 SIZE = 512
 #: how many frames to simulate
-NFRAMES = 1024*4
+NFRAMES = 1024
 #: max k in the first axis
 KIMAX = 41
 #: max k in the second axis
@@ -23,11 +23,19 @@ N_PARAMETER = 16
 #: the delta parameter for the simulator
 DELTA1 = 1.5
 DELTA2 = 4.
-#: image static background value
-BACKGROUND = 200
+#: image static background value must be less than 2**16
+BACKGROUND = 2**14
+#: sensort saturation value, must be less than 2**16
+SATURATION = 2**15
+#: ADC bit depth
+ADC_BIT_DEPTH = "10bit"
+#: readout noise level
+READOUT_NOISE = 0
+#: noise model for readout noise and shot noise
+NOISE_MODEL = "poisson"
 #: peak intensity of the particles
-INTENSITY1 = 5
-INTENSITY2 = 5
+INTENSITY1 = 2**9
+INTENSITY2 = 2**9
 #: sigma of the gaussian of the particles
 SIGMA1 = 5
 SIGMA2 = 3

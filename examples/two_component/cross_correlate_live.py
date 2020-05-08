@@ -4,7 +4,7 @@ function with the out-of-memory version of the multitau algorithm and do
 live view of the computation.
 """
 from cddm.viewer import MultitauViewer
-from cddm.video import multiply, normalize_video, crop
+from cddm.video import multiply, normalize_video, crop, load
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
 from cddm.multitau import iccorr_multi, normalize_multi, log_merge

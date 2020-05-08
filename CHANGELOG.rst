@@ -1,6 +1,20 @@
 Release notes
 -------------
 
+V0.3.0 (In development)
++++++++++++++++++++++++
+
+New features
+////////////
+
+* added functions to sim.py to simulate ADC signal conversion, readout noise and shot noise.
+
+Bug fixes
+/////////
+
+* removed noise argument in simulation functions because shot noise was not implemented correctly.
+
+
 V0.2.0 (May 6 2020)
 +++++++++++++++++++
 

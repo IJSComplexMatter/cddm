@@ -18,11 +18,14 @@ import numpy as np
 from cddm.conf import FDTYPE
 
 from cddm._sim_nb import mirror, numba_seed, make_step, draw_points, draw_psf
+import cddm._sim_nb as _sim_nb
 
-def _inspect_frame_dtype(dtype):
+def _inspect_frame_dtype(dtype, intensity):
     dtype = np.dtype(dtype)
     if dtype not in ("uint8", "uint16"):
         raise ValueError("Unsupported dtype")
+    if intensity > 255 and dtype != "uint16" or intensity < 0:
+        raise ValueError("Invalid intensity for dtype {}".format(dtype))
     return dtype
 
 def form_factor(shape = (512,512), sigma = 3, intensity = 5, navg = 100, dtype = "uint8"):
@@ -48,7 +51,7 @@ def form_factor(shape = (512,512), sigma = 3, intensity = 5, navg = 100, dtype =
         Average absolute value of the FFT of the PSF.
     """
     out = 0.
-    dtype = _inspect_frame_dtype(dtype)
+    dtype = _inspect_frame_dtype(dtype, intensity)
     for i in range(navg):
         im = np.zeros(shape, dtype)
         coord = np.random.rand(1,2) if navg > 1 else np.array([[0,0]],FDTYPE)
@@ -153,7 +156,7 @@ def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1
         yield data
              
 def particles_video(particles, t1, shape = (256,256), t2 = None, 
-                 background = 0, intensity = 10, sigma = None, noise = 0., dtype = "uint8"):
+                 background = 0, intensity = 10, sigma = None, dtype = "uint8"):
     """Creates brownian particles video
     
     Parameters
@@ -172,8 +175,6 @@ def particles_video(particles, t1, shape = (256,256), t2 = None,
         Peak Intensity of the particle.
     sigma : float
         Sigma of the gaussian spread function for the particle
-    noise : float, optional
-        Intensity of the random noise
     dtype : dtype
         Numpy dtype of frames, either uint8 or uint16
         
@@ -182,7 +183,7 @@ def particles_video(particles, t1, shape = (256,256), t2 = None,
     frames : tuple of ndarrays
         A single-frame or dual-frame images (ndarrays).
     """
-    dtype = _inspect_frame_dtype(dtype)
+    dtype = _inspect_frame_dtype(dtype,intensity)
         
     background = np.zeros(shape = shape,dtype = dtype) + background
     height, width = shape
@@ -194,11 +195,8 @@ def particles_video(particles, t1, shape = (256,256), t2 = None,
     t1 = list(t1)
     t2 = list(t2) if t2 is not None else None
         
-    def get_frame(data, noise):
+    def get_frame(data):
         im = background.copy()
-        if noise > 0.:
-            n = np.asarray(np.random.poisson(noise, shape),dtype = dtype)
-            im = np.add(im, n, im)
 
         if sigma is None:
             _int = np.asarray(intensity, dtype)
@@ -221,11 +219,11 @@ def particles_video(particles, t1, shape = (256,256), t2 = None,
     
         if i in t1[:1]:
             t1.pop(0)
-            out1 = get_frame(data,noise)   
+            out1 = get_frame(data)   
             
         if t2 is not None and i in t2[:1]:
             t2.pop(0)
-            out2 = get_frame(data,noise)  
+            out2 = get_frame(data)  
             
         if t2 is not None:
             if out1 is not None and out2 is not None:
@@ -310,7 +308,7 @@ def create_random_times2(nframes,n = 20):
     t2[mask] = t1[mask]
     return t1, t2 
 
-def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, intensity = 5, sigma = 3, noise = 0, dtype = "uint8", **kw):
+def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, intensity = 5, sigma = 3, dtype = "uint8", **kw):
     """DDM or c-DDM video generator.
 
     
@@ -328,8 +326,6 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
         Peak Intensity of the particle.
     sigma : float
         Sigma of the gaussian spread function for the particle
-    noise : float, optional
-        Intensity of the random noise
     dtype : dtype
         Numpy dtype of frames, either uint8 or uint16
     kw : extra arguments
@@ -350,8 +346,18 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
     kw["count"] = count 
     kw["shape"] = shape
     p = brownian_particles(**kw) 
-    return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, noise = noise, dtype = dtype) 
+    return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, dtype = dtype) 
 
+def adc(frame, noise = "gaussian", readout_noise = 0., saturation = 32768, black_level = 0, bit_depth = "14bit", out = None):
+    name = "adc_{}_{}".format(bit_depth, noise)
+    try:
+        f = getattr(_sim_nb, name)
+        return f(frame,saturation,black_level,readout_noise, out = out)
+    except AttributeError:
+        raise ValueError("Invalid noise or bit_depth model")
+
+        
+        
 #
 #if __name__ == "__main__":
 #    import doctest

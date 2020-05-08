@@ -39,7 +39,7 @@ For faster computation of FFTs you may install and use one of these two librarie
 Installing in Anaconda
 ----------------------
 
-After you have downloaded the package, open the terminal (command prompt) `cd` to the downloaded source code and run::
+Make sure you have the required packages::
 
     $ conda install numba matplotlib numpy
     $ pip install cddm
@@ -47,7 +47,6 @@ After you have downloaded the package, open the terminal (command prompt) `cd` t
 Optionally, for faster FFT computation, you can install `mkl_fft`::
 
     $ conda install mkl_fft
-
 
 .. _repository: https://github.com/IJSComplexMatter/cddm
 .. _numba: http://numba.pydata.org
