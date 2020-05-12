@@ -35,7 +35,7 @@ class TestSim(unittest.TestCase):
         plot_random_walk()
         
     def test_video(self):
-        video = simple_brownian_video(range(10), sigma = None, noise = 3.)
+        video = simple_brownian_video(range(10), sigma = None)
         for frames in video:
             pass
     

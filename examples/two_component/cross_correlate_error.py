@@ -102,7 +102,7 @@ for binning in (0,):
     x,n = log_merge_count(clin, cmulti, binning = binning)
     data = out[binning]
     
-    i,j = (11,0)
+    i,j = (21,0)
     
     y = g1(x,i,j)
     

@@ -1558,7 +1558,8 @@ def scale_factor(variance, mask = None):
         raise ValueError("You must provide variance data for normalization")
     try:
         v1, v2 = variance
-        scale = 0.5*np.asarray((v1 + v2))
+        scale = np.asarray(v1)*np.asarray(v2)
+        scale **= 0.5
     except:
         scale = np.asarray(variance)  
     if mask is None:
