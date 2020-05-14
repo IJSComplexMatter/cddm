@@ -61,7 +61,7 @@ def fit(x,y, title = "data"):
 fig = plt.figure() 
 ax = fig.subplots()
 
-for i,label in enumerate(("standard", "random","full")):
+for i,label in enumerate(("standard", "random")):
     x = np.load(path.join(DATA_PATH, "auto_correlate_{}_t.npy".format(label)))
     y = np.load(path.join(DATA_PATH, "auto_correlate_{}_data.npy".format(label)))
 

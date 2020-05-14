@@ -8,6 +8,8 @@ New features
 ////////////
 
 * added functions to sim.py to simulate ADC signal conversion, readout noise and shot noise.
+* weight_from_data, returns weight for the compensated normalization. In previous versions
+  it was for the subtracted normalization.
 
 Bug fixes
 /////////

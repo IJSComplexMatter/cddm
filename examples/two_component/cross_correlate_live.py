@@ -41,7 +41,7 @@ fft = rfft2(video, kimax = KIMAX, kjmax = KJMAX)
 if __name__ == "__main__":
 
     #we will show live calculation with the viewer
-    viewer = MultitauViewer(scale = True)
+    viewer = MultitauViewer(scale = True,semilogx =  False)
     
     #initial mask parameters
     viewer.k = 15

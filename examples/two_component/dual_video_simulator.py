@@ -26,7 +26,7 @@ video2 = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = 0 ,particles
 
 video = add(video1,video2)
 
-video = ((np.ones(SIMSHAPE,dtype = "uint16")*2**8,)*2 for i in range(NFRAMES))
+#video = ((np.ones(SIMSHAPE,dtype = "uint16")*2**8,)*2 for i in range(NFRAMES))
 
 #: crop video to selected region of interest 
 video = crop(video, roi = ((0,SHAPE[0]), (0,SHAPE[1])))

@@ -97,7 +97,7 @@ def _log_interpolate(x_new, x,y, out):
 
 def log_interpolate(x_new, x,y, out = None):
     """Linear interpolation in semilogx space."""
-    #wrapped to suprres divide by zero warning numba issuu #4793
+    #wrapped to suprres divide by zero warning numba issue #4793
     with np.errstate(divide='ignore'):
         return _log_interpolate(x_new, x,y, out)
     
@@ -553,20 +553,28 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
     
     return tmp + (0.5 * d2)
 
-@nb.vectorize([F(F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def weight_from_g1(g1):
+@nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _weight_from_g(g,delta):
+    tmp1 = 2*g
+    tmp2 = g**2 + 1 + 2*delta**2
+    return tmp1/tmp2    
+
+@nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_g(g,delta):
     """Computes weight for weighted normalization from normalized and scaled 
     correlation function"""
-    tmp1 = (g1 - 1)**2
-    tmp2 = g1**2 + 1
-    return tmp1/tmp2
+    return _weight_from_g(g,delta)
     
-@nb.vectorize([F(F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def weight_from_d(d):
+@nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_d(d, delta):
     """Computes weight for weighted normalization from normalized and scaled 
     image structure function"""
-    g1 = 1 - d/2.
-    tmp1 = (g1 - 1)**2
-    tmp2 = g1**2 + 1
-    return tmp1/tmp2
+    g = 1 - d/2.
+    return _weight_from_g(g,delta)
+
+@nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def sigma_g(w,g,delta):
+    """Computes standard deviation of the weighted normalization."""
+    return 0.5 * (w**2 + 1) * (g**2 + 1) - 2 * w * g + (w**2  - 1) * delta
+    
 

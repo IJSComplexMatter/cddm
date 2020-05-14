@@ -2,7 +2,7 @@
 import numpy as np
 import cddm.conf
 
-from examples.conf import DATA_PATH
+from examples.conf import DATA_PATH, DUST1_PATH, DUST2_PATH
 
 #: set verbose level
 cddm.conf.set_verbose(2)
@@ -21,15 +21,15 @@ KJMAX = 31
 #: the delta parameter for the simulator
 DELTA = 1
 #: image static background value
-BACKGROUND = 32768
+BACKGROUND = 16384
 #: peak intensity of the particles
-INTENSITY = 1024
+INTENSITY = 512
 #: sigma of the gaussian of the particles
 SIGMA = 3
 #: simulation video margin size
 MARGIN = 32
 #: period of the random triggering
-PERIOD = 64
+PERIOD = 32
 
 NFRAMES_FULL = NFRAMES * int(PERIOD**0.5)
 

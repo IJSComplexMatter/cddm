@@ -1558,8 +1558,7 @@ def scale_factor(variance, mask = None):
         raise ValueError("You must provide variance data for normalization")
     try:
         v1, v2 = variance
-        scale = np.asarray(v1)*np.asarray(v2)
-        scale **= 0.5
+        scale = (np.asarray(v1) + np.asarray(v2))/2
     except:
         scale = np.asarray(variance)  
     if mask is None:
@@ -1724,7 +1723,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         weight = weight_from_data(y_avg, scale_factor = _scale_factor, mode = mode)
         weight = log_interpolate(x_interp,x_avg, weight)
         enable_prints(level) 
-        return weighted_sum(base_data,comp_data, weight)
+        return weighted_sum(comp_data, base_data,weight)
         
     count = data[1]
     

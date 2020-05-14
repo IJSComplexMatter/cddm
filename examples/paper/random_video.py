@@ -1,16 +1,12 @@
 """Random triggering single camera video
 """
-from cddm.sim import simple_brownian_video, seed
+from cddm.sim import simple_brownian_video, seed, create_random_times, adc
 from cddm.viewer import VideoViewer 
-from cddm.video import load, crop
-from examples.paper.conf import NFRAMES, SIMSHAPE, BACKGROUND, DELTA, INTENSITY, SIGMA, SHAPE, PERIOD
+from cddm.video import load, crop, multiply
+from examples.paper.conf import NFRAMES, SIMSHAPE, BACKGROUND, DELTA, INTENSITY, SIGMA, SHAPE, PERIOD, DUST1_PATH
+import matplotlib.pyplot as plt
 
 import numpy as np
-
-def create_random_times(isize = 1000, iperiod = PERIOD, nlow = 0):
-    t0 = np.arange(isize)*iperiod
-    r1 = np.random.randint(nlow, iperiod,  size = isize)
-    return t0  +r1
 
 t = create_random_times(NFRAMES)
 
@@ -22,7 +18,14 @@ video = simple_brownian_video(t, shape = SIMSHAPE,background = BACKGROUND,
 #: crop video to selected region of interest 
 video = crop(video, roi = ((0,SHAPE[0]), (0,SHAPE[1])))
 
-video = (tuple((np.random.poisson(f) for f in frames)) for frames in video)
+#: apply dust particles
+dust = plt.imread(DUST1_PATH)[...,0] #float normalized to (0,1)
+dust = ((dust,),)*NFRAMES
+
+video = multiply(video, dust)
+
+video = (tuple((adc(f, bit_depth = "12bit") for f in frames)) for frames in video)
+
 
 if __name__ == "__main__":
     #: no need to load video, but this way we load video into memory, and we 
@@ -30,5 +33,5 @@ if __name__ == "__main__":
     #video = load(video, NFRAMES) # loads and displays progress bar
 
     #: VideoViewer either expects a multi_frame iterator, or a numpy array
-    viewer = VideoViewer(video, count = NFRAMES,  cmap = "gray")
+    viewer = VideoViewer(video, count = NFRAMES,  cmap = "gray", vmin = 0, vmax = 4096)
     viewer.show()

@@ -2,7 +2,7 @@
 
 import numpy as np
 from cddm._core_nb import log_interpolate, decreasing, increasing, median, \
-        convolve, interpolate, weighted_sum, weight_from_g1, weight_from_d
+        convolve, interpolate, weighted_sum, weight_from_g, weight_from_d, sigma_g
 
 def denoise(x, n = 3, out = None):
     """Denoises data. A sequence of median and convolve filters.
@@ -58,9 +58,9 @@ def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, 
             corr = np.clip(corr,0.,scale_factor[...,None], out = corr)
             corr = denoise(corr, out = corr)
             
-        g1 = np.divide(corr,scale_factor[...,None], out = out)
+        g = np.divide(corr,scale_factor[...,None], out = out)
          
-        return weight_from_g1(g1, out = out)
+        return weight_from_g(g,0., out = out)
     
     elif mode == "diff":
         if pre_filter == True:
@@ -69,11 +69,11 @@ def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, 
             corr = np.clip(corr,0.,scale_factor[...,None]*2, out = corr)
             corr = denoise(corr, out = corr)
         d = np.divide(corr,scale_factor[...,None], out = out)
-        return weight_from_d(d, out = out)
+        return weight_from_d(d,0., out = out)
     else:
         raise ValueError("Wrong mode.")
 
 
 __all__ = ["convolve","decreasing", "denoise", 
            "increasing", "interpolate","log_interpolate", "median","weight_from_data","weighted_sum",
-           "weight_from_g1", "weight_from_d"]
+           "weight_from_g", "weight_from_d","sigma_g"]

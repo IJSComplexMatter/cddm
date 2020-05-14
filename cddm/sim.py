@@ -285,8 +285,14 @@ def plot_random_walk(count = 5000, particles = 2, shape = (256,256)):
     plt.ylim(0,shape[0])
     plt.axis('equal')
     plt.grid(True)
+    
+def create_random_times(nframes, n = 32):
+    """Create trigger times for single-camera ddm experiments"""
+    t0 = np.arange(nframes)*n
+    r1 = np.random.randint(0, n,  size = nframes)
+    return t0  + r1
  
-def create_random_times1(nframes,n = 20):
+def create_random_times1(nframes,n = 32):
     """Create trigger times for c-ddm experiments based on Eq.7 from the paper"""
     iperiod = n * 2
     t0 = np.arange(nframes)*iperiod
@@ -296,7 +302,7 @@ def create_random_times1(nframes,n = 20):
     t2 = t0 + r2
     return t1, t2  
 
-def create_random_times2(nframes,n = 20):
+def create_random_times2(nframes,n = 32):
     """Create trigger times for c-ddm experiments based on Eq.8 from the paper"""
     iperiod = n * 2
     t0 = np.arange(nframes)*iperiod

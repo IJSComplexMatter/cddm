@@ -1470,13 +1470,13 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
         x_lin = np.arange(lin_comp.shape[-1])
         weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode)
         weight = log_interpolate(x_lin,x,weight)
-        lin = weighted_sum(lin_base,lin_comp, weight)
+        lin = weighted_sum(lin_comp,lin_base,weight)
         
         period = _period_from_data(lin_comp, multi_comp)
         x_multi = t_multilevel(multi_comp.shape, period = period)
         weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode,)
         weight = log_interpolate(x_multi,x,weight)
-        multi = weighted_sum(multi_base,multi_comp, weight)        
+        multi = weighted_sum(multi_comp,multi_base, weight)        
 
     else:
         lin = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,
