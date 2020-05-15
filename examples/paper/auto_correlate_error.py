@@ -1,4 +1,4 @@
-"""In this example we run the simulator of single-particle brownian motion
+"""In this example we run the simulator of two-component particle brownian motion
 several times to calculate multiple correlation functions with different normalization
 procedures and binning = 1 and binning = 0. Then we plot the mean standard deviation of the data
 points and compare that with the simple model error estimator.
@@ -6,20 +6,20 @@ points and compare that with the simple model error estimator.
 This is a lengthy run... it will take a while to complete the experiment.
 """
 
-from cddm.video import multiply, normalize_video, crop, asarrays
+# from cddm.viewer import MultitauViewer
+from cddm.video import multiply, normalize_video, asarrays
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft, rfft2_crop
-from cddm.sim import seed
+from cddm.sim import form_factor, seed
 from cddm.core import acorr, normalize, stats
+from cddm.multitau import log_merge,  ccorr_multi_count, log_merge_count
 import matplotlib.pyplot as plt
-from cddm.conf import FDTYPE
-from cddm.multitau import merge_multilevel, multilevel, multilevel_count
 
 import numpy as np
-from examples.paper.conf import NFRAMES, PERIOD, SHAPE,  D
+from examples.paper.conf import NFRAMES, PERIOD, SHAPE, D, SIGMA, INTENSITY
 
-#: see video_simulator for details, loads sample video
-import examples.paper.video_simulator as video_simulator
+# #: see video_simulator for details, loads sample video
+import examples.paper.random_video as video_simulator
 import importlib
 
 #: create window for multiplication...
@@ -27,7 +27,7 @@ window = blackman(SHAPE)
 #: we must create a video of windows for multiplication
 window_video = ((window,),)*NFRAMES
 
-NRUN = 8*16
+NRUN = 16
 
 def calculate():
     out = None
@@ -35,11 +35,9 @@ def calculate():
     for i in range(NRUN):
         
         print("Run {}/{}".format(i+1,NRUN))
-    
-        importlib.reload(video_simulator) #recreates iterator
         
-        #reset seed... because we use seed(0) in dual_video_simulator
         seed(i)
+        importlib.reload(video_simulator) #recreates iterator with new seed
         
         t = video_simulator.t
         
@@ -54,54 +52,52 @@ def calculate():
         #: you can also normalize each frame with respect to the [0,0] component of the fft
         #: this it therefore equivalent to  normalize_video
         #fft = normalize_fft(fft)
+        
         fft_array, = asarrays(fft,NFRAMES)
-        #: now perform auto correlation calculation with default parameters and show live
+        
+        data = acorr(fft_array, t = t, n = NFRAMES)
         bg, var = stats(fft_array)
-        data = acorr(fft_array, t, n = NFRAMES)
+    
+        #: now perform auto correlation calculation with default parameters and show live
+        #data, bg, var = iacorr(fft, t,  auto_background = True, n = NFRAMES)
         #perform normalization and merge data
         
         #5 and 7 are redundand, but we are calulating it for easier indexing
         for norm in (0,1,2,3,4,5,6,7):
-        
             y = normalize(data, bg, var, norm = norm, scale = True)
-
             if out is None:
                 out = np.empty(shape = (NRUN,8)+ y.shape, dtype = y.dtype)
                 out[0,norm] = y
             else:
                 out[i,norm] = y 
         
-    return out, data[1] 
+    return out
 
 try:
     out
 except NameError:
-    out, count = calculate()
+    out = calculate()
+
+
+
+formf = rfft2_crop(form_factor(SHAPE, sigma = SIGMA, intensity = INTENSITY, dtype = "uint16"), 51, 0)
 
 def g1(x,i,j):
+    a = NPARTICLES * formf**2 
+    v = a + 512*512*INTENSITY
     return np.exp(-D*(i**2+j**2)*x)
 
-data = out
 
 plt.figure()
 
-n = np.ones(NFRAMES)*32
-n[1:32] = np.arange(32)[1:32]
-n[0] = NFRAMES
+n = np.arange(NFRAMES)*NFRAMES/PERIOD/PERIOD
+n[PERIOD:] = n[PERIOD]
 
-#n = count
-#get eefective count in aveariging... 
+data = out
+
+i,j = (21,0)
 
 x = np.arange(NFRAMES)
-
-y = multilevel(data, level_size = 16, binning = 1)
-n = multilevel_count(n, level_size = 16,binning = 1)
-x,data = merge_multilevel(y)
-x,n = merge_multilevel(n)
-
-
-
-i,j = (16,0)
 
 y = g1(x,i,j)
 
@@ -117,8 +113,8 @@ plt.title("Correlation @ k =({},{})".format(i,j))
 
 
 for norm in (2,3,6):
-    std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
-    ax.semilogx(x,data[0,norm,i,j], label = "norm = {}".format(norm))
+    std = (((data[:,norm,i,j,:] - y)**2).mean(axis = 0))**0.5
+    ax.errorbar(x,data[:,norm,i,j].mean(0),std, fmt='.',label = "norm = {}".format(norm))
 
 ax.plot(x,g1(x,i,j), "k",label = "true")
 
@@ -129,8 +125,9 @@ plt.subplot(122)
 plt.title("Mean error (std)")
 
 for norm in (2,3,6):
-    std = np.nanmean(((data[:,:,i,j,:] - y)**2),axis = 0)**0.5
-    plt.semilogx(x,std[norm],label = "norm = {}".format(norm))
+    y = data[:,norm,i,j,:].mean(0)
+    std = (((data[:,norm,i,j,:] - y)**2).mean(axis = 0))**0.5
+    plt.semilogx(x,std,label = "norm = {}".format(norm))
 
 plt.semilogx(x,err2,"k:", label = "norm 2 (expected)")
 plt.semilogx(x,err3,"k--", label = "norm 3 (expected)")
@@ -139,4 +136,8 @@ plt.semilogx(x,err6,"k-", label = "norm 6 (expected)")
 plt.xlabel("delay time")
 
 plt.legend()
+
+
+
+
 

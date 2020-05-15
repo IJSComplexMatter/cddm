@@ -10,6 +10,8 @@ New features
 * added functions to sim.py to simulate ADC signal conversion, readout noise and shot noise.
 * weight_from_data, returns weight for the compensated normalization. In previous versions
   it was for the subtracted normalization.
+* added `norm.py` module and moved all normalization related functions here.
+* added functions for correlation data error estimation.
 
 Bug fixes
 /////////
@@ -27,15 +29,15 @@ New features
 * Added `avg.py` module and a few new functions for data averaging.
 * Added a few functions in multitau.py for effective count calculation for error estimation in example `cross_correlate_error.py`
 * Updated :class:`.viewer.CorrViewer` to implement new normalization type.
-* Updated :func:`.core.normalize` and :func:`.core.normalize_multi` to implement new normalization type.
+* Updated :func:`.core.normalize` and :func:`.multitau.normalize_multi` to implement new normalization type.
 * Structured examples into a package.
-* Add new examples
+* Add new examples.
 
 Bug fixes
 /////////
 
 * Fixes a bug in calculation with binning = 2 (random selection). 
-* Fixes a bug in calculating merge_multilevel(data, mode = "half")
+* Fixes a bug in calculating merge_multilevel(data, mode = "half").
 
 V0.1.2 (Apr 21 2020)
 ++++++++++++++++++++

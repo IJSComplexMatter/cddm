@@ -114,7 +114,7 @@ def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, veloci
         x = make_step(x,scale, velocity) 
         x = mirror(x,x1,x2)
         
-def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1, dt = 1,velocity = 0., x0 = None):
+def brownian_particles(count = 500, shape = (256,256),num_particles = 100, delta = 1, dt = 1,velocity = 0., x0 = None):
     """Coordinates generator of multiple brownian particles.
     
     Builds particles randomly distributed in the computation box and performs
@@ -126,7 +126,7 @@ def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1
         Number of steps to calculate
     shape : (int,int)
         Shape of the box
-    particles : int
+    num_particles : int
         Number of particles in the box
     delta : float
         Step variance in pixel units (when dt = 1)
@@ -144,10 +144,10 @@ def brownian_particles(count = 500, shape = (256,256),particles = 100, delta = 1
         Length of the array equals number of particles.
     """
     if x0 is None:
-        x0 = np.asarray(np.random.rand(int(particles),2)*np.array(shape),FDTYPE)
+        x0 = np.asarray(np.random.rand(int(num_particles),2)*np.array(shape),FDTYPE)
     else:
         x0 = np.asarray(x0,FDTYPE)
-        if len(x0) != particles:
+        if len(x0) != num_particles:
             raise ValueError("Wrong length of initial coordinates x0")
  
     v0 = np.zeros_like(x0)
@@ -260,12 +260,12 @@ def data_trigger(data, indices):
                 #all done.
                 break
             
-def plot_random_walk(count = 5000, particles = 2, shape = (256,256)):
+def plot_random_walk(count = 5000, num_particles = 2, shape = (256,256)):
     """Brownian particles usage example. Track 2 particles"""
     import matplotlib.pyplot as plt 
-    x = np.array([x for x in brownian_particles(count = count, particles = particles, shape = shape)])
+    x = np.array([x for x in brownian_particles(count = count, num_particles = num_particles, shape = shape)])
         
-    for i in range(particles): 
+    for i in range(num_particles): 
         
         # Plot the 2D trajectory.
         plt.plot(x[:,i,0],x[:,i,1])

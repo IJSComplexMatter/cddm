@@ -139,7 +139,7 @@ def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, 
         Whether to perform denoising and filtering. If set to False, user has 
         to perform data filtering.
     delta : ndarray, optional
-        The delta parameter, as returned by :func:`core.`
+        The delta parameter, as returned by :func:`noise_delta`
     out : ndarray, optional
         Output array
         

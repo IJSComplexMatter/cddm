@@ -33,6 +33,8 @@ PERIOD = 32
 
 NFRAMES_FULL = NFRAMES * int(PERIOD**0.5)
 
+NPARTICLES = 100
+
 #computed parameters, do not change these
 #----------------------------------------
 

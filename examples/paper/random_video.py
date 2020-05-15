@@ -1,18 +1,25 @@
 """Random triggering single camera video
 """
-from cddm.sim import simple_brownian_video, seed, create_random_times, adc
+from cddm.core import auto_count
+from cddm.sim import simple_brownian_video, create_random_times, adc
 from cddm.viewer import VideoViewer 
-from cddm.video import load, crop, multiply
-from examples.paper.conf import NFRAMES, SIMSHAPE, BACKGROUND, DELTA, INTENSITY, SIGMA, SHAPE, PERIOD, DUST1_PATH
+from cddm.video import crop, multiply
+from examples.paper.conf import NFRAMES, SIMSHAPE, BACKGROUND, DELTA, INTENSITY, \
+    NPARTICLES, SIGMA, SHAPE, DUST1_PATH
 import matplotlib.pyplot as plt
-
 import numpy as np
 
-t = create_random_times(NFRAMES)
+
+while True:
+    #make valid random time (all passible times present) 
+    t = create_random_times(NFRAMES)
+    count = auto_count(t,NFRAMES)
+    if np.all(count):
+        break
 
 #: this cretaes a brownian motion frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame)
-video = simple_brownian_video(t, shape = SIMSHAPE,background = BACKGROUND,
+video = simple_brownian_video(t, shape = SIMSHAPE,background = BACKGROUND, particles = NPARTICLES,
                               sigma = SIGMA, delta = DELTA, intensity = INTENSITY, dtype = "uint16")
 
 #: crop video to selected region of interest 
