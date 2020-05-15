@@ -37,7 +37,8 @@ from cddm.print_tools import print1, print2
 
 from cddm._core_nb import mean, choose, convolve, _calc_stats_vec
 from cddm.core import _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor
-from cddm.avg import weighted_sum,weight_from_data, log_interpolate
+from cddm.norm import weighted_sum,weight_from_data
+from cddm.avg import log_interpolate
 
 import time
 

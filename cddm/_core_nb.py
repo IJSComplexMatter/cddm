@@ -553,7 +553,7 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
     
     return tmp + (0.5 * d2)
 
-@nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.jit([F(F,F)], cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _weight_from_g(g,delta):
     tmp1 = 2*g
     tmp2 = g**2 + 1 + 2*delta**2
@@ -564,6 +564,7 @@ def weight_from_g(g,delta):
     """Computes weight for weighted normalization from normalized and scaled 
     correlation function"""
     return _weight_from_g(g,delta)
+
     
 @nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def weight_from_d(d, delta):
@@ -573,7 +574,7 @@ def weight_from_d(d, delta):
     return _weight_from_g(g,delta)
 
 @nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def sigma_g(w,g,delta):
+def sigma2(w,g,delta):
     """Computes standard deviation of the weighted normalization."""
     return 0.5 * (w**2 + 1) * (g**2 + 1) - 2 * w * g + (w**2  - 1) * delta
     

@@ -42,7 +42,7 @@ from cddm.print_tools import print1,print2, print_frame_rate, enable_prints, dis
 import time
 from functools import reduce 
 from cddm.fft import _fft
-from cddm.avg import weight_from_data, weighted_sum
+from cddm.norm import weight_from_data, weighted_sum
 from cddm._core_nb import log_interpolate,\
    _cross_corr_fft_regular, _cross_corr_fft, \
     _auto_corr_fft_regular,_auto_corr_fft,\
@@ -1535,36 +1535,6 @@ def _variance2offset(variance, mask):
     #offset for norm == 2 type of normalization
     return scale_factor(variance, mask)[..., None]
     
-def scale_factor(variance, mask = None):
-    """Computes the normalization scaling factor from the variance data.
-    
-    You can divide the computed correlation data with this factor to normalize
-    data between (0,1) for correlation mode, or (0,2) for difference mode.
-    
-    Parameters
-    ----------
-    variance : (ndarray, ndarray) or ndarray
-        A variance data (as returned from :func:`.stats`)
-    mask : ndarray
-        A boolean mask array, if computation was performed on masked data,
-        this applys mask to the variance data.
-        
-    Returns
-    -------
-    scale : ndarray
-        A scaling factor for normalization
-    """
-    if variance is None:
-        raise ValueError("You must provide variance data for normalization")
-    try:
-        v1, v2 = variance
-        scale = (np.asarray(v1) + np.asarray(v2))/2
-    except:
-        scale = np.asarray(variance)  
-    if mask is None:
-        return scale
-    else:
-        return scale[mask]
 
 def _inspect_background(background, norm, mask):
     if background is not None:
