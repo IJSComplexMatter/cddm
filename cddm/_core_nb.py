@@ -553,17 +553,21 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
     
     return tmp + (0.5 * d2)
 
-@nb.jit([F(F,F)], cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _weight_from_g(g,delta):
-    tmp1 = 2*g
-    tmp2 = g**2 + 1 + 2*delta**2
-    return tmp1/tmp2    
+#because of numba bug, this does not work for np.nan inputs
+
+# @nb.jit([F(F,F)], cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+# def _weight_from_g(g,delta):
+#     tmp1 = 2*g
+#     tmp2 = g**2 + 1 + 2*delta**2
+#     return tmp1/tmp2    
 
 @nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def weight_from_g(g,delta):
     """Computes weight for weighted normalization from normalized and scaled 
     correlation function"""
-    return _weight_from_g(g,delta)
+    tmp1 = 2*g
+    tmp2 = g**2 + 1 + 2*delta**2
+    return tmp1/tmp2    
 
     
 @nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
@@ -571,7 +575,9 @@ def weight_from_d(d, delta):
     """Computes weight for weighted normalization from normalized and scaled 
     image structure function"""
     g = 1 - d/2.
-    return _weight_from_g(g,delta)
+    tmp1 = 2*g
+    tmp2 = g**2 + 1 + 2*delta**2
+    return tmp1/tmp2    
 
 @nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def sigma2(w,g,delta):

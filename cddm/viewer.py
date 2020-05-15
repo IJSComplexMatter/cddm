@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
 from cddm.map import rfft2_kangle,  sector_indexmap
 from cddm.multitau import normalize_multi, log_merge, log_average
-from cddm.core import normalize, _default_norm_from_data, _method_from_data, NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED
+from cddm.norm import normalize, _default_norm_from_data, _method_from_data, NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED
 from cddm.print_tools import disable_prints, enable_prints
 from cddm.decorators import doc_inherit, skip_runtime_error
 
