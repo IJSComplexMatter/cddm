@@ -1237,7 +1237,7 @@ def multilevel(data, level_size = 16, binning = BINNING_MEAN):
         if l != level:
             if binning == BINNING_MEAN:
                 data = convolve(data)[...,::2]
-            elif binning == BINNING_CHOOSE:
+            elif binning == BINNING_FIRST:
                 data = data[...,::2]
             else:
                 data = choose_data(data, axis = -1)

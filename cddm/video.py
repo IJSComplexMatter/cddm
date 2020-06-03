@@ -326,7 +326,7 @@ def multiply(x,y, inplace = False, dtype = None):
             yield tuple((np.asarray(frame*w, dtype = dtype) for w, frame in zip(arrays,frames)))
             
 class ImageShow():
-    """A simple interface for video visualization using matplotlib opencv or
+    """A simple interface for video visualization using matplotlib, opencv, or
     pyqtgraph.
     
     Parameters
@@ -566,7 +566,7 @@ def show_video(video, id = 0, title = None, norm_func = lambda x : x.real):
             queue.put(frames[id],block = False)
         yield frames  
      
-def show_diff(video, title = None):
+def show_diff(video, title = None, normalize = False):
     """Returns a video and performs image difference live video show.
     This works in connection with :func:`play` that does the actual display.
     
@@ -577,6 +577,10 @@ def show_diff(video, title = None):
     title : str
         Unique title of the video. You can use :func:`figure_title`
         a to produce unique name.
+    normalize : bool
+        Whether to normalize frames to its mean value before subtracting. Note
+        that this does not normalize the output video, only the displayed video
+        is normalized.
         
     Returns
     -------
@@ -595,6 +599,9 @@ def show_diff(video, title = None):
         if queue.empty():
             x,y = frames
             x,y = x.real, y.real
+            if normalize == True:
+                x = x/x.mean()
+                y = y/y.mean()
             m = 2* max(x.max(),y.max())
             im = x/m - y/m + 0.5
             queue.put(im,block = False)

@@ -40,7 +40,7 @@ def convolve(a, out):
     assert n > 2  
     result = a[0]
     for i in range(1,n-1):
-        out[i-1] = result
+        out[i-1] = result 
         result = 0.25*(a[i-1]+2*a[i]+a[i+1])
 
     out[i] = result
@@ -156,10 +156,12 @@ def decreasing(array, out):
         if i == 0:
             out[0] = array[0]
         else:
-            if array[i] < out[i-1]:
+            if array[i] < out[i-1] or np.isnan(out[i-1]):
                 out[i] = array[i]
             else:
                 out[i] = out[i-1]
+                
+                
                 
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def increasing(array,out):
@@ -169,7 +171,7 @@ def increasing(array,out):
         if i == 0:
             out[0] = array[0]
         else:
-            if array[i] > out[i-1]:
+            if array[i] > out[i-1] or np.isnan(out[i-1]):
                 out[i] = array[i]
             else:
                 out[i] = out[i-1]
@@ -490,6 +492,102 @@ def _add_count_cross(t1,t2,n):
             m = abs(t1[ii] - t2[jj])
             if m < len(n):
                 n[m] += 1   
+                
+# @nb.jit([(I64[:],I64[:],I64[:,:],I64[:,:])],cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+# def cross_tau_time(t1,t2,tn1,tn2):
+#     assert len(t1) == len(t2) 
+#     assert tn1.shape == tn2.shape
+    
+#     count = np.zeros((tn1.shape[0],),tn1.dtype)
+    
+#     for ii in range(t1.shape[0]):
+#         for jj in range(t2.shape[0]):
+#             m = abs(t1[ii] - t2[jj])
+#             if m < tn1.shape[0]:
+#                 i = count[m]
+#                 if i < tn1.shape[1]:
+#                     tn1[m,i] = t1[ii]   
+#                     tn2[m,i] = t2[jj] 
+#                     count[m] +=1
+
+
+@nb.jit([(I64[:],I64[:],I64[:,:],I64[:,:])],cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def cross_tau_times(t1,t2,tpos,tneg):
+    assert len(t1) == len(t2) 
+    assert tpos.shape == tpos.shape
+    
+    count_pos = np.zeros((tpos.shape[0],),tpos.dtype)
+    count_neg = np.zeros((tneg.shape[0],),tneg.dtype)
+    
+    for ii in range(t1.shape[0]):
+        for jj in range(t2.shape[0]):
+            m = t1[ii] - t2[jj]
+            if abs(m) < tpos.shape[0]:
+                if m > 0:
+                    i = count_pos[m]
+                    if i < tpos.shape[1]:
+                        tpos[m,i] = t1[ii]   
+                        count_pos[m] +=1
+                else:
+                    m = -m
+                    i = count_neg[m]
+                    if i < tneg.shape[1]:
+                        tneg[m,i] = t1[ii]   
+                        count_neg[m] +=1
+
+@nb.jit([(I64[:],I64[:,:])],cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def auto_tau_times(t,tpos):
+
+    count_pos = np.zeros((tpos.shape[0],),tpos.dtype)
+
+    for ii in range(t.shape[0]):
+        for jj in range(ii,t.shape[0]):
+            m = t[jj] - t[ii]
+            assert m >= 0
+            if m < tpos.shape[0]:
+                i = count_pos[m]
+                if i < tpos.shape[1]:
+                    tpos[m,i] = t[ii]   
+                    count_pos[m] +=1
+
+
+def cross_count_mixed(t1,t2, n, period):
+    pos = np.empty((n,len(t1)//period * 2),int)
+    pos[...] = -1
+    neg = np.empty((n,len(t1)//period * 2),int)
+    neg[...] = -1
+    cross_tau_times(t1,t2,pos,neg)
+    
+    count_pos_pos = np.zeros((n, 2*n), int)
+    count_neg_neg = np.zeros((n, 2*n), int)
+    count_pos_neg = np.zeros((n, 2*n), int)
+    
+    for i in range(n):
+        pmask = pos[i] > 0
+        _add_count_cross(pos[i,pmask],pos[i,pmask],count_pos_pos[i])
+        nmask = neg[i] > 0
+        _add_count_cross(neg[i,nmask],neg[i,nmask],count_neg_neg[i])
+        _add_count_cross(pos[i,pmask],neg[i,nmask],count_pos_neg[i])
+    return count_pos_pos,count_neg_neg,count_pos_neg
+        
+def auto_count_mixed(t, n, period):
+    pos = np.empty((n,len(t)//period * 2),int)
+    pos[...] = -1
+
+    auto_tau_times(t,pos)
+    count = np.zeros((n, 2*n), int)
+
+    
+    for i in range(n):
+        mask = pos[i] > 0
+        _add_count_cross(pos[i,mask],pos[i,mask],count[i])
+
+    return count
+        
+        
+    
+    
+
 
 @nb.jit(nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH) 
 def _add_count_auto(t,n):
@@ -561,27 +659,81 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
 #     tmp2 = g**2 + 1 + 2*delta**2
 #     return tmp1/tmp2    
 
-@nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def weight_from_g(g,delta):
+@nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_g(g,noise,delta):
     """Computes weight for weighted normalization from normalized and scaled 
     correlation function"""
     tmp1 = 2*g
-    tmp2 = g**2 + 1 + 2*delta**2
+    tmp2 = g**2 + 1 + noise**2 + 2*delta**2
     return tmp1/tmp2    
-
     
-@nb.vectorize([F(F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def weight_from_d(d, delta):
+@nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_d(d,noise, delta):
     """Computes weight for weighted normalization from normalized and scaled 
-    image structure function"""
+    structure function"""
     g = 1 - d/2.
     tmp1 = 2*g
-    tmp2 = g**2 + 1 + 2*delta**2
+    tmp2 = g**2 + 1 + noise**2 + 2*delta**2
     return tmp1/tmp2    
 
-@nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def sigma2(w,g,delta):
+@nb.vectorize([F(F,F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def sigma_weighted(w,g,noise,delta):
     """Computes standard deviation of the weighted normalization."""
-    return 0.5 * (w**2 + 1) * (g**2 + 1) - 2 * w * g + (w**2  - 1) * delta
+    g2 = g**2
+    d2 = delta**2
+    b2 = noise**2
+    return (0.5 * (w**2 * (g2 + 1 + b2 + 2 * d2) - 4 * w * g  + g2 + 1 - d2))**0.5
+
+@nb.jit
+def _g(a,index):
+    index = abs(index)
+    if index > len(a):
+        return 0.
+    else:
+        return a[index]
+
+@nb.guvectorize([(F[:],F[:],F[:],F[:],I64[:,:],I64[:,:],I64[:,:],F[:])],"(),(n),(),(),(n,m),(n,m),(n,m)->(n)",target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def sigma_weighted_cross_general(weight,g,noise, delta, pp,pm,mm, out):
+    w = weight[0]
+    d2 = delta[0]**2
+    b2 = noise[0]**2
+    for i in range(len(g)):
+        g2 = g[i]**2
+        out[i] = (0.5 * (w**2 * (g2 + 1 + b2 + 2 * d2) - 4 * w * g[i]  + g2 + 1 - d2))
+        
+        #correction terms, skipping p = 0 because it was computed above.
+        for p in range(1,pp.shape[1]):
+            tmp = (pp[i, p] + mm[i, p])*(_g(g, p)**2 + _g(g, p + i) * _g(g, p-i))
+            tmp += pm[i, p] *(_g(g, p + i)**2 + _g(g, p - i)**2 + _g(g, p)*_g(g, p + 2 * i) + _g(g, p)*_g(g, p - 2 * i))
+            
+            tmp -= 2*w * (pp[i,p] + mm[i,p])* (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p)) 
+            tmp -= 2*w * pm[i,p]* (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p) + _g(g,p+i)*_g(g,p+2*i) + _g(g,p-i)*_g(g,p-2*i) ) 
+        
+            tmp += w**2 * (pp[i,p] + mm[i,p])* (_g(g,p)**2 + _g(g,p+i)**2 + _g(g,p-i)**2)
+            tmp += w**2 * pm[i,p] * (_g(g,p)**2 +_g(g,p-i)**2 + _g(g,p+i)**2 + 0.5* _g(g,p+2*i)**2+ 0.5* _g(g,p-2*i)**2 )
+            
+            out[i] = out[i] + 0.5 * tmp / (pp[i,0] + mm[i,0])
+        
+        out[i] = out[i] ** 0.5
     
+@nb.guvectorize([(F[:],F[:],F[:],I64[:,:],F[:])],"(n),(n),(n),(n,m)->(n)",target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def sigma_weighted_auto_general(weight,g,noise, pp, out):
+    for i in range(len(g)):
+        w = weight[i]
+        b2 = noise[i]**2
+        g2 = g[i]**2
+        out[i] = 0.
+        out[i] = (0.5 * (w**2 * (g2 + 1 + b2) - 4 * w * g[i]  + g2 + 1))
+        
+        #correction terms, skipping p = 0 because it was computed above.
+        for p in range(1,pp.shape[1]):
+            tmp = pp[i, p] * (_g(g, p)**2 + _g(g, p + i) * _g(g, p-i))
+
+            tmp -= 2*w * pp[i,p] * (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p)) 
+
+            tmp += w**2 * pp[i,p] * (_g(g,p)**2 + 0.5*_g(g,p+i)**2 + 0.5*_g(g,p-i)**2)
+
+            out[i] = out[i] + 0.5 * tmp / pp[i,0]
+        
+        out[i] = out[i] ** 0.5    
 

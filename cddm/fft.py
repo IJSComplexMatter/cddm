@@ -55,17 +55,18 @@ def _ifft(a, overwrite_x = False):
 #    elif libname == "pyfftw":
 #        return fftw.scipy_fftpack.fft2(a, overwrite_x = overwrite_x)
     
-def _rfft2(a, overwrite_x = False):
+def _rfft2(a, overwrite_x = False, extra = {}):
     libname = CDDMConfig["rfft2lib"]
     cutoff = a.shape[-1]//2 + 1
     if libname == "mkl_fft":
-        return mkl_fft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]
+        return mkl_fft.rfftn_numpy(a.real,axes =(-2, -1), **extra)
+        #return mkl_fft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]
     elif libname == "scipy":
-        return spfft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]
+        return spfft.fft2(a, overwrite_x = overwrite_x, **extra)[...,0:cutoff]
     elif libname == "numpy":
-        return np.fft.rfft2(a.real) #force real in case input is complex
+        return np.fft.rfft2(a.real, **extra) #force real in case input is complex
     elif libname == "pyfftw":
-        return fftw.numpy_fft.rfft2(a.real) #force real in case input is complex 
+        return fftw.numpy_fft.rfft2(a.real, **extra) #force real in case input is complex 
   
 def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
     if kimax is None:
@@ -117,7 +118,7 @@ def rfft2_crop(x, kimax = None, kjmax = None):
         out[...,-istop+1:,:] = x[...,-istop+1:,:jstop] 
         return out
 
-def rfft2(video, kimax = None, kjmax = None, overwrite_x = False):
+def rfft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     """A generator that performs rfft2 on a sequence of multi-frame data.
     
     Shape of the output depends on kimax and kjmax. It is (2*kimax+1, kjmax +1), 
@@ -127,13 +128,17 @@ def rfft2(video, kimax = None, kjmax = None, overwrite_x = False):
     ----------
     video : iterable
         An iterable of multi-frame data
-    kimax : float, optional
+    kimax : int, optional
         Max value of the wavenumber in vertical axis (i)
-    kjmax : float, optional
+    kjmax : int, optional
         Max value of the wavenumber in horizontal axis (j)
     overwrite_x : bool, optional
         If input type is complex and fft library used is not numpy, fft can 
         be performed inplace to speed up computation.
+    extra : dict
+        Extra arguments passed to the underlying rfft2 cfunction. These arguments
+        are library dependent. For pyffyw see the documentation on 
+        additional arguments for finer FFT control.
         
     Returns
     -------
@@ -141,7 +146,7 @@ def rfft2(video, kimax = None, kjmax = None, overwrite_x = False):
         An iterator over FFT of the video.
     """
     for frames in video:
-        yield tuple((rfft2_crop(_rfft2(frame, overwrite_x = overwrite_x),kimax, kjmax) for frame in frames))
+        yield tuple((rfft2_crop(_rfft2(frame, overwrite_x = overwrite_x, extra = extra),kimax, kjmax) for frame in frames))
     
 #    def f(frame, shape, istop, jstop):
 #        data = _rfft2(frame, overwrite_x = overwrite_x)

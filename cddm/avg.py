@@ -2,8 +2,9 @@
 
 from cddm._core_nb import log_interpolate, decreasing, increasing, median, \
         convolve, interpolate
+import numpy as np
 
-def denoise(x, n = 3, out = None):
+def denoise(x, n = 3):
     """Denoises data. A sequence of median and convolve filters.
     
     Parameters
@@ -21,10 +22,9 @@ def denoise(x, n = 3, out = None):
         Denoised data.
     """
     for i in range(n):
-        out = median(x, out = out)
-        data = convolve(out, out = out)
-    return data
-
+        x = median(x)
+        x = convolve(x)
+    return x
 
 __all__ = ["convolve","decreasing", "denoise", 
            "increasing", "interpolate","log_interpolate", "median"]

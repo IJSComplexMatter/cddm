@@ -16,7 +16,7 @@ colors = ["C{}".format(i) for i in range(10)]
 
 def _g1(x,f,a,b):
     """g1: exponential decay"""
-    return a* np.exp(-f*x)  + b
+    return a* np.exp(-f*x) + b
 
 def fit_data(x, data, title = "", ax = None):
     """performs fitting and plotting of cross correlation data"""
@@ -37,9 +37,8 @@ def _lin(x,k):
     return k*x
 
 
-
 def fit(x,y, title = "data"):
-    k_data = k_select(y, angle = 0, sector = 15)
+    k_data = k_select(y, angle = 0, sector = 180, kstep = 1)
     if SHOW_FITS:
         fig = plt.figure()
         ax = fig.subplots()  
@@ -61,11 +60,15 @@ def fit(x,y, title = "data"):
 fig = plt.figure() 
 ax = fig.subplots()
 
-for i,label in enumerate(("standard", "random")):
-    x = np.load(path.join(DATA_PATH, "auto_correlate_{}_t.npy".format(label)))
-    y = np.load(path.join(DATA_PATH, "auto_correlate_{}_data.npy".format(label)))
+for i,label in enumerate(("standard", "random", "dual")):
+    x = np.load(path.join(DATA_PATH, "corr_{}_t.npy".format(label)))
+    y = np.load(path.join(DATA_PATH, "corr_{}_data.npy".format(label)))
+    
+    mask = np.isnan(y)
+    mask = np.logical_not(np.all(mask, axis = tuple(range(mask.ndim-1))))
+    x,y = x[mask], y[...,mask]
 
-    k,p,c = fit(x,y, title = label) 
+    k,p,c = fit(x[1:],y[...,1:], title = label) 
     f = p[:,0]
     
     ax.plot((k**2),f,"o", color = colors[i],fillstyle='none', label = "{}".format(label))

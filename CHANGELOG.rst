@@ -12,11 +12,20 @@ New features
   it was for the subtracted normalization.
 * added `norm.py` module and moved all normalization related functions here.
 * added functions for correlation data error estimation.
+* added `normalize` argument to `show_diff` function.
+
+Enhancements
+////////////
+
+* `rfft2` now uses `rfftn_numpy` when using mkl_fft 
+* `rfft2` now accepts extra keyword argument that can be used to pass extra arguments for
+  the underlying fft library.
 
 Bug fixes
 /////////
 
 * removed noise argument in simulation functions because shot noise was not implemented correctly.
+  Shot noise is now simulated during ADC conversion.
 
 
 V0.2.0 (May 6 2020)

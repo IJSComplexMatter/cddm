@@ -10,7 +10,8 @@ from cddm.print_tools import print1,print2, enable_prints, disable_prints
 from cddm._core_nb import _normalize_cdiff_1,_normalize_cdiff_3,\
   _normalize_ccorr_0,_normalize_ccorr_1,_normalize_ccorr_2,_normalize_ccorr_3
 
-from cddm._core_nb import weighted_sum, weight_from_g, weight_from_d, sigma2
+from cddm._core_nb import weighted_sum, weight_from_g, weight_from_d, sigma_weighted
+
 import cddm._core_nb as _nb 
 import cddm.avg as _avg
 
@@ -59,7 +60,6 @@ def norm_flags(compensated = False, subtracted = False, weighted = False):
         norm = norm | NORM_WEIGHTED
     return norm
 
-
 def scale_factor(variance, mask = None):
     """Computes the normalization scaling factor from the variance data.
     
@@ -90,6 +90,73 @@ def scale_factor(variance, mask = None):
         return scale
     else:
         return scale[mask]
+    
+def noise_level(window, intensity):
+    """Computes the camera noise level spectrum in FFT space.
+    
+    This can be used to build noise and delta parameters for data error
+    estimations.
+    
+    Parameters
+    ----------
+    window : ndarray
+        Window function used in the analysis. Set this to np.ones, if no window
+        is used. This is used to determine frame size
+    intensity : float
+        Mean image intensity.
+
+    Returns
+    -------
+    noise : float
+        Expected image noise level.
+        
+    Examples
+    --------
+    
+    >>> window = np.ones(shape = (512,512))
+    >>> noise_level(window, intensity = 200)
+    52428800.0
+    
+    If you multiplied the image with a constant, e.g. 10 do
+    
+    >>> noise_level(window*10, intensity = 200)
+    5242880000.0
+    
+    Noise level is 100 times larger in this case and is not the same as
+    
+    >>> noise_level(window, intensity = 2000)
+    524288000.0
+    """
+
+    return (np.abs(window)**2).sum() * intensity
+     
+def noise_mean(corr, scale_factor = 1., mode = "corr"):
+    """Computes the scalled mean noise from the  correlation data estimator.
+    
+    This is the delta parameter for weighted normalization.
+    
+    Parameters
+    ----------
+    corr: (ndarray,) 
+        Correlation function (or difference function) model.
+    scale_factor : ndarray
+        Scaling factor as returned by :func:`.core.scale_factor`. If not provided,
+        corr data must be computed with scale = True option.
+        
+    Returns
+    -------
+    delta : ndarray
+        Scalled delta value.
+    """    
+    scale_factor = np.asarray(scale_factor)
+    g = np.divide(corr,scale_factor[...,None])
+    if mode == "corr":
+        noise = np.clip(1 - g[...,0],0,1) 
+    elif mode == "diff":
+        noise = np.clip(g[...,0]/2,0,1) 
+    else:
+        raise ValueError("Wrong mode.")
+    return noise
 
 def noise_delta(variance, mask = None):
     """Computes the scalled noise difference from the variance data.
@@ -123,7 +190,7 @@ def noise_delta(variance, mask = None):
     else:
         return delta[mask]    
 
-def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, delta = 0., out = None):
+def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, noise = 0., delta = 0.):
     """Computes weighting function for weighted normalization.
     
     Parameters
@@ -132,16 +199,17 @@ def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, 
         Correlation (or difference) data
     scale_factor : ndarray
         Scaling factor as returned by :func:`.core.scale_factor`. If not provided,
-        corr data must be computed with scale = True option.
+        corr data must be computed with scale = True option, and noise and
+        delta data are assumed to be scalled as well.
     mode : str
         Representation mode of the data, either 'corr' (default) or 'diff'
     pre_filter : bool
         Whether to perform denoising and filtering. If set to False, user has 
         to perform data filtering.
+    noise : ndarray, optional
+        The noise parameter.
     delta : ndarray, optional
         The delta parameter, as returned by :func:`noise_delta`
-    out : ndarray, optional
-        Output array
         
     Returns
     -------
@@ -152,23 +220,25 @@ def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, 
     if mode == "corr":
         #make sure it is decreasing and clipped between 0 and 1
         if pre_filter == True:
-            corr = _avg.denoise(corr, out = out)
-            corr = _avg.decreasing(corr, out = corr)
-            corr = np.clip(corr,0.,scale_factor[...,None], out = corr)
-            corr = _avg.denoise(corr, out = corr)
+            corr = _avg.denoise(corr)
+            corr = _avg.decreasing(corr)
+            corr = np.clip(corr,0.,scale_factor[...,None])
+            corr = _avg.denoise(corr)
             
-        g = np.divide(corr,scale_factor[...,None], out = out)
-         
-        return weight_from_g(g,delta, out = out)
+        g = np.divide(corr,scale_factor[...,None])
+        
+        return weight_from_g(g,noise,delta)
     
     elif mode == "diff":
         if pre_filter == True:
-            corr = _avg.denoise(corr, out = out)
-            corr = _avg.increasing(corr, out = corr)
-            corr = np.clip(corr,0.,scale_factor[...,None]*2, out = corr)
-            corr = _avg.denoise(corr, out = corr)
-        d = np.divide(corr,scale_factor[...,None], out = out)
-        return weight_from_d(d,delta, out = out)
+            corr = _avg.denoise(corr)
+            corr = _avg.increasing(corr)
+            corr = np.clip(corr,0.,scale_factor[...,None]*2)
+            corr = _avg.denoise(corr)
+        
+        d = np.divide(corr,scale_factor[...,None])
+
+        return weight_from_d(d,noise,delta)
     else:
         raise ValueError("Wrong mode.")
 
@@ -454,7 +524,10 @@ def _data_estimator(data, size = 8, n = 3, multilevel = False):
         x,y = log_average(data,size)
     else:
         x,y = merge_multilevel(data)
-    return x, denoise(y, n = n, out = y)
+    #in case we have nans, remove them before denoising, and return only valid data
+    mask = np.isnan(y)
+    mask = np.logical_not(np.all(mask,axis = tuple(range(mask.ndim-1))))
+    return x[mask], denoise(y[...,mask], n = n)
         
 def take_data(data, mask):
     """Selects correlation(difference) data at given masked indices.
@@ -479,8 +552,6 @@ def take_data(data, mask):
         
     return tuple((_mask(i,d) for (i,d) in enumerate(data)))
 
-
-
 __all__ = ["weight_from_data","weighted_sum","scale_factor", "noise_delta",
-           "weight_from_g", "weight_from_d","sigma2","normalize", "take_data",
+           "weight_from_g", "weight_from_d","sigma_weighted","normalize", "take_data",
            "norm_flags","NORM_COMPENSATED","NORM_BASELINE","NORM_SUBTRACTED","NORM_WEIGHTED"]

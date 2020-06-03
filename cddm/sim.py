@@ -28,7 +28,7 @@ def _inspect_frame_dtype(dtype, intensity):
         raise ValueError("Invalid intensity for dtype {}".format(dtype))
     return dtype
 
-def form_factor(shape = (512,512), sigma = 3, intensity = 5, navg = 100, dtype = "uint8"):
+def form_factor(window, sigma = 3, intensity = 5, navg = 100, dtype = "uint8"):
     """Computes point spread function form factor.
     
     Draws a PSF randomly in the frame and computes FFT, returns average absolute
@@ -51,12 +51,16 @@ def form_factor(shape = (512,512), sigma = 3, intensity = 5, navg = 100, dtype =
         Average absolute value of the FFT of the PSF.
     """
     out = 0.
+    window = np.asarray(window)
+    shape = window.shape
     dtype = _inspect_frame_dtype(dtype, intensity)
     for i in range(navg):
         im = np.zeros(shape, dtype)
-        coord = np.random.rand(1,2) if navg > 1 else np.array([[0,0]],FDTYPE)
+        coord = np.random.rand(1,2)*np.array(shape) if navg > 1 else np.array([[0,0]],FDTYPE)
         im = draw_psf(im, coord,np.array([intensity], dtype),np.array([sigma], FDTYPE))
-        out += np.abs(np.fft.rfft2(im))
+        im = im*window
+        out += np.abs(np.fft.rfft2(im))**2
+        
     return out/navg
 
 def seed(value):
@@ -286,11 +290,21 @@ def plot_random_walk(count = 5000, num_particles = 2, shape = (256,256)):
     plt.axis('equal')
     plt.grid(True)
     
-def create_random_times(nframes, n = 32):
-    """Create trigger times for single-camera ddm experiments"""
+def create_random_time(nframes, n = 32, dt_min = 1):
+    """Create trigger time for single-camera random ddm experiments"""
     t0 = np.arange(nframes)*n
-    r1 = np.random.randint(0, n,  size = nframes)
-    return t0  + r1
+    r1 = 0
+    for i in range(nframes):
+        r1 = np.random.randint(max(0,dt_min-n+r1), n)
+        t0[i] += r1
+    return t0  
+ 
+def random_time_count(nframes, n = 32):
+    """Returns estimated count for single-camera random triggering scheme"""
+    count = (np.arange(nframes*n+1)[::-1])/n/n
+    count[0:n] = np.arange(n*1.)/(n) * count[0:n]
+    count[0] = nframes * n
+    return count
  
 def create_random_times1(nframes,n = 32):
     """Create trigger times for c-ddm experiments based on Eq.7 from the paper"""
@@ -316,8 +330,7 @@ def create_random_times2(nframes,n = 32):
 
 def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, intensity = 5, sigma = 3, dtype = "uint8", **kw):
     """DDM or c-DDM video generator.
-
-    
+ 
     Parameters
     ----------
     t1 : array-like
@@ -354,8 +367,39 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
     p = brownian_particles(**kw) 
     return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, dtype = dtype) 
 
-def adc(frame, noise = "gaussian", readout_noise = 0., saturation = 32768, black_level = 0, bit_depth = "14bit", out = None):
-    name = "adc_{}_{}".format(bit_depth, noise)
+def adc(frame, noise_model = "gaussian", readout_noise = 0., saturation = 32768, black_level = 0, bit_depth = "14bit", out = None):
+    """Simulated ADC conversion process of ideal signal.
+    
+    It applies shot noise with the standard deviation of the square of the
+    provided signal and adds a readout_noise of the provided mean value and 
+    shot noise characteristics.
+    
+    Parameters
+    ----------
+    frame : ndarray
+        Input noisless signal
+    noise_model : str
+        Either 'gaussian' or 'poisson'.
+    reasout_noise : float
+        Value of the additional noise added to the frame.
+    saturation : int
+        Defines the saturation value of the sensor
+    black_level : int
+        Defines black level subtraction value. 
+    bit_depth : str
+        ADC bit depth. Either '8bit', '10bit', '12bit' or '14bit'. This defines
+        what kind of scalling is performed when converting results to uint16
+        (or uint8) image. 
+    out : ndarray, optional
+        Output array.
+        
+    Returns
+    -------
+    frame : ndarray
+        Noissy image
+    """
+    
+    name = "adc_{}_{}".format(bit_depth, noise_model)
     try:
         f = getattr(_sim_nb, name)
         return f(frame,saturation,black_level,readout_noise, out = out)

@@ -11,29 +11,27 @@ from cddm.video import multiply, normalize_video, asarrays
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft, rfft2_crop
 from cddm.sim import form_factor, seed, random_time_count
-from cddm.core import acorr, normalize, stats
+from cddm.core import ccorr, normalize, stats
 from cddm.multitau import log_merge,  ccorr_multi_count, log_merge_count, multilevel, merge_multilevel, log_average
-from cddm.norm import weight_from_data, sigma_weighted, weight_from_g, noise_level
+from cddm.norm import weight_from_data, sigma_weighted, weight_from_g, noise_delta
 from cddm.avg import denoise,decreasing
-from cddm._core_nb import sigma_weighted_auto_general, auto_count_mixed
 
 import matplotlib.pyplot as plt
 
 import numpy as np
-from examples.paper.conf import NFRAMES_RANDOM, PERIOD, SHAPE, D, SIGMA, INTENSITY, NUM_PARTICLES, VMEAN, BACKGROUND
+from examples.paper.conf import NFRAMES, PERIOD, SHAPE, D, SIGMA, INTENSITY, NUM_PARTICLES, BACKGROUND
 
 # #: see video_simulator for details, loads sample video
-import examples.paper.random_video as video_simulator
+import examples.paper.dual_video as video_simulator
 import importlib
 
 #: create window for multiplication...
 window = blackman(SHAPE)
-window[...] = 1.
 #: we must create a video of windows for multiplication
-window_video = ((window,),)*NFRAMES_RANDOM
+window_video = ((window,window),)*NFRAMES
 
 #: how many runs to perform
-NRUN = 4*16
+NRUN = 16
 
 def calculate():
     out = None
@@ -45,7 +43,7 @@ def calculate():
         seed(i)
         importlib.reload(video_simulator) #recreates iterator with new seed
         
-        t = video_simulator.t
+        t1,t2 = video_simulator.t1,video_simulator.t2
         
         video = multiply(video_simulator.video, window_video)
         
@@ -59,10 +57,12 @@ def calculate():
         #: this it therefore equivalent to  normalize_video
         #fft = normalize_fft(fft)
         
-        fft_array, = asarrays(fft,NFRAMES_RANDOM)
+        f1, f2 = asarrays(fft,NFRAMES)
+        bg, var = stats(f1,f2)
         
-        data = acorr(fft_array, t = t, n = NFRAMES_RANDOM)
-        bg, var = stats(fft_array)
+        bg, var = stats(f1,f2)
+        data = ccorr(f1,f2, t1 = t1,t2=t2, n = NFRAMES)
+
     
         #: now perform auto correlation calculation with default parameters and show live
         #data, bg, var = iacorr(fft, t,  auto_background = True, n = NFRAMES)
@@ -84,21 +84,13 @@ except NameError:
 
 
 #form factor, for relative signal intensity calculation
-formf = rfft2_crop(form_factor(window, sigma = SIGMA, intensity = INTENSITY, dtype = "uint16", navg = 1000), 51, 0)
-
-
-pp = auto_count_mixed(video_simulator.t, NFRAMES_RANDOM, PERIOD)
-#pp[:,0]=1
-
-scale = (np.abs(window)**2).sum() 
-
+formf = rfft2_crop(form_factor(SHAPE, sigma = SIGMA, intensity = INTENSITY, dtype = "uint16"), 51, 0)
 
 def g1(x,i,j):
     #expected signal
-    a = NUM_PARTICLES * formf[i,j]#*0.8858 
+    a = NUM_PARTICLES * formf[i,j]**2
     #expected variance (signal + noise)
-    v = a + noise_level(window,BACKGROUND)
-    #v = a + SHAPE[0]*SHAPE[1]*BACKGROUND#expected abs FFT squared of gaussian noise with std of BACKGROUND**0.5
+    v = a + SHAPE[0]*SHAPE[1]*BACKGROUND #expected abs FFT squared of gaussian noise with std of BACKGROUND**0.5
     #expected scalling factor
     a = a/v
     return a * np.exp(-D*(i**2+j**2)*x)
@@ -108,40 +100,25 @@ LABELS = {2 : "subtracted", 3 : "compensated", 6 : "weighted"}
 plt.figure()
 
 #estimated count for the random triggering experiment
-n = random_time_count(NFRAMES_RANDOM, PERIOD)[0:NFRAMES_RANDOM]
+n = NFRAMES/PERIOD*2
 
 data = out
 
-i,j = (37,0)
+i,j = (8,0)
 
-x = np.arange(NFRAMES_RANDOM)
+x = np.arange(NFRAMES)
 
 #delta parameter for weight model.. it is zero by definition for auto-correlation
 delta = 0.
-noise = noise_level(window,BACKGROUND)
-
-
-#expected signal
-a =NUM_PARTICLES * formf[i,j] #*0.8858 
-#expected variance (signal + noise)
-noise = noise_level(window,BACKGROUND)
-#expected scalling factor
-noise = noise/(noise + a)
-
+noise = 1-g1(0,i,j)
 
 g = g1(x,i,j)
 w = weight_from_g(g,noise,delta)
 
 #error estimators using a simple model of independent data (delta = 0).
-err2 = sigma_weighted(0., g, noise, delta)/n**0.5
-err3 = sigma_weighted(1., g, noise, delta)/n**0.5
-err6 = sigma_weighted(w, g, noise, delta)/n**0.5
-
-w[...]=0
-err6  = sigma_weighted_auto_general(w,g,(noise,)*NFRAMES_RANDOM,pp)/n**0.5
-#err3  = sigma_weighted_auto_general(w*0.,g,(noise,)*NFRAMES_RANDOM,pp)/n**0.5
-#err2  = sigma_weighted_auto_general(w*0+1,g,(noise,)*NFRAMES_RANDOM,pp)/n**0.5
-
+err2 = sigma_weighted(1., g, noise,delta)/n**0.5
+err3 = sigma_weighted(0., g, noise,delta)/n**0.5
+err6 = sigma_weighted(w, g, noise,delta)/n**0.5
 
 ax1 = plt.subplot(121)
 ax1.set_xscale("log")
@@ -156,8 +133,8 @@ for norm in (2,3,6):
     x,y = merge_multilevel(multilevel(data[:,norm,i,j,:],binning = 0))
     g = g1(x,i,j)
     #g = y.mean(0)
-    std = ((((y - g)**2)[32:48]).mean(axis = 0))**0.5
-    ax1.semilogx(x[1:],y[:16,1:].mean(0),fillstyle = "none",label = "{}".format(LABELS.get(norm)))
+    std = (((y - g)**2).mean(axis = 0))**0.5
+    ax1.semilogx(x[1:],y[0,1:],fillstyle = "none",label = "{}".format(LABELS.get(norm)))
     #ax.semilogx(x,y.mean(0), "o",fillstyle = "none",label = "norm = {}".format(norm))
 
     ax2.semilogx(x[1:],std[1:],label = "{}".format(LABELS.get(norm)))
@@ -165,7 +142,7 @@ for norm in (2,3,6):
 
 ax1.plot(x[1:],g1(x[1:],i,j), "k",label = "model")
 
-
+#: take first run, norm = 3 data for g estimation
 x,g = log_average(data[0,3,i,j,:])
 g = denoise(g)
 g = decreasing(g)

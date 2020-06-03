@@ -482,7 +482,7 @@ class CorrViewer(DataViewer):
         if self.size is not None:
             t, data = log_average(data, self.size)
         else:
-            t = np.arange(len(data))
+            t = np.arange(data.shape[-1])
         
         return t, np.nanmean(data, axis = -2)
     

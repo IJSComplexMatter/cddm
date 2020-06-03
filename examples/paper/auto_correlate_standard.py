@@ -8,22 +8,25 @@ from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
 from cddm.core import acorr, normalize, stats
 from cddm.multitau import log_average
+from cddm.sim import seed
 
 import numpy as np
 
 #: see video_simulator for details, loads sample video
 import examples.paper.standard_video as video_simulator
 import importlib
+
+seed(0)
 importlib.reload(video_simulator) #recreates iterator
 
-from examples.paper.conf import KIMAX, KJMAX, SHAPE, NFRAMES, DATA_PATH
+from examples.paper.conf import KIMAX, KJMAX, SHAPE, NFRAMES_STANDARD, DATA_PATH, PERIOD, NFRAMES_RANDOM
 
 
 #: create window for multiplication...
 window = blackman(SHAPE)
 
 #: we must create a video of windows for multiplication
-window_video = ((window,),)*NFRAMES
+window_video = ((window,),)*NFRAMES_STANDARD
 
 #:perform the actual multiplication
 video = multiply(video_simulator.video, window_video)
@@ -39,13 +42,13 @@ fft = rfft2(video, kimax = KIMAX, kjmax = KJMAX)
 #fft = normalize_fft(fft)
 
 #load in numpy array
-fft_array, = asarrays(fft, NFRAMES)
+fft_array, = asarrays(fft, NFRAMES_STANDARD)
 
 if __name__ == "__main__":
     import os.path as p
 
     #: now perform auto correlation calculation with default parameters 
-    data = acorr(fft_array)
+    data = acorr(fft_array,n =NFRAMES_RANDOM//PERIOD*2, method = "fft")
     bg, var = stats(fft_array)
     
     #: perform normalization and merge data
@@ -58,11 +61,11 @@ if __name__ == "__main__":
     viewer.plot()
     viewer.show()
     
-    #: change size, to define time resolution in log space
+    #: perform log averaging
     x,y = log_average(data_lin, size = 16)
     
     #: save the normalized data to numpy files
-    np.save(p.join(DATA_PATH, "auto_correlate_standard_t.npy"),x)
-    np.save(p.join(DATA_PATH, "auto_correlate_standard_data.npy"),y)
+    np.save(p.join(DATA_PATH, "corr_standard_t.npy"),x*PERIOD/2.)
+    np.save(p.join(DATA_PATH, "corr_standard_data.npy"),y)
 
 
