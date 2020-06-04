@@ -24,7 +24,7 @@ class TestSim(unittest.TestCase):
             
     def test_brownian_particles(self):
         with self.assertRaises(ValueError):
-            list(brownian_particles(particles = 2, x0 =((0,2),)))  
+            list(brownian_particles(num_particles = 2, x0 =((0,2),)))  
             
     def test_data_trigger(self):
         data = range(10)

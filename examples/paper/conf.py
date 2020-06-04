@@ -23,7 +23,7 @@ DELTA = 1
 #: image static background value
 BACKGROUND = 2**14
 #: peak intensity of the particles
-INTENSITY = 2**9
+INTENSITY = 2**7
 #: sigma of the gaussian of the particles
 SIGMA = 3
 #: simulation video margin size

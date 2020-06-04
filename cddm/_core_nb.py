@@ -659,30 +659,29 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
 #     tmp2 = g**2 + 1 + 2*delta**2
 #     return tmp1/tmp2    
 
-@nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def weight_from_g(g,noise,delta):
+@nb.vectorize([F(F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_g(g):
     """Computes weight for weighted normalization from normalized and scaled 
     correlation function"""
     tmp1 = 2*g
-    tmp2 = g**2 + 1 + noise**2 + 2*delta**2
+    tmp2 = g**2 + 1 
     return tmp1/tmp2    
     
-@nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def weight_from_d(d,noise, delta):
+@nb.vectorize([F(F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_d(d):
     """Computes weight for weighted normalization from normalized and scaled 
     structure function"""
     g = 1 - d/2.
     tmp1 = 2*g
-    tmp2 = g**2 + 1 + noise**2 + 2*delta**2
+    tmp2 = g**2 + 1
     return tmp1/tmp2    
 
-@nb.vectorize([F(F,F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def sigma_weighted(w,g,noise,delta):
+@nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def sigma_weighted(w,g,delta):
     """Computes standard deviation of the weighted normalization."""
     g2 = g**2
     d2 = delta**2
-    b2 = noise**2
-    return (0.5 * (w**2 * (g2 + 1 + b2 + 2 * d2) - 4 * w * g  + g2 + 1 - d2))**0.5
+    return (0.5 * (w**2 * (g2 + 1) - 4 * w * g   + g2 + 1 - d2))**0.5
 
 @nb.jit
 def _g(a,index):

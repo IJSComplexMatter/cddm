@@ -190,7 +190,7 @@ def noise_delta(variance, mask = None):
     else:
         return delta[mask]    
 
-def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, noise = 0., delta = 0.):
+def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True):
     """Computes weighting function for weighted normalization.
     
     Parameters
@@ -206,10 +206,7 @@ def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, 
     pre_filter : bool
         Whether to perform denoising and filtering. If set to False, user has 
         to perform data filtering.
-    noise : ndarray, optional
-        The noise parameter.
-    delta : ndarray, optional
-        The delta parameter, as returned by :func:`noise_delta`
+
         
     Returns
     -------
@@ -227,7 +224,7 @@ def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, 
             
         g = np.divide(corr,scale_factor[...,None])
         
-        return weight_from_g(g,noise,delta)
+        return weight_from_g(g)
     
     elif mode == "diff":
         if pre_filter == True:
@@ -238,7 +235,7 @@ def weight_from_data(corr, scale_factor = 1., mode = "corr", pre_filter = True, 
         
         d = np.divide(corr,scale_factor[...,None])
 
-        return weight_from_d(d,noise,delta)
+        return weight_from_d(d)
     else:
         raise ValueError("Wrong mode.")
 

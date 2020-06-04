@@ -13,9 +13,9 @@ from cddm.fft import rfft2, normalize_fft, rfft2_crop
 from cddm.sim import form_factor, seed, random_time_count
 from cddm.core import acorr, normalize, stats
 from cddm.multitau import log_merge,  ccorr_multi_count, log_merge_count, multilevel, merge_multilevel, log_average
-from cddm.norm import weight_from_data, sigma_weighted, weight_from_g, noise_level
+from cddm.norm import weight_from_data,weight_from_g, noise_level
 from cddm.avg import denoise,decreasing
-from cddm._core_nb import sigma_weighted_auto_general, auto_count_mixed
+from cddm._core_nb import sigma_weighted_auto_general, auto_count_mixed, sigma_weighted
 
 import matplotlib.pyplot as plt
 
@@ -112,7 +112,7 @@ n = random_time_count(NFRAMES_RANDOM, PERIOD)[0:NFRAMES_RANDOM]
 
 data = out
 
-i,j = (37,0)
+i,j = (26,0)
 
 x = np.arange(NFRAMES_RANDOM)
 
@@ -128,7 +128,6 @@ noise = noise_level(window,BACKGROUND)
 #expected scalling factor
 noise = noise/(noise + a)
 
-
 g = g1(x,i,j)
 w = weight_from_g(g,noise,delta)
 
@@ -141,7 +140,7 @@ w[...]=0
 err6  = sigma_weighted_auto_general(w,g,(noise,)*NFRAMES_RANDOM,pp)/n**0.5
 #err3  = sigma_weighted_auto_general(w*0.,g,(noise,)*NFRAMES_RANDOM,pp)/n**0.5
 #err2  = sigma_weighted_auto_general(w*0+1,g,(noise,)*NFRAMES_RANDOM,pp)/n**0.5
-
+err6  = sigma_weighted(1., g, 0, delta)/n**0.5
 
 ax1 = plt.subplot(121)
 ax1.set_xscale("log")
@@ -156,8 +155,8 @@ for norm in (2,3,6):
     x,y = merge_multilevel(multilevel(data[:,norm,i,j,:],binning = 0))
     g = g1(x,i,j)
     #g = y.mean(0)
-    std = ((((y - g)**2)[32:48]).mean(axis = 0))**0.5
-    ax1.semilogx(x[1:],y[:16,1:].mean(0),fillstyle = "none",label = "{}".format(LABELS.get(norm)))
+    std = ((((y - g)**2)).mean(axis = 0))**0.5
+    ax1.semilogx(x[1:],y[:,1:].mean(0),fillstyle = "none",label = "{}".format(LABELS.get(norm)))
     #ax.semilogx(x,y.mean(0), "o",fillstyle = "none",label = "norm = {}".format(norm))
 
     ax2.semilogx(x[1:],std[1:],label = "{}".format(LABELS.get(norm)))

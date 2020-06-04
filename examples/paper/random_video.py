@@ -32,7 +32,7 @@ video = crop(video, roi = ((0,SHAPE[0]), (0,SHAPE[1])))
 dust = plt.imread(DUST1_PATH)[...,0] #float normalized to (0,1)
 dust = ((dust,),)*NFRAMES_RANDOM
 
-video = multiply(video, dust)
+#video = multiply(video, dust)
 
 video = (tuple((adc(f, noise_model = NOISE_MODEL, saturation = SATURATION, readout_noise = READOUT_NOISE, bit_depth = BIT_DEPTH) for f in frames)) for frames in video)
 

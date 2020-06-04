@@ -25,7 +25,8 @@ Bug fixes
 /////////
 
 * removed noise argument in simulation functions because shot noise was not implemented correctly.
-  Shot noise is now simulated during ADC conversion.
+  Shot noise is now simulated during ADC conversion. 
+* Renamed `particles` argument to `num_particles` in `brownian_particles` function.
 
 
 V0.2.0 (May 6 2020)
