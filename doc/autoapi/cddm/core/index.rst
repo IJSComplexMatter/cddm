@@ -42,52 +42,6 @@
 Module Contents
 ---------------
 
-.. data:: NORM_BASELINE
-   :annotation: = 0
-
-   baseline normalization flag
-
-
-.. data:: NORM_COMPENSATED
-   :annotation: = 1
-
-   compensated normalization (cross-diff) flag
-
-
-.. data:: NORM_SUBTRACTED
-   :annotation: = 2
-
-   background subtraction normalization flag
-
-
-.. data:: NORM_WEIGHTED
-   :annotation: = 4
-
-   weighted normalization flag
-
-
-.. function:: norm_flags(compensated=False, subtracted=False, weighted=False)
-
-   Return normalization flags from the parameters.
-
-   :param compensated: Whether to set COMPENSATED normalization flag
-   :type compensated: bool
-   :param subtracted: Whether to set SUBTRACTED normalization flag
-   :type subtracted: bool
-   :param weighted: Whether to set WEIGHTED normalization flag
-   :type weighted: bool
-
-   :returns: **norm** -- Normalization flagse
-   :rtype: int
-
-   .. rubric:: Examples
-
-   >>> norm_flags(True, False, True)
-   5
-   >>> norm_flags(True, True, False)
-   3
-
-
 .. function:: cross_correlate_fft(f1, f2, t1=None, t2=None, axis=0, n=None, aout=None)
 
    Calculates cross-correlation function of two equal sized input arrays using FFT.
@@ -200,7 +154,7 @@ Module Contents
    :returns: **out** -- Computed cross-correlation.
    :rtype: ndarray
 
-   .. seealso:: :func:`ccorr`, :func:`cddm.multitau.ccorr_multi`
+   .. seealso:: :obj:`ccorr`, :obj:`cddm.multitau.ccorr_multi`
 
 
 .. function:: cross_difference(f1, f2, t1=None, t2=None, axis=0, n=None, align=False, aout=None)
@@ -235,7 +189,7 @@ Module Contents
    :returns: **out** -- Computed cross-difference.
    :rtype: ndarray
 
-   .. seealso:: :func:`ccorr`, :func:`cddm.multitau.ccorr_multi`
+   .. seealso:: :obj:`ccorr`, :obj:`cddm.multitau.ccorr_multi`
 
 
 .. function:: auto_correlate(f, t=None, axis=0, n=None, align=False, aout=None)
@@ -265,7 +219,7 @@ Module Contents
    :returns: **out** -- Computed auto-correlation.
    :rtype: ndarray
 
-   .. seealso:: :func:`acorr`, :func:`cddm.multitau.acorr_multi`
+   .. seealso:: :obj:`acorr`, :obj:`cddm.multitau.acorr_multi`
 
 
 .. function:: auto_difference(f, t=None, axis=0, n=None, align=False, aout=None)
@@ -295,7 +249,7 @@ Module Contents
    :returns: **out** -- Computed auto-difference.
    :rtype: ndarray
 
-   .. seealso:: :func:`acorr`, :func:`cddm.multitau.acorr_multi`
+   .. seealso:: :obj:`acorr`, :obj:`cddm.multitau.acorr_multi`
 
 
 .. function:: cross_count(t1, t2=None, n=None, aout=None)
@@ -648,71 +602,5 @@ Module Contents
    :returns: * **acorr_data, bg, var** (*acorr_type, ndarray, ndarray*) -- Acorr data, background and variance data. See :func:`acorr` for definition
                of acorr_type
              * **acorr_data** (*acorr_type*) -- If `stats` == False
-
-
-.. function:: scale_factor(variance, mask=None)
-
-   Computes the normalization scaling factor from the variance data.
-
-   You can divide the computed correlation data with this factor to normalize
-   data between (0,1) for correlation mode, or (0,2) for difference mode.
-
-   :param variance: A variance data (as returned from :func:`.stats`)
-   :type variance: (ndarray, ndarray) or ndarray
-   :param mask: A boolean mask array, if computation was performed on masked data,
-                this applys mask to the variance data.
-   :type mask: ndarray
-
-   :returns: **scale** -- A scaling factor for normalization
-   :rtype: ndarray
-
-
-.. function:: take_data(data, mask)
-
-   Selects correlation(difference) data at given masked indices.
-
-   :param data: Data tuple as returned by `ccorr` and `acorr` functions
-   :type data: tuple of ndarrays
-   :param mask: A boolean frame mask array
-   :type mask: ndarray
-
-   :returns: **out** -- Same data structure as input data, but with all arrays in data masked
-             with the provided mask array.
-   :rtype: tuple
-
-
-.. function:: normalize(data, background=None, variance=None, norm=None, mode='corr', scale=False, mask=None, out=None)
-
-   Normalizes correlation (difference) data. Data must be data as returned
-   from ccorr or acorr functions.
-
-   Except forthe most basic normalization, background and variance data must be provided.
-   Tou can use :func:`stats` to compute background and variance data.
-
-   :param data: Input data, a length 4 (difference data) or length 5 tuple (correlation data)
-   :type data: tuple of ndarrays
-   :param background: Background (mean) of the frame(s) in k-space
-   :type background: (ndarray, ndarray) or ndarray, optional
-   :param variance: Variance of the frame(s) in k-space
-   :type variance: (ndarray, ndarray) or ndarray, optional
-   :param norm: Normalization type (0:baseline,1:compensation,2:bg subtract,
-                3: compensation + bg subtract). Input data must support the chosen
-                normalization, otherwise exception is raised. If not given it is chosen
-                based on the input data.
-   :type norm: int, optional
-   :param mode: Representation mode: either "corr" (default) for correlation function,
-                or "diff" for image structure function (image difference).
-   :type mode: str, optional
-   :param scale: If specified, performs scaling so that data is scaled beteween 0 and 1.
-                 This works in connection with variance, which must be provided.
-   :type scale: bool, optional
-   :param mask: An array of bools indicating which k-values should we select. If not
-                given, compute at every k-value.
-   :type mask: ndarray, optional
-   :param out: Output array
-   :type out: ndarray, optional
-
-   :returns: **out** -- Normalized data.
-   :rtype: ndarray
 
 

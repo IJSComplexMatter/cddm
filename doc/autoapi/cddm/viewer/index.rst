@@ -49,7 +49,6 @@ Module Contents
 
    .. method:: show(self)
 
-
       Shows video.
 
 
@@ -74,7 +73,6 @@ Module Contents
 
    .. method:: set_data(self, data, t=None)
 
-
       Sets correlation data.
 
       :param data: Normalized data.
@@ -82,7 +80,6 @@ Module Contents
 
 
    .. method:: get_data(self)
-
 
       Returns computed k-averaged data and time
 
@@ -92,12 +89,10 @@ Module Contents
 
    .. method:: get_k(self)
 
-
       Returns average k value of current data.
 
 
    .. method:: set_mask(self, k, angle=0, sector=5, kstep=1)
-
 
       Sets k-mask for averaging,
 
@@ -116,12 +111,10 @@ Module Contents
 
    .. method:: plot(self)
 
-
       Plots data. You must first call :meth:`.set_data` to set input data
 
 
    .. method:: show(self)
-
 
       Shows plot.
 
@@ -151,12 +144,10 @@ Module Contents
 
    .. method:: set_norm(self, value)
 
-
       Sets norm parameter
 
 
    .. method:: set_data(self, data, background=None, variance=None)
-
 
       Sets correlation data.
 
@@ -189,5 +180,24 @@ Module Contents
    :type scale: bool, optional
    :param mask: A boolean array indicating which data elements were computed.
    :type mask: ndarray, optional
+
+   .. method:: set_norm(self, value)
+
+      Sets norm parameter
+
+
+   .. method:: set_data(self, data, background=None, variance=None)
+
+      Sets correlation data.
+
+      :param data: A data tuple (as computed by ccorr, cdiff, adiff, acorr functions)
+      :type data: tuple
+      :param background: Background data for normalization. For adiff, acorr functions this
+                         is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+      :type background: tuple or ndarray
+      :param variance: Variance data for normalization. For adiff, acorr functions this
+                       is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+      :type variance: tuple or ndarray
+
 
 

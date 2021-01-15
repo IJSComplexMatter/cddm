@@ -43,7 +43,6 @@ def numba_seed(value):
 def make_step(x,scale, velocity):
     """Performs random particle step from a given initial position x."""
     return x + np.random.randn()*scale + velocity   
-
      
 @nb.jit([U8(I,F,I,F,F,U8),U16(I,F,I,F,F,U16)],nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def psf_gauss(x,x0,y,y0,sigma,intensity):
@@ -51,7 +50,6 @@ def psf_gauss(x,x0,y,y0,sigma,intensity):
     for a given pixel coordinate x,y and particle position x0,y0."""
     return intensity*math.exp(-0.5*((x-x0)**2+(y-y0)**2)/(sigma**2))
 
- 
 @nb.jit([U8[:,:](U8[:,:],F[:,:],U8[:]),U16[:,:](U16[:,:],F[:,:],U16[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
 def draw_points(im, points, intensity):
     """Draws pixels to image from a given points array"""
@@ -63,77 +61,67 @@ def draw_points(im, points, intensity):
         im[int(data[j,0]),int(data[j,1])] = im[int(data[j,0]),int(data[j,1])] + intensity[j] 
     return im  
 
-
-@nb.jit([F(F,F,F,F)],nopython = True,cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _adc_poisson(frame, saturation,  black_level, readout_noise):
-    if readout_noise > 0.:
-        black_level = black_level-np.random.poisson(readout_noise)
-    out = (np.random.poisson(frame) - black_level)/saturation
-    if out < 0:
-        return 0.
-    else:
-        return out
-
-@nb.jit([F(F,F,F,F)],nopython = True,cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _adc_gaussian(frame, saturation, black_level, readout_noise):
-    if readout_noise > 0.:
-        black_level = black_level-readout_noise +readout_noise**0.5 *np.random.randn()
-    out = (frame + np.random.randn() * frame**0.5 - black_level)/saturation
+@nb.jit([F(F,F,F)],nopython = True,cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _adc_scale(frame, saturation, black_level):
+    out = (frame - black_level)/saturation
     if out < 0:
         return 0.
     else:
         return out   
+    
+@nb.vectorize([F(F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH) 
+def shot_noise_gaussian(photon_noise, readout_noise):
+    return photon_noise + readout_noise +  np.random.randn() * (photon_noise + readout_noise)**0.5
 
-@nb.vectorize([U8(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_8bit_poisson(frame, scale, black_level, readout_noise):
-    out = _adc_poisson(frame, scale, black_level, readout_noise)
+@nb.vectorize([F(F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH) 
+def shot_noise_poisson(photon_noise, readout_noise):
+    out = 0.
+    if photon_noise > 0.:
+        out += np.random.poisson(photon_noise)
+    if readout_noise > 0.:
+        out += np.random.poisson(readout_noise)
+    return out
+
+@nb.vectorize([U16(F,F,F, U16), U8(F,F,F, U8)],  cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH) 
+def adc_clean(frame, saturation, black_level, maxv):
+    out = (frame - black_level)/saturation * maxv
+    if out < 0:
+        return 0
+    if out > maxv :
+        return maxv
+    else:
+        return out   
+
+@nb.vectorize([U8(F,F,F)],  cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
+def adc_8bit(frame, scale, black_level):
+    """Converts raw signal to unsigned int using 8bit conversion""" 
+    out = _adc_scale(frame, scale, black_level)
     return int(out*256) if out < 1. else 255
 
-@nb.vectorize([U16(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_10bit_poisson(frame, scale, black_level, readout_noise):
-    out = _adc_poisson(frame, scale, black_level, readout_noise)
+@nb.vectorize([U16(F,F,F)],  cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
+def adc_10bit(frame, scale, black_level):
+    """Converts raw signal to unsigned int using 10bit conversion""" 
+    out = _adc_scale(frame, scale, black_level)
     return int(out*1024) if out < 1. else 1023
 
-@nb.vectorize([U16(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_12bit_poisson(frame, scale, black_level, readout_noise):
-    out = _adc_poisson(frame, scale, black_level, readout_noise)
-    return int(out*4096) if out < 1. else 4095
+@nb.vectorize([U16(F,F,F)],  cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH) 
+def adc_12bit(frame, scale, black_level):
+    """Converts raw signal to unsigned int using 12bit conversion""" 
+    out = _adc_scale(frame, scale, black_level)
+    return np.uint16(out*4096) if out < 1. else np.uint16(4095)
 
-@nb.vectorize([U16(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_14bit_poisson(frame, scale, black_level, readout_noise):
-    out = _adc_poisson(frame, scale, black_level, readout_noise)
+@nb.vectorize([U16(F,F,F)], cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
+def adc_14bit(frame, scale, black_level):
+    """Converts raw signal to unsigned int using 14bit conversion""" 
+    out = _adc_scale(frame, scale, black_level)
     return int(out*16384) if out < 1. else 16383
 
-@nb.vectorize([U16(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_16bit_poisson(frame, scale, black_level, readout_noise):
-    out = _adc_poisson(frame, scale, black_level, readout_noise)
+@nb.vectorize([U16(F,F,F)], cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
+def adc_16bit(frame, scale, black_level):
+    """Converts raw signal to unsigned int using 16bit conversion""" 
+    out = _adc_scale(frame, scale, black_level)
     return int(out*65536) if out < 1. else 65535
 
-@nb.vectorize([U8(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_8bit_gaussian(frame, scale, black_level, readout_noise):
-    out = _adc_gaussian(frame, scale, black_level, readout_noise)
-    return int(out*256) if out < 1. else 255
-
-@nb.vectorize([U16(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_10bit_gaussian(frame, scale, black_level, readout_noise):
-    out = _adc_gaussian(frame, scale, black_level, readout_noise)
-    return int(out*1024) if out < 1. else 1023
-
-@nb.vectorize([U16(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_12bit_gaussian(frame, scale, black_level, readout_noise):
-    out = _adc_gaussian(frame, scale, black_level, readout_noise)
-    return int(out*4096) if out < 1. else 4095
-
-@nb.vectorize([U16(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_14bit_gaussian(frame, scale, black_level, readout_noise):
-    out = _adc_gaussian(frame, scale, black_level, readout_noise)
-    return int(out*16384) if out < 1. else 16383
-
-@nb.vectorize([U16(F,F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def adc_16bit_gaussian(frame, scale, black_level, readout_noise):
-    out = _adc_gaussian(frame, scale, black_level, readout_noise)
-    return int(out*65536) if out < 1. else 65535
-            
 @nb.jit([U8[:,:](U8[:,:],F[:,:],U8[:],F[:]),U16[:,:](U16[:,:],F[:,:],U16[:],F[:])], nopython = True, parallel = NUMBA_PARALLEL, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
 def draw_psf(im, points, intensity, sigma):
     """Draws psf to image from a given points array"""

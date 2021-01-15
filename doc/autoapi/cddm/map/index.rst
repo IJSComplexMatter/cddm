@@ -45,6 +45,25 @@ Module Contents
                  given, rectangular data is assumed (equal steps).
    :type shape: (int,int)
 
+   :returns: k, angle arrays
+   :rtype: k, angle, ndarray, ndarray
+
+
+.. function:: rfft2_grid(kisize=None, kjsize=None, shape=None)
+
+   Build ki,kj coordinate arrays based on the size of the fft.
+
+   :param kisize: i-size of the cropped rfft2 data.
+   :type kisize: int
+   :param kjsize: j-size of the cropped rfft2 data
+   :type kjsize: int
+   :param shape: Shape of the original data. This is used to calculate step size. If not
+                 given, rectangular data is assumed (equal steps).
+   :type shape: (int,int)
+
+   :returns: ki,kj coordinate arrays
+   :rtype: ki, kj, ndarray, ndarray
+
 
 .. function:: k_indexmap(kisize, kjsize, angle=0, sector=5, kstep=1.0, shape=None)
 

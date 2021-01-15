@@ -22,6 +22,8 @@ except ImportError:
     #python 2.7
     from Queue import Queue
 
+import threading
+
 if CV2_INSTALLED:
     import cv2
     
@@ -393,12 +395,13 @@ class ImageShow():
             self._mpl_imshow(im)
             
     def __del__(self):
-        if CDDMConfig.showlib == "cv2":
-            cv2.destroyWindow(self.fig)
-        elif CDDMConfig.showlib == "pyqtgraph":
-            self.fig.destroy()
-        else:
-            plt.close(self.fig)       
+        if self.fig is not None:
+            if CDDMConfig.showlib == "cv2":
+                cv2.destroyWindow(self.fig)
+            elif CDDMConfig.showlib == "pyqtgraph":
+                self.fig.destroy()
+            else:
+                plt.close(self.fig)       
     
 def pause(i = 1):
     """Pause in milliseconds needed to update matplotlib or opencv figures
@@ -409,6 +412,8 @@ def pause(i = 1):
         plt.pause(i/1000.)
     else: 
         app = QtGui.QApplication.instance()
+        if app is None:
+            app = QtGui.QApplication([])
         app.processEvents()
         
 #placehold for imshow figures        
@@ -419,7 +424,7 @@ def play(video, fps = 100., max_delay = 0.1):
     
     You must first call show functions (e.g. :func:`show_video`) to specify 
     what needs to be played. This function performs the actual display when in
-    a for loop
+    a for loop.
     
     Parameters
     ----------
@@ -467,6 +472,85 @@ def play(video, fps = 100., max_delay = 0.1):
         yield frames
         
     _FIGURES.clear()
+    
+
+def play_threaded(video, fps = None):
+    """Plays video for real-time visualization. 
+    
+    You must first call show functions (e.g. :func:`show_video`) to specify 
+    what needs to be played. This function performs the actual display when in
+    a for loop.
+    
+    Parameters
+    ----------
+    video : iterable
+        A multi-frame iterable object. 
+    fps : float, optional
+        Expected FPS of the input video. If rendering of video is too slow
+        for the expected frame rate, frames will be skipped to assure the 
+        expected acquisition. Therefore, you must match exactly the acquisition
+        frame rate with this parameter.
+        
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator    
+        
+    Examples
+    --------
+    
+    First create some test data of a dual video
+    
+    >>> video = random_video(count = 256, dual = True)
+    >>> video = show_video(video)
+    
+    Now we can load video to memory, and play it as we load frame by frame...
+    
+    >>> v1,v2 = asarrays(play(video, fps = 30),count = 256)
+    
+    """
+    q = Queue()
+    
+    def worker(video):
+        try:
+            for frames in video: 
+                q.put(frames)
+        finally:
+            q.put(None)
+            
+    threading.Thread(target=worker,args = (video,) ,daemon=True).start()
+    out = False #dummy  
+    t0 = None   
+    i = 1
+    while True:
+        while not q.empty():
+            out = q.get()
+            q.task_done()
+            if t0 is None:
+                t0 = time.time()
+            if out is None:
+                break
+            else:
+                yield out
+            if fps is not None:
+                if time.time()-t0 >= i/fps:
+
+                    break
+                
+        if out is None:
+            break
+
+        for key in list(_FIGURES.keys()):
+            (viewer, queue) = _FIGURES.get(key)
+            if not queue.empty():
+                viewer.show(queue.get())
+                queue.task_done()
+        i+=1
+        pause()
+            
+    _FIGURES.clear()
+    
+
     
 def figure_title(name):
     """Generate a unique figure title"""
@@ -614,23 +698,27 @@ def random_video(shape = (512,512), count = 256, dtype = FDTYPE, max_value = 1.,
         yield tuple((np.asarray(np.random.rand(*shape)*max_value,dtype) for i in range(nframes)))
 
         
-#if __name__ == '__main__':
-#    import cddm.conf
-#    cddm.conf.set_verbose(2)
-#
-#    #cddm.conf.set_showlib("pyqtgraph")    
-#    #example how to use show_video and play
-#    video = random_video(count = 256, dual = True)
-#    video = show_video(video)
-#    video = show_diff(video)
-#  
-#    v1,v2 = asarrays(play(video, fps = 30),count = 256)
-##    #example how to use ImageShow
-##    video = random_video(count = 256)
-##    viewer = ImageShow()
-##    for frames in video:
-##        viewer.show(frames[0])
-##        pause()
-##        
-#    
+if __name__ == '__main__':
+    
+    
+    import cddm.conf
+    cddm.conf.set_verbose(2)
+
+
+#     cddm.conf.set_showlib("pyqtgraph")    
+#     #example how to use show_video and play
+#     video = random_video(count = 256, dual = True)
+#     video = show_video(video)
+#     video = show_diff(video)
+#     #v1,v2 = asarrays(video,count = 1256)
+  
+#     v1,v2 = asarrays(play_threaded(video, fps = None),count = 256)
+# ##    #example how to use ImageShow
+# ##    video = random_video(count = 256)
+# ##    viewer = ImageShow()
+# ##    for frames in video:
+# ##        viewer.show(frames[0])
+# ##        pause()
+# ##        
+# #    
     

@@ -36,6 +36,7 @@ Submodules
    fft/index.rst
    map/index.rst
    multitau/index.rst
+   norm/index.rst
    print_tools/index.rst
    sim/index.rst
    video/index.rst

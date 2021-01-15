@@ -8,7 +8,8 @@ First, you must run:
     
 $ cross_correlate_multi_live.py 
 """
-from cddm.avg import weight_from_data, weighted_sum, decreasing, denoise, log_interpolate
+from cddm.avg import decreasing, denoise, log_interpolate
+from cddm.norm import weight_from_data, weighted_sum
 from cddm.multitau import log_merge, t_multilevel
 from examples.conf import PERIOD, DATA_PATH
 import os.path as p

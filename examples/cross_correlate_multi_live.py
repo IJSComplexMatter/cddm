@@ -52,7 +52,7 @@ if __name__ == "__main__":
     data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer)
 
     #: save the normalized data to numpy files
-    for norm in (0,1,2,3,4,5,6,7):
+    for norm in (1,2,3,5,6,7,9,10,11,13,14,15):
         fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
         if norm in (2,3,6):
             np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_fast_norm_{}.npy".format(norm)),fast)

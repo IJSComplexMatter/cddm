@@ -13,7 +13,7 @@ cddm.conf.set_verbose(2)
 #: width and height of the frame
 SIZE = 512
 #: how many frames to simulate
-NFRAMES = 1024
+NFRAMES = 1024*4*4
 #: max k in the first axis
 KIMAX = 41
 #: max k in the second axis
@@ -21,8 +21,8 @@ KJMAX = 41
 #: n parameter of the random triggering 
 N_PARAMETER = 16
 #: the delta parameter for the simulator
-DELTA1 = 1.5
-DELTA2 = 4.
+DELTA1 = 0.5
+DELTA2 = 2
 #: image static background value must be less than 2**16
 BACKGROUND = 2**14
 #: sensort saturation value, must be less than 2**16
@@ -34,11 +34,11 @@ READOUT_NOISE = 0
 #: noise model for readout noise and shot noise
 NOISE_MODEL = "poisson"
 #: peak intensity of the particles
-INTENSITY1 = 2**9
+INTENSITY1 = 2**10
 INTENSITY2 = 2**9
 #: sigma of the gaussian of the particles
-SIGMA1 = 5
-SIGMA2 = 3
+SIGMA1 = 3
+SIGMA2 = 5
 #: mean velocity of particles
 VELOCITY = (0.0,0.0)
 

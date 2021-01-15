@@ -53,7 +53,7 @@ from cddm._core_nb import _cross_corr_fft_regular, _cross_corr_fft, \
   _add_count_cross,_add_count_auto
 
 #imported for backward compatibility
-from cddm.norm import NORM_BASELINE, NORM_SUBTRACTED, NORM_COMPENSATED, NORM_WEIGHTED
+from cddm.norm import NORM_STANDARD, NORM_SUBTRACTED, NORM_STRUCTURED, NORM_WEIGHTED, NORM_COMPENSATED
 from cddm.norm import weight_from_data, weighted_sum, scale_factor, normalize, norm_flags, take_data
 
 #--------------------------
@@ -965,9 +965,9 @@ def _default_method(method, n):
 
 def _default_norm(norm, method, cross = True):
     if method == "diff":
-        supported = (1,3) if cross else (1,)
+        supported = (NORM_STRUCTURED,NORM_STRUCTURED|NORM_SUBTRACTED) if cross else (NORM_STRUCTURED,)
     else:
-        supported = (0,1,2,3,4,5,7,6) #so that 6 is default
+        supported = (1,2,3,5,6,7)
     if norm is None:
         norm = supported[-1]
     if norm not in supported:
@@ -1065,7 +1065,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
     else:
         _sum = auto_sum
         
-    if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+    if (norm & NORM_STRUCTURED) and correlate:
         if fs is None:
             fs =  abs2(f)
         else:
@@ -1210,7 +1210,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         _sum = cross_sum
 
         
-    if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+    if (norm & NORM_STRUCTURED) and correlate:
         print2("... tau sum square")
         if f1s is None:
             f1s =  abs2(f1)

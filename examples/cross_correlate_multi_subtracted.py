@@ -21,7 +21,7 @@ data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD,
 i,j = 4,15
 
 #: plot the results
-for norm in (0,1,2,3,4,6):
+for norm in (1,2,3,5,6,7,9,10,11,13,14,15):
     fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
     x,y = log_merge(fast, slow)
     plt.semilogx(x,y[i,j], label =  "norm = {}".format(norm) )

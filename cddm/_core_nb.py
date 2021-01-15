@@ -616,6 +616,13 @@ def _normalize_ccorr_2(data, count, bg1, bg2, m1, m2):
     tmp = tmp - bg2.real * m1.real - bg2.imag * m1.imag
     return  tmp/count + bg1.real * bg2.real + bg1.imag * bg2.imag
 
+@nb.vectorize([F(F,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_ccorr_2b(data, count, m1, m2):
+    tmp = m1.real * m2.real + m1.imag * m2.imag
+    tmp = tmp/count
+    tmp = data -tmp
+    return tmp/count
+
 @nb.vectorize([F(F,I64,C,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _normalize_cdiff_3(data, count, dm, m1, m2):
     ds = m2 - m1
@@ -638,6 +645,18 @@ def _normalize_ccorr_3(data, count, bg1, bg2, sq, m1, m2):
     
     return tmp - (0.5 * d2)
 
+@nb.vectorize([F(F,I64,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_ccorr_3b(data, count, sq, m1, m2):
+
+    
+    tmp = (m1.real-m2.real)* (m1.real- m2.real)
+    tmp = tmp + (m1.imag-m2.imag)* (m1.imag- m2.imag)
+    tmp = 0.5*tmp/count
+    tmp = data + tmp - 0.5 * sq 
+
+    
+    return tmp/count
+
 @nb.vectorize([F(F,I64,C,C,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _normalize_ccorr_1(data, count, bg1, bg2, sq):
     tmp = data - 0.5 * sq 
@@ -659,29 +678,75 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
 #     tmp2 = g**2 + 1 + 2*delta**2
 #     return tmp1/tmp2    
 
-@nb.vectorize([F(F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def weight_from_g(g):
+@nb.vectorize([F(C,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_from_g(g, delta):
     """Computes weight for weighted normalization from normalized and scaled 
     correlation function"""
-    tmp1 = 2*g
-    tmp2 = g**2 + 1 
-    return tmp1/tmp2    
-    
-@nb.vectorize([F(F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def weight_from_d(d):
-    """Computes weight for weighted normalization from normalized and scaled 
-    structure function"""
-    g = 1 - d/2.
-    tmp1 = 2*g
-    tmp2 = g**2 + 1
+    tmp1 = 2*g.real
+    g2 = g.real**2 + g.imag**2
+    tmp2 = g2 + 1 + delta**2
     return tmp1/tmp2    
 
-@nb.vectorize([F(F,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+
+@nb.vectorize([F(C,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def weight_prime_from_g(g,delta, b1, b2):
+    """Computes weight for weighted normalization from normalized and scaled 
+    correlation function"""
+    # s1 = |b1|^2
+    s1 = b1.real * b1.real + b1.imag * b1.imag
+    # s2 = |b2|^2
+    s2 = b2.real * b2.real + b2.imag * b2.imag
+    # r = Re(conj(b2)*b1)
+    r = b1.real * b2.real + b1.imag * b2.imag
+    #i = Im(conj(b2)*b1)
+    i = b2.real * b1.imag - b2.imag * b1.real
+    
+    d2 = delta**2
+    
+    g2 = g.real**2 + g.imag**2
+    
+    tmp1 = 2 * g.real + 2 * r + (s1 + s2) * g.real
+    tmp2 = g2 + 1 + d2 + s1 + s2 + (s2 - s1) * delta + 2 * r * g.real + 2 * i * g.imag
+    return tmp1/tmp2    
+
+def weight_prime_from_d(d, delta, b1, b2):
+    g = 1 - d/2.
+    return weight_prime_from_g(g,delta, b1, b2)
+
+def weight_from_d(d, delta):
+    g = 1 - d/2.
+    return weight_from_g(g, delta)
+     
+
+@nb.vectorize([F(F,C,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def sigma_weighted(w,g,delta):
     """Computes standard deviation of the weighted normalization."""
-    g2 = g**2
+    g2 = g.real**2 
+    c2= g2 + g.imag**2
     d2 = delta**2
-    return (0.5 * (w**2 * (g2 + 1) - 4 * w * g   + g2 + 1 - d2))**0.5
+    return (0.5 * (w**2 * (c2 + 1 + d2) - 4 * w * g.real   + 2*g2 - c2 + 1 - d2))**0.5
+
+
+@nb.vectorize([F(F,C,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def sigma_prime_weighted(w,g,delta, b1, b2):
+    g2 = g.real**2
+    c2 = g2 + g.imag**2
+    d2 = delta**2
+    # s1 = |b1|^2
+    s1 = b1.real * b1.real + b1.imag * b1.imag
+    # s2 = |b2|^2
+    s2 = b2.real * b2.real + b2.imag * b2.imag
+    # r = Re(conj(b2)*b1)
+    r = b1.real * b2.real + b1.imag * b2.imag
+    #i = Im(conj(b2)*b1)
+    i = b2.real * b1.imag - b2.imag * b1.real
+    
+    return (0.5 * (w**2 * (c2 + 1 + d2 + s1 + s2 + (s2 - s1) * delta + 2 * r * g.real + 2 * i * g.imag) \
+                   - 4 * w * (g.real + r + 0.5 * (s1 + s2) * g.real ) \
+                       + 2*g2 - c2 + 1 - d2 + s1 + s2 - (s2 - s1) * delta + 2 * r * g.real - 2 * i * g.imag))**0.5
+
+
+
 
 @nb.jit
 def _g(a,index):
@@ -691,48 +756,48 @@ def _g(a,index):
     else:
         return a[index]
 
-@nb.guvectorize([(F[:],F[:],F[:],F[:],I64[:,:],I64[:,:],I64[:,:],F[:])],"(),(n),(),(),(n,m),(n,m),(n,m)->(n)",target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def sigma_weighted_cross_general(weight,g,noise, delta, pp,pm,mm, out):
-    w = weight[0]
-    d2 = delta[0]**2
-    b2 = noise[0]**2
-    for i in range(len(g)):
-        g2 = g[i]**2
-        out[i] = (0.5 * (w**2 * (g2 + 1 + b2 + 2 * d2) - 4 * w * g[i]  + g2 + 1 - d2))
+# @nb.guvectorize([(F[:],F[:],F[:],F[:],I64[:,:],I64[:,:],I64[:,:],F[:])],"(),(n),(),(),(n,m),(n,m),(n,m)->(n)",target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+# def sigma_weighted_cross_general(weight,g,noise, delta, pp,pm,mm, out):
+#     w = weight[0]
+#     d2 = delta[0]**2
+#     b2 = noise[0]**2
+#     for i in range(len(g)):
+#         g2 = g[i]**2
+#         out[i] = (0.5 * (w**2 * (g2 + 1 + b2 + 2 * d2) - 4 * w * g[i]  + g2 + 1 - d2))
         
-        #correction terms, skipping p = 0 because it was computed above.
-        for p in range(1,pp.shape[1]):
-            tmp = (pp[i, p] + mm[i, p])*(_g(g, p)**2 + _g(g, p + i) * _g(g, p-i))
-            tmp += pm[i, p] *(_g(g, p + i)**2 + _g(g, p - i)**2 + _g(g, p)*_g(g, p + 2 * i) + _g(g, p)*_g(g, p - 2 * i))
+#         #correction terms, skipping p = 0 because it was computed above.
+#         for p in range(1,pp.shape[1]):
+#             tmp = (pp[i, p] + mm[i, p])*(_g(g, p)**2 + _g(g, p + i) * _g(g, p-i))
+#             tmp += pm[i, p] *(_g(g, p + i)**2 + _g(g, p - i)**2 + _g(g, p)*_g(g, p + 2 * i) + _g(g, p)*_g(g, p - 2 * i))
             
-            tmp -= 2*w * (pp[i,p] + mm[i,p])* (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p)) 
-            tmp -= 2*w * pm[i,p]* (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p) + _g(g,p+i)*_g(g,p+2*i) + _g(g,p-i)*_g(g,p-2*i) ) 
+#             tmp -= 2*w * (pp[i,p] + mm[i,p])* (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p)) 
+#             tmp -= 2*w * pm[i,p]* (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p) + _g(g,p+i)*_g(g,p+2*i) + _g(g,p-i)*_g(g,p-2*i) ) 
         
-            tmp += w**2 * (pp[i,p] + mm[i,p])* (_g(g,p)**2 + _g(g,p+i)**2 + _g(g,p-i)**2)
-            tmp += w**2 * pm[i,p] * (_g(g,p)**2 +_g(g,p-i)**2 + _g(g,p+i)**2 + 0.5* _g(g,p+2*i)**2+ 0.5* _g(g,p-2*i)**2 )
+#             tmp += w**2 * (pp[i,p] + mm[i,p])* (_g(g,p)**2 + _g(g,p+i)**2 + _g(g,p-i)**2)
+#             tmp += w**2 * pm[i,p] * (_g(g,p)**2 +_g(g,p-i)**2 + _g(g,p+i)**2 + 0.5* _g(g,p+2*i)**2+ 0.5* _g(g,p-2*i)**2 )
             
-            out[i] = out[i] + 0.5 * tmp / (pp[i,0] + mm[i,0])
+#             out[i] = out[i] + 0.5 * tmp / (pp[i,0] + mm[i,0])
         
-        out[i] = out[i] ** 0.5
+#         out[i] = out[i] ** 0.5
     
-@nb.guvectorize([(F[:],F[:],F[:],I64[:,:],F[:])],"(n),(n),(n),(n,m)->(n)",target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def sigma_weighted_auto_general(weight,g,noise, pp, out):
-    for i in range(len(g)):
-        w = weight[i]
-        b2 = noise[i]**2
-        g2 = g[i]**2
-        out[i] = 0.
-        out[i] = (0.5 * (w**2 * (g2 + 1 + b2) - 4 * w * g[i]  + g2 + 1))
+# @nb.guvectorize([(F[:],F[:],F[:],I64[:,:],F[:])],"(n),(n),(n),(n,m)->(n)",target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+# def sigma_weighted_auto_general(weight,g,noise, pp, out):
+#     for i in range(len(g)):
+#         w = weight[i]
+#         b2 = noise[i]**2
+#         g2 = g[i]**2
+#         out[i] = 0.
+#         out[i] = (0.5 * (w**2 * (g2 + 1 + b2) - 4 * w * g[i]  + g2 + 1))
         
-        #correction terms, skipping p = 0 because it was computed above.
-        for p in range(1,pp.shape[1]):
-            tmp = pp[i, p] * (_g(g, p)**2 + _g(g, p + i) * _g(g, p-i))
+#         #correction terms, skipping p = 0 because it was computed above.
+#         for p in range(1,pp.shape[1]):
+#             tmp = pp[i, p] * (_g(g, p)**2 + _g(g, p + i) * _g(g, p-i))
 
-            tmp -= 2*w * pp[i,p] * (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p)) 
+#             tmp -= 2*w * pp[i,p] * (_g(g,p+i)*_g(g,p) + _g(g,p-i)*_g(g,p)) 
 
-            tmp += w**2 * pp[i,p] * (_g(g,p)**2 + 0.5*_g(g,p+i)**2 + 0.5*_g(g,p-i)**2)
+#             tmp += w**2 * pp[i,p] * (_g(g,p)**2 + 0.5*_g(g,p+i)**2 + 0.5*_g(g,p-i)**2)
 
-            out[i] = out[i] + 0.5 * tmp / pp[i,0]
+#             out[i] = out[i] + 0.5 * tmp / pp[i,0]
         
-        out[i] = out[i] ** 0.5    
+#         out[i] = out[i] ** 0.5    
 

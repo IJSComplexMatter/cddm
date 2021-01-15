@@ -123,9 +123,12 @@ Module Contents
 
    Subtracts two videos.
 
-   :param x, y: Input multi-frame iterable object. Each element of the iterable is a tuple
-                of ndarrays (frames)
-   :type x, y: iterable
+   :param x: Input multi-frame iterable object. Each element of the iterable is a tuple
+             of ndarrays (frames)
+   :type x: iterable
+   :param y: Input multi-frame iterable object. Each element of the iterable is a tuple
+             of ndarrays (frames)
+   :type y: iterable
    :param inplace: Whether tranformation is performed inplace or not.
    :type inplace: bool, optional
    :param dtype: If specifed, determines output dtype. Only valid if inplace == False.
@@ -139,9 +142,12 @@ Module Contents
 
    Adds two videos.
 
-   :param x, y: Input multi-frame iterable object. Each element of the iterable is a tuple
-                of ndarrays (frames)
-   :type x, y: iterable
+   :param x: Input multi-frame iterable object. Each element of the iterable is a tuple
+             of ndarrays (frames)
+   :type x: iterable
+   :param y: Input multi-frame iterable object. Each element of the iterable is a tuple
+             of ndarrays (frames)
+   :type y: iterable
    :param inplace: Whether tranformation is performed inplace or not.
    :type inplace: bool, optional
    :param dtype: If specifed, determines output dtype. Only valid if inplace == False.
@@ -171,9 +177,12 @@ Module Contents
 
    Multiplies two videos.
 
-   :param x,y: Input multi-frame iterable object. Each element of the iterable is a tuple
-               of ndarrays (frames)
-   :type x,y: iterable
+   :param x: Input multi-frame iterable object. Each element of the iterable is a tuple
+             of ndarrays (frames)
+   :type x: iterable
+   :param y: Input multi-frame iterable object. Each element of the iterable is a tuple
+             of ndarrays (frames)
+   :type y: iterable
    :param inplace: Whether tranformation is performed inplace or not.
    :type inplace: bool, optional
    :param dtype: If specifed, determines output dtype. Only valid if inplace == False.
@@ -185,7 +194,7 @@ Module Contents
 
 .. py:class:: ImageShow(title='video', norm_func=lambda x: x)
 
-   A simple interface for video visualization using matplotlib opencv or
+   A simple interface for video visualization using matplotlib, opencv, or
    pyqtgraph.
 
    :param title: Title of the video
@@ -196,7 +205,6 @@ Module Contents
    :type norm_func: callable
 
    .. method:: show(self, im)
-
 
       Shows image
 
@@ -217,7 +225,7 @@ Module Contents
 
    You must first call show functions (e.g. :func:`show_video`) to specify
    what needs to be played. This function performs the actual display when in
-   a for loop
+   a for loop.
 
    :param video: A multi-frame iterable object.
    :type video: iterable
@@ -228,6 +236,37 @@ Module Contents
    :type fps: float
    :param max_delay: Max delay that visualization can produce before it starts skipping frames.
    :type max_delay: float
+
+   :returns: **video** -- A multi-frame iterator
+   :rtype: iterator
+
+   .. rubric:: Examples
+
+   First create some test data of a dual video
+
+   >>> video = random_video(count = 256, dual = True)
+   >>> video = show_video(video)
+
+   Now we can load video to memory, and play it as we load frame by frame...
+
+   >>> v1,v2 = asarrays(play(video, fps = 30),count = 256)
+
+
+.. function:: play_threaded(video, fps=None)
+
+   Plays video for real-time visualization.
+
+   You must first call show functions (e.g. :func:`show_video`) to specify
+   what needs to be played. This function performs the actual display when in
+   a for loop.
+
+   :param video: A multi-frame iterable object.
+   :type video: iterable
+   :param fps: Expected FPS of the input video. If rendering of video is too slow
+               for the expected frame rate, frames will be skipped to assure the
+               expected acquisition. Therefore, you must match exactly the acquisition
+               frame rate with this parameter.
+   :type fps: float, optional
 
    :returns: **video** -- A multi-frame iterator
    :rtype: iterator
@@ -295,7 +334,7 @@ Module Contents
    :rtype: iterator
 
 
-.. function:: show_diff(video, title=None)
+.. function:: show_diff(video, title=None, normalize=False)
 
    Returns a video and performs image difference live video show.
    This works in connection with :func:`play` that does the actual display.
@@ -305,6 +344,10 @@ Module Contents
    :param title: Unique title of the video. You can use :func:`figure_title`
                  a to produce unique name.
    :type title: str
+   :param normalize: Whether to normalize frames to its mean value before subtracting. Note
+                     that this does not normalize the output video, only the displayed video
+                     is normalized.
+   :type normalize: bool
 
    :returns: **video** -- A multi-frame iterator
    :rtype: iterator

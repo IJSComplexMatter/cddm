@@ -66,15 +66,20 @@ Module Contents
    Performs increasing filter. Each next element must be greater or equal
 
 
-.. function:: weight_from_g1(g1)
+.. function:: weight_from_g(g, delta)
 
    Computes weight for weighted normalization from normalized and scaled
    correlation function
 
 
-.. function:: weight_from_d(d)
+.. function:: weight_prime_from_g(g, delta, b1, b2)
 
    Computes weight for weighted normalization from normalized and scaled
-   image structure function
+   correlation function
+
+
+.. function:: sigma_weighted(w, g, delta)
+
+   Computes standard deviation of the weighted normalization.
 
 

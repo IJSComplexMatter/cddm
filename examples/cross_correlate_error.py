@@ -60,7 +60,7 @@ def calculate(binning = 1):
         #perform normalization and merge data
         
         #5 and 7 are redundand, but we are calulating it for easier indexing
-        for norm in (0,1,2,3,4,5,6,7):
+        for norm in (1,2,3,5,6,7,9,10,11,13,14,15):
         
             fast, slow = normalize_multi(data, bg, var, norm = norm, scale = True)
             
@@ -68,7 +68,7 @@ def calculate(binning = 1):
             x,y = log_merge(fast, slow, binning = binning)
         
             if out is None:
-                out = np.empty(shape = (NRUN,8)+ y.shape, dtype = y.dtype)
+                out = np.empty(shape = (NRUN,16)+ y.shape, dtype = y.dtype)
                 out[0,norm] = y
             else:
                 out[i,norm] = y 
@@ -99,9 +99,9 @@ for binning in (0,1):
     y = g1(x,i,j)
     
     #error estimators using a simple model of independent data.
-    err2 = ((1+y**2)/2./n)**0.5 
-    err3 = (((1-y)**2)/n)**0.5
-    err6 = (0.5*(y**2-1)**2 / (y**2+1)/n)**0.5
+    err5 = ((1+y**2)/2./n)**0.5 
+    err6 = (((1-y)**2)/n)**0.5
+    err7 = (0.5*(y**2-1)**2 / (y**2+1)/n)**0.5
     
     ax = plt.subplot(121)
     ax.set_xscale("log")
@@ -109,7 +109,7 @@ for binning in (0,1):
     plt.title("Correlation @ k =({},{})".format(i,j))
     
     
-    for norm in (2,3,6):
+    for norm in (5,6,7):
         std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
         ax.errorbar(x,data[0,norm,i,j],std[norm], fmt='.',label = "norm = {}".format(norm))
     
@@ -125,9 +125,9 @@ for binning in (0,1):
         std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
         plt.semilogx(x,std[norm],label = "norm = {}".format(norm))
     
-    plt.semilogx(x,err2,"k:", label = "norm 2 (expected)")
-    plt.semilogx(x,err3,"k--", label = "norm 3 (expected)")
-    plt.semilogx(x,err6,"k-", label = "norm 6 (expected)")
+    plt.semilogx(x,err5,"k:", label = "norm 5 (expected)")
+    plt.semilogx(x,err6,"k--", label = "norm 6 (expected)")
+    plt.semilogx(x,err7,"k-", label = "norm 7 (expected)")
     
     plt.xlabel("delay time")
     

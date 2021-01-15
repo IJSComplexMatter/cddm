@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
 from cddm.map import rfft2_kangle,  sector_indexmap
 from cddm.multitau import normalize_multi, log_merge, log_average
-from cddm.norm import normalize, _default_norm_from_data, _method_from_data, NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED
+from cddm.norm import normalize, _default_norm_from_data, _method_from_data, NORM_STRUCTURED, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_STANDARD, NORM_COMPENSATED
 from cddm.print_tools import disable_prints, enable_prints
 from cddm.decorators import doc_inherit, skip_runtime_error
 
@@ -418,22 +418,24 @@ class CorrViewer(DataViewer):
         #self.rax = plt.axes([0.48, 0.55, 0.15, 0.3])
         self.cax = plt.axes([0.44, 0.72, 0.2, 0.15])
         
-        self.active = [bool(self.norm & 1),bool(self.norm & 2), bool(self.norm & 4)  ]
+        self.active = [bool(self.norm & NORM_STRUCTURED),bool(self.norm & NORM_SUBTRACTED), bool((self.norm & NORM_WEIGHTED == NORM_WEIGHTED)) , bool((self.norm & NORM_COMPENSATED) == NORM_COMPENSATED)  ]
         
-        self.check = CheckButtons(self.cax, ("compensated", "subtracted", "weighted"), self.active)
+        self.check = CheckButtons(self.cax, ("structured", "subtracted", "weighted", "compensated"), self.active)
         
         #self.radio = RadioButtons(self.rax,("norm 0","norm 1","norm 2","norm 3","norm 4", "norm 5", "norm 6", "norm 7"), active = self.norm, activecolor = "gray")
  
         def update(label):
-            index = ["compensated", "subtracted", "weighted"].index(label)
+            index = ["structured", "subtracted", "weighted", "compensated"].index(label)
             status = self.check.get_status()
-            norm = 0
-            if status[0]:
-                norm = norm | NORM_COMPENSATED
+
+            norm = NORM_STRUCTURED if status[0] == True else NORM_STANDARD    
+            
             if status[1]:
                 norm = norm | NORM_SUBTRACTED
             if status[2]:
                 norm = norm | NORM_WEIGHTED
+            if status[3]:
+                norm = norm | NORM_COMPENSATED
             try:
                 self.set_norm(norm)
             except ValueError:

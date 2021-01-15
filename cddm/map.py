@@ -134,12 +134,42 @@ def rfft2_kangle(kisize = None, kjsize = None, shape = None):
     shape : (int,int)
         Shape of the original data. This is used to calculate step size. If not
         given, rectangular data is assumed (equal steps).
+        
+    Returns
+    -------
+    k, angle, ndarray, ndarray
+        k, angle arrays 
     """
     (kisize, kistep), (kjsize, kjstep) = _get_steps_size(kisize,kjsize,shape)
             
     y,x = np.meshgrid(np.fft.fftfreq(kisize)*kisize*kistep,np.arange(kjsize)*kjstep, indexing = "ij")  
     x2, y2  = x**2, y**2
     return (x2 + y2)**0.5 , np.arctan2(-y,x)  
+
+def rfft2_grid(kisize = None, kjsize = None, shape = None):
+    """Build ki,kj coordinate arrays based on the size of the fft. 
+    
+    Parameters
+    ----------
+    kisize : int
+        i-size of the cropped rfft2 data. 
+    kjsize : int
+        j-size of the cropped rfft2 data
+    shape : (int,int)
+        Shape of the original data. This is used to calculate step size. If not
+        given, rectangular data is assumed (equal steps).
+        
+    Returns
+    -------
+    ki, kj, ndarray, ndarray
+        ki,kj coordinate arrays 
+     
+    """
+    (kisize, kistep), (kjsize, kjstep) = _get_steps_size(kisize,kjsize,shape)
+            
+    ki,kj = np.meshgrid(np.fft.fftfreq(kisize)*kisize*kistep,np.arange(kjsize)*kjstep, indexing = "ij")  
+    return ki,kj
+
 
 def _k_select(data, k, indexmap, kmap, computed_mask, masked_data):
     mask = (indexmap == int(round(k)))

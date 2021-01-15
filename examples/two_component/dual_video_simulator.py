@@ -18,10 +18,10 @@ t1, t2 = create_random_times1(NFRAMES,n = N_PARAMETER)
 
 #: this creates a brownian motion frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame)
-video1 = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = BACKGROUND,particles = 50,
+video1 = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = BACKGROUND,num_particles = 10,
                               sigma = SIGMA1, delta = DELTA1, intensity = INTENSITY1, dtype = "uint16")
 
-video2 = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = 0 ,particles = 50,
+video2 = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = 0 ,num_particles = 100,
                               sigma = SIGMA2, delta = DELTA2, intensity = INTENSITY2, dtype = "uint16")
 
 video = add(video1,video2)
@@ -39,7 +39,7 @@ dust = ((dust1,dust2),)*NFRAMES
 video = multiply(video, dust)
 
 
-video = (tuple((adc(f, noise = NOISE_MODEL, saturation = SATURATION, readout_noise = READOUT_NOISE, bit_depth = ADC_BIT_DEPTH) for f in frames)) for frames in video)
+video = (tuple((adc(f, noise_model = NOISE_MODEL, saturation = SATURATION, readout_noise = READOUT_NOISE, bit_depth = ADC_BIT_DEPTH) for f in frames)) for frames in video)
 
 
 if __name__ == "__main__":

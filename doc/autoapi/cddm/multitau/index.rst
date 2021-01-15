@@ -155,7 +155,7 @@ Module Contents
    :rtype: acorr_type, acorr_type
 
 
-.. function:: iccorr_multi(data, t1=None, t2=None, level_size=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
+.. function:: iccorr_multi(data, t1=None, t2=None, level_size=2**4, norm=None, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
    Iterative version of :func:`.ccorr_multi`
 
@@ -217,7 +217,7 @@ Module Contents
              * **lin, multi** (*ccorr_type, ccorr_type*) -- If `stats` == False
 
 
-.. function:: iacorr_multi(data, t=None, level_size=2**4, norm=3, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
+.. function:: iacorr_multi(data, t=None, level_size=2**4, norm=None, method='corr', count=None, period=1, binning=None, nlevel=None, chunk_size=None, thread_divisor=None, auto_background=False, viewer=None, viewer_interval=1, mode='full', mask=None, stats=True)
 
    Iterative version of :func:`.acorr_multi`
 
@@ -288,22 +288,65 @@ Module Contents
    array([0.25, 0.5 , 0.25])
 
 
-.. function:: multilevel_count(count, level_size, binning=True)
+.. function:: multilevel_count(count, level_size, binning=BINNING_MEAN)
 
    Returns effective number of measurements in multilevel data calculated
-   from linear time-space count data.
+   from linear time-space count data using :func:`multilevel`
+
+   This function can be used to estimate the effective number of realizations
+   of each data point in multilevel data for error estimation.
 
    :param count: Count data,
    :type count: ndarray
    :param level_size: Level size used in multilevel averaging.
    :type level_size: int
+   :param binning: Binning mode that was used in :func:`multilevel`
+   :type binning: int
 
    :returns: **x** -- Multilevel effective count array. Shape of this data depends on the
              length of the original data and the provided level_size parameter.
    :rtype: ndarray
 
 
-.. function:: multilevel(data, level_size=16)
+.. function:: ccorr_multi_count(count, period=1, level_size=16, binning=True)
+
+   Returns an effective count data for the equivalent multilevel cross-correlation
+   calculation.
+
+   :param count: Number of frames processed
+   :type count: int
+   :param period: The period argument used in correlation calculation
+   :type period: int
+   :param level_size: Level size used in correlation calculation
+   :type level_size: int
+   :param binning: Binning mode used in correlation calculation
+   :param int: Binning mode used in correlation calculation
+
+   :returns: **cf,cs** -- Count arrays for the linear part and the multilevel part of the multilevel
+             correlation calculation.
+   :rtype: ndarray, ndarray
+
+
+.. function:: acorr_multi_count(count, period=1, level_size=16, binning=True)
+
+   Returns an effective count data for the equivalent multilevel auto-correlation
+   calculation.
+
+   :param count: Number of frames processed
+   :type count: int
+   :param period: The period argument used in correlation calculation
+   :type period: int
+   :param level_size: Level size used in correlation calculation
+   :type level_size: int
+   :param binning: Binning mode used in correlation calculation
+   :param int: Binning mode used in correlation calculation
+
+   :returns: **cf,cs** -- Count arrays for the linear part and the multilevel part of the multilevel
+             correlation calculation,
+   :rtype: ndarray, ndarray
+
+
+.. function:: multilevel(data, level_size=16, binning=BINNING_MEAN)
 
    Computes a multi-level version of the linear time-spaced data.
 
@@ -311,6 +354,8 @@ Module Contents
    :type data: ndarray
    :param level_size: Level size
    :type level_size: int
+   :param binning: Binning mode, either BINNING_FIRST or BINNING_MEAN (default).
+   :type binning: int
 
    :returns: **x** -- Multilevel data array. Shape of this data depends on the length of the original
              data and the provided level_size parameter
@@ -347,7 +392,24 @@ Module Contents
    :rtype: ndarray, ndarray
 
 
-.. function:: log_merge(lin, multi)
+.. function:: log_average_count(count, size=8)
+
+   Returns effective number of measurements in data calculated
+   from linear time-space count data using :func:`log_average`
+
+   This function can be used to estimate the effective number of realizations
+   of each data point in multilevel data for error estimation.
+
+   :param count: Count data, as returned by the `ccorr` or `acorr` functions
+   :type count: ndarray
+   :param size: Sampling size that was used in :func:`log_average`
+   :type size: int
+
+   :returns: **x, y** -- Time and log-spaced effetive count arrays.
+   :rtype: ndarray, ndarray
+
+
+.. function:: log_merge(lin, multi, binning=BINNING_MEAN)
 
    Merges normalized multi-tau data.
 
@@ -360,8 +422,29 @@ Module Contents
    :type lin: ndarray
    :param multi: Multilevel data
    :type multi: ndarray
+   :param binning: Binning mode used for multilevel calculation of the linear part of the data.
+                   either BINNING_FIRST or BINNING_MEAN (default).
+   :type binning: int
 
    :returns: **x, y** -- Time and log-spaced data arrays.
+   :rtype: ndarray, ndarray
+
+
+.. function:: log_merge_count(lin_count, multi_count, binning=BINNING_MEAN)
+
+   Merges multi-tau count data. This function cab be used to obtain
+   effective count data of results merged by :func:`log_merge`. You must
+   first call equivalent count function, like :func:`ccorr_multi_count`.
+
+
+   :param lin_count: Linear data count
+   :type lin_count: ndarray
+   :param multi_count: Multilevel data count
+   :type multi_count: ndarray
+   :param binning: Binning mode used in :func:`log_merge`
+   :type binning: int
+
+   :returns: **x, y** -- Time and log-spaced count arrays.
    :rtype: ndarray, ndarray
 
 

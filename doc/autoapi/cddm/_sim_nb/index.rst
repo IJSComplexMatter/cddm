@@ -41,6 +41,31 @@ Module Contents
    Draws pixels to image from a given points array
 
 
+.. function:: adc_8bit(frame, scale, black_level)
+
+   Converts raw signal to unsigned int using 8bit conversion
+
+
+.. function:: adc_10bit(frame, scale, black_level)
+
+   Converts raw signal to unsigned int using 10bit conversion
+
+
+.. function:: adc_12bit(frame, scale, black_level)
+
+   Converts raw signal to unsigned int using 12bit conversion
+
+
+.. function:: adc_14bit(frame, scale, black_level)
+
+   Converts raw signal to unsigned int using 14bit conversion
+
+
+.. function:: adc_16bit(frame, scale, black_level)
+
+   Converts raw signal to unsigned int using 16bit conversion
+
+
 .. function:: draw_psf(im, points, intensity, sigma)
 
    Draws psf to image from a given points array

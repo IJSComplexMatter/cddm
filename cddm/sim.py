@@ -17,7 +17,7 @@ from __future__ import absolute_import, print_function, division
 import numpy as np
 from cddm.conf import FDTYPE
 
-from cddm._sim_nb import mirror, numba_seed, make_step, draw_points, draw_psf
+from cddm._sim_nb import mirror, numba_seed, make_step, draw_points, draw_psf, shot_noise_poisson, shot_noise_gaussian, adc_clean
 import cddm._sim_nb as _sim_nb
 
 def _inspect_frame_dtype(dtype, intensity):
@@ -28,22 +28,27 @@ def _inspect_frame_dtype(dtype, intensity):
         raise ValueError("Invalid intensity for dtype {}".format(dtype))
     return dtype
 
-def form_factor(window, sigma = 3, intensity = 5, navg = 100, dtype = "uint8"):
+def form_factor(window, sigma = 3, intensity = 5, navg = 10, dtype = "uint8", mode = "rfft2"):
     """Computes point spread function form factor.
     
     Draws a PSF randomly in the frame and computes FFT, returns average absolute
-    of the FFT
+    of the FFT.
     
     Parameters
     ----------
-    shape : (int,int)
-        Frame  shape
+    window : ndarray
+        A 2D window function used in the analysis. Set this to np.ones if you do
+        not use one. 
     sigma : float
-        Sigma of the PSF
-    intensity : uint8
+        Sigma of the PSF of the image
+    intensity : unsigned int
         Intensity value
     navg : int
-        Specifies how many FFTs are averaged.
+        Specifies mesh size for averaging.
+    dtype : np.dtype
+        One of "uint8" or "uint16". Defines output dtype of the image.
+    mode : str, optional
+        Either 'rfft2' (default) or 'fft2'. 
         
     Returns
     -------
@@ -54,14 +59,21 @@ def form_factor(window, sigma = 3, intensity = 5, navg = 100, dtype = "uint8"):
     window = np.asarray(window)
     shape = window.shape
     dtype = _inspect_frame_dtype(dtype, intensity)
+    
     for i in range(navg):
-        im = np.zeros(shape, dtype)
-        coord = np.random.rand(1,2)*np.array(shape) if navg > 1 else np.array([[0,0]],FDTYPE)
-        im = draw_psf(im, coord,np.array([intensity], dtype),np.array([sigma], FDTYPE))
-        im = im*window
-        out += np.abs(np.fft.rfft2(im))**2
-        
-    return out/navg
+        for j in range(navg):
+            im = np.zeros(shape, dtype)
+            coord = (np.array(((i,j),)) * np.array(shape))*1.0 / navg
+            im = draw_psf(im, coord,np.array([intensity], dtype),np.array([sigma], FDTYPE))
+            im = im*window
+            if mode == 'rfft2':
+                out += np.abs(np.fft.rfft2(im))**2
+            elif mode == "fft2":
+                out += np.abs(np.fft.fft2(im))**2
+            else:
+                raise ValueError("Unknown mode.")
+             
+    return (out/navg**2)**0.5
 
 def seed(value):
     """Seed for numba and numpy random generator"""
@@ -367,7 +379,9 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
     p = brownian_particles(**kw) 
     return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, dtype = dtype) 
 
-def adc(frame, noise_model = "gaussian", readout_noise = 0., saturation = 32768, black_level = 0, bit_depth = "14bit", out = None):
+    
+def adc(frame,  saturation = 32768, black_level = 0, bit_depth = "14bit", 
+        readout_noise = 0., noise_model = "gaussian", out = None):
     """Simulated ADC conversion process of ideal signal.
     
     It applies shot noise with the standard deviation of the square of the
@@ -378,10 +392,6 @@ def adc(frame, noise_model = "gaussian", readout_noise = 0., saturation = 32768,
     ----------
     frame : ndarray
         Input noisless signal
-    noise_model : str
-        Either 'gaussian' or 'poisson'.
-    reasout_noise : float
-        Value of the additional noise added to the frame.
     saturation : int
         Defines the saturation value of the sensor
     black_level : int
@@ -390,6 +400,10 @@ def adc(frame, noise_model = "gaussian", readout_noise = 0., saturation = 32768,
         ADC bit depth. Either '8bit', '10bit', '12bit' or '14bit'. This defines
         what kind of scalling is performed when converting results to uint16
         (or uint8) image. 
+    readout_noise : float
+        Value of the additional noise added to the frame.
+    noise_model : str
+        Either 'gaussian' or 'poisson' or 'none' to disable noise
     out : ndarray, optional
         Output array.
         
@@ -398,15 +412,21 @@ def adc(frame, noise_model = "gaussian", readout_noise = 0., saturation = 32768,
     frame : ndarray
         Noissy image
     """
-    
-    name = "adc_{}_{}".format(bit_depth, noise_model)
-    try:
-        f = getattr(_sim_nb, name)
-        return f(frame,saturation,black_level,readout_noise, out = out)
-    except AttributeError:
-        raise ValueError("Invalid noise or bit_depth model")
-
+    if noise_model == "gaussian":
+        frame = shot_noise_gaussian(frame, readout_noise)
+    elif noise_model == "poisson":
+        frame = shot_noise_poisson(frame, readout_noise)
+    elif noise_model != "none":
+        raise ValueError("Invalid noise_model")
+    max_value = 2**int(bit_depth[:-3]) - 1
+    if max_value < 256:
+        max_value = np.uint8(max_value)
+    else:
+        max_value = np.uint16(max_value)
+    return adc_clean(frame,saturation,black_level, max_value, out = out)
         
+
+
         
 #
 #if __name__ == "__main__":

@@ -13,6 +13,7 @@ New features
 * added `norm.py` module and moved all normalization related functions here.
 * added functions for correlation data error estimation.
 * added `normalize` argument to `show_diff` function.
+* added the `weight` argument to `normalize` function.
 
 Enhancements
 ////////////

@@ -30,7 +30,7 @@ Module Contents
    :rtype: ndarray
 
 
-.. function:: rfft2(video, kimax=None, kjmax=None, overwrite_x=False)
+.. function:: rfft2(video, kimax=None, kjmax=None, overwrite_x=False, extra={})
 
    A generator that performs rfft2 on a sequence of multi-frame data.
 
@@ -40,12 +40,16 @@ Module Contents
    :param video: An iterable of multi-frame data
    :type video: iterable
    :param kimax: Max value of the wavenumber in vertical axis (i)
-   :type kimax: float, optional
+   :type kimax: int, optional
    :param kjmax: Max value of the wavenumber in horizontal axis (j)
-   :type kjmax: float, optional
+   :type kjmax: int, optional
    :param overwrite_x: If input type is complex and fft library used is not numpy, fft can
                        be performed inplace to speed up computation.
    :type overwrite_x: bool, optional
+   :param extra: Extra arguments passed to the underlying rfft2 cfunction. These arguments
+                 are library dependent. For pyffyw see the documentation on
+                 additional arguments for finer FFT control.
+   :type extra: dict
 
    :returns: **video** -- An iterator over FFT of the video.
    :rtype: iterator

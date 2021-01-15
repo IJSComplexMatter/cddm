@@ -25,7 +25,7 @@ For time averaging of linear spaced data use:
 
 from __future__ import absolute_import, print_function, division
 
-from cddm.core import normalize, ccorr,acorr, NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED
+from cddm.core import normalize, ccorr,acorr, NORM_STRUCTURED, NORM_STANDARD, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_COMPENSATED
 from cddm.core import _transpose_data, _inspect_cross_arguments,_default_norm,\
         _is_aligned, _move_axis_and_align, _inspect_auto_arguments, abs2,\
         reshape_input, reshape_output, thread_frame_shape, reshape_frame
@@ -37,7 +37,7 @@ from cddm.print_tools import print1, print2
 
 from cddm._core_nb import mean,  convolve, _calc_stats_vec
 
-from cddm.norm import weighted_sum,weight_from_data, _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor
+from cddm.norm import weighted_sum,weight_from_data, _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor, norm_from_string
 from cddm.avg import log_interpolate
 
 import time
@@ -181,8 +181,8 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     
     if correlate == True:
         #we need to track square of the signal
-        f1s = abs2(f1) if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) else None
-        f2s = abs2(f2) if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and cross else None
+        f1s = abs2(f1) if (norm & NORM_STRUCTURED) else None
+        f2s = abs2(f2) if (norm & NORM_STRUCTURED) and cross else None
     else:
         f1s,f2s = None,None
 
@@ -223,7 +223,7 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     count_slow = np.zeros((nlevel, n_slow,),IDTYPE)
     m1, m2, sq = None, None, None
  
-    if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate == True:
+    if (norm & NORM_STRUCTURED) and correlate == True:
         sq = np.zeros(slow_shape, FDTYPE) 
         sq = _transpose_data(sq, new_axis) 
         
@@ -252,7 +252,7 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     for i in range(nlevel):
         f1 = _bin(f1,axis, new_axis)
         f2 = _bin(f2,axis, new_axis) if cross else None
-        if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+        if (norm & NORM_STRUCTURED) and correlate:
             f1s = _bin(f1s,axis, new_axis)
             f2s = _bin(f2s,axis, new_axis) if cross else None
         axis = new_axis
@@ -493,7 +493,7 @@ def _inspect_t1_t2_count(t1,t2,count,data):
 
 def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16, 
                         chunk_size = None,  binning = None, method = "corr", count = None,
-                        auto_background = False, nlevel = None,  norm = 0,
+                        auto_background = False, nlevel = None,  norm = None,
                         stats = False, thread_divisor = None, mode = "full", mask = None, cross = True):
     t0 = time.time()
     
@@ -590,7 +590,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             else:
                 m1_fast, m2_fast = None, None
                 
-            if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate == True:
+            if (norm & NORM_STRUCTURED) and correlate == True:
                 sq_fast = np.zeros(fast_shape, FDTYPE)
                 sq_fast = _transpose_data(sq_fast) 
             else:
@@ -616,7 +616,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 m2_slow = _transpose_data(m2_slow) if cross  == True else None
             else:
                 m1_slow, m2_slow = None, None
-            if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate == True:
+            if (norm & NORM_STRUCTURED) and correlate == True:
                 sq_slow = np.zeros(slow_shape, FDTYPE)  
                 sq_slow = _transpose_data(sq_slow) 
             else:
@@ -638,7 +638,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 data_slow = out_slow, count_slow, m1_slow, m2_slow
                      
             
-            if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate == True:
+            if (norm & NORM_STRUCTURED) and correlate == True:
                 #allocate memory for square data
                 sq1 = np.empty(data_shape, FDTYPE)
                 sq2 = np.empty(data_shape, FDTYPE) if cross  == True else None
@@ -676,11 +676,11 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                     x2 = fdata2[0,...,i,:] - bg2 if cross == True else None
                     if cross == True:
                         _add_data2(i,x1, x2, fdata1,fdata2, binning, r)
-                        if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+                        if (norm & NORM_STRUCTURED) and correlate:
                             _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning, r) 
                     else:
                         _add_data1(i,x1, fdata1, binning,r)
-                        if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+                        if (norm & NORM_STRUCTURED) and correlate:
                             _add_data1(i,abs2(x1),sq1,binning,r)
         else:
             if bg1 is not None:
@@ -691,11 +691,11 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             r = np.random.rand() 
             if cross == True:
                 _add_data2(i,x1, x2, fdata1,fdata2, binning,r)
-                if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+                if (norm & NORM_STRUCTURED) and correlate:
                     _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning,r)
             else:
                 _add_data1(i,x1, fdata1,binning,r)
-                if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+                if (norm & NORM_STRUCTURED) and correlate:
                     _add_data1(i,abs2(x1),sq1,binning,r)                
                 
         if i % (half_chunk_size) == half_chunk_size -1: 
@@ -729,8 +729,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 np.subtract(out_var1, abs2(out_bg1), out_var1)
                 np.subtract(out_var2, abs2(out_bg2), out_var2)  if cross else None
                                
-            f1s = sq1[0,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
-            f2s = sq2[0,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate and cross else None
+            f1s = sq1[0,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None
+            f2s = sq2[0,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate and cross else None
             
             out = data_fast
                 
@@ -743,13 +743,13 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
 
             if istart2 >= 0 and mode == "full":
                 
-                f1s = sq1[0][...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                f1s = sq1[0][...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None
                 
                 if cross:
-                    f2s = sq2[0][...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                    f2s = sq2[0][...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
                     ccorr(fdata1[0][...,fstart1:fstop1,:],fdata2[0][...,fstart2:fstop2,:],t1[istart1:istop1],t2[istart2:istop2],f1s = f1s, f2s = f2s, axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
                 else:
-                    f2s = sq1[0][...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                    f2s = sq1[0][...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
                     if correlate:
                         out = data_fast[0],data_fast[1], data_fast[2], None, None 
                     else:
@@ -759,8 +759,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                         m1_fast += out[3] /2
                         m1_fast += out[4] /2
                 if cross:
-                    f1s = sq1[0][...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
-                    f2s = sq2[0][...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None  
+                    f1s = sq1[0][...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
+                    f2s = sq2[0][...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None  
                     ccorr(fdata1[0][...,fstart2:fstop2,:],fdata2[0][...,fstart1:fstop1,:],t1[istart2:istop2],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
   
 
@@ -784,8 +784,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                     istop2 = istop1 - half_chunk_size  
                 
   
-                    f1s = sq1[j,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
-                    f2s = sq2[j,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate and cross else None  
+                    f1s = sq1[j,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None
+                    f2s = sq2[j,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate and cross else None  
                     
                     out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
                     
@@ -795,13 +795,13 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                         acorr(fdata1[j,...,fstart1:fstop1,:],fs = f1s, axis = -2, norm = norm, n = n_slow, aout = out, method = method)
         
                     if istart2 >= 0 and mode == "full":
-                        f1s = sq1[j,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                        f1s = sq1[j,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None
                         
                         if cross:
-                            f2s = sq2[j,...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                            f2s = sq2[j,...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
                             ccorr(fdata1[j,...,fstart1:fstop1,:],fdata2[j,...,fstart2:fstop2,:],t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s, axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
                         else:
-                            f2s = sq1[j,...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
+                            f2s = sq1[j,...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
                             _out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
                             if correlate:
                                 out = _out[0],_out[1], _out[2], None, None 
@@ -812,8 +812,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                                 m1_slow[j-1] += out[3] /2
                                 m1_slow[j-1] += out[4] /2
                         if cross:
-                            f1s = sq1[j,...,fstart2:fstop2,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
-                            f2s = sq2[j,...,fstart1:fstop1,:] if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None  
+                            f1s = sq1[j,...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
+                            f2s = sq2[j,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None  
                             ccorr(fdata1[j,...,fstart2:fstop2,:],fdata2[j,...,fstart1:fstop1,:],t_slow[istart2:istop2],t_slow[istart1:istop1],f1s = f1s, f2s = f2s,axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
 
                 else:
@@ -845,7 +845,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
     
     f1 = fdata1[-1]
     f2 = fdata2[-1] if cross else None
-    if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate:
+    if (norm & NORM_STRUCTURED) and correlate:
         sq1 = sq1[-1]
         sq2 = sq2[-1] if cross else None
         
@@ -855,8 +855,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
         r = np.random.rand()
         f1 = _bin(f1,-2, r = r)
         f2 = _bin(f2,-2, r = r) if cross else None
-        sq1 = _bin(sq1,-2, r = r) if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate else None
-        sq2 = _bin(sq2,-2, r = r) if (norm & NORM_COMPENSATED or norm & NORM_WEIGHTED) and correlate and cross else None
+        sq1 = _bin(sq1,-2, r = r) if (norm & NORM_STRUCTURED) and correlate else None
+        sq2 = _bin(sq2,-2, r = r) if (norm & NORM_STRUCTURED) and correlate and cross else None
       
         out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
         
@@ -878,7 +878,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
     else:
         yield tuple((reshape_output(o, original_shape,mask) for o in out))
 
-def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = 3, method = "corr", count = None, period = 1,
+def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
                  auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
     """Iterative version of :func:`.ccorr_multi`
@@ -965,7 +965,7 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = 3, method
     return data
 
 
-def iacorr_multi(data, t = None, level_size = 2**4, norm = 3, method = "corr", count = None, period = 1,
+def iacorr_multi(data, t = None, level_size = 2**4, norm = None, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
                  auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
     """Iterative version of :func:`.acorr_multi`
@@ -1181,6 +1181,7 @@ def acorr_multi_count(count, period = 1, level_size = 16, binning = True):
     """ 
     
     count_fast = np.linspace(count/period, (count - level_size)/period , period*level_size)
+    count_fast[0:period+1] = np.linspace(0,count_fast[period], period +1)
     count_slow = np.linspace(count,1,count)
     count_slow = multilevel_count(count_slow, level_size, binning)  
     if binning != BINNING_MEAN:
@@ -1435,6 +1436,8 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
     method = _method_from_data(lin)
     scale = _inspect_scale(scale)
     mode = _inspect_mode(mode)
+    if isinstance(norm,str):
+        norm = norm_from_string(norm)
     #determine default normalization if not specified by user
     norm = _default_norm_from_data(lin, method, norm)
     
@@ -1448,10 +1451,10 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
     level = disable_prints()
     
     
-    if (norm & NORM_WEIGHTED):
+    if (norm & NORM_WEIGHTED == NORM_WEIGHTED):
     
-        norm_comp = (norm & NORM_SUBTRACTED)|NORM_COMPENSATED
-        norm_base = norm & NORM_SUBTRACTED        
+        norm_comp = (norm & (NORM_COMPENSATED | NORM_SUBTRACTED))|NORM_STRUCTURED
+        norm_base = (norm & (NORM_COMPENSATED | NORM_SUBTRACTED)) |NORM_STANDARD     
         
         lin_comp = normalize(lin, background = background, variance = variance, norm = norm_comp, mode = mode,
                   scale = scale, mask = mask)

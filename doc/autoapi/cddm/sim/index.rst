@@ -23,21 +23,26 @@
 Module Contents
 ---------------
 
-.. function:: form_factor(shape=(512, 512), sigma=3, intensity=5, navg=100, dtype='uint8')
+.. function:: form_factor(window, sigma=3, intensity=5, navg=10, dtype='uint8', mode='rfft2')
 
    Computes point spread function form factor.
 
    Draws a PSF randomly in the frame and computes FFT, returns average absolute
-   of the FFT
+   of the FFT.
 
-   :param shape: Frame  shape
-   :type shape: (int,int)
-   :param sigma: Sigma of the PSF
+   :param window: A 2D window function used in the analysis. Set this to np.ones if you do
+                  not use one.
+   :type window: ndarray
+   :param sigma: Sigma of the PSF of the image
    :type sigma: float
    :param intensity: Intensity value
-   :type intensity: uint8
-   :param navg: Specifies how many FFTs are averaged.
+   :type intensity: unsigned int
+   :param navg: Specifies mesh size for averaging.
    :type navg: int
+   :param dtype: One of "uint8" or "uint16". Defines output dtype of the image.
+   :type dtype: np.dtype
+   :param mode: Either 'rfft2' (default) or 'fft2'.
+   :type mode: str, optional
 
    :returns: **out** -- Average absolute value of the FFT of the PSF.
    :rtype: ndarray
@@ -71,7 +76,7 @@ Module Contents
    :Yields: **coordinates** (*ndarray*) -- Coordinates 2D array for the particles. The second axis is the x,y coordinate.
 
 
-.. function:: brownian_particles(count=500, shape=(256, 256), particles=100, delta=1, dt=1, velocity=0.0, x0=None)
+.. function:: brownian_particles(count=500, shape=(256, 256), num_particles=100, delta=1, dt=1, velocity=0.0, x0=None)
 
    Coordinates generator of multiple brownian particles.
 
@@ -82,8 +87,8 @@ Module Contents
    :type count: int
    :param shape: Shape of the box
    :type shape: (int,int)
-   :param particles: Number of particles in the box
-   :type particles: int
+   :param num_particles: Number of particles in the box
+   :type num_particles: int
    :param delta: Step variance in pixel units (when dt = 1)
    :type delta: float
    :param dt: Time resolution
@@ -97,7 +102,7 @@ Module Contents
             Length of the array equals number of particles.
 
 
-.. function:: particles_video(particles, t1, shape=(256, 256), t2=None, background=0, intensity=10, sigma=None, noise=0.0, dtype='uint8')
+.. function:: particles_video(particles, t1, shape=(256, 256), t2=None, background=0, intensity=10, sigma=None, dtype='uint8')
 
    Creates brownian particles video
 
@@ -115,8 +120,6 @@ Module Contents
    :type intensity: int
    :param sigma: Sigma of the gaussian spread function for the particle
    :type sigma: float
-   :param noise: Intensity of the random noise
-   :type noise: float, optional
    :param dtype: Numpy dtype of frames, either uint8 or uint16
    :type dtype: dtype
 
@@ -136,25 +139,34 @@ Module Contents
    [1, 4, 7]
 
 
-.. function:: plot_random_walk(count=5000, particles=2, shape=(256, 256))
+.. function:: plot_random_walk(count=5000, num_particles=2, shape=(256, 256))
 
    Brownian particles usage example. Track 2 particles
 
 
-.. function:: create_random_times1(nframes, n=20)
+.. function:: create_random_time(nframes, n=32, dt_min=1)
+
+   Create trigger time for single-camera random ddm experiments
+
+
+.. function:: random_time_count(nframes, n=32)
+
+   Returns estimated count for single-camera random triggering scheme
+
+
+.. function:: create_random_times1(nframes, n=32)
 
    Create trigger times for c-ddm experiments based on Eq.7 from the paper
 
 
-.. function:: create_random_times2(nframes, n=20)
+.. function:: create_random_times2(nframes, n=32)
 
    Create trigger times for c-ddm experiments based on Eq.8 from the paper
 
 
-.. function:: simple_brownian_video(t1, t2=None, shape=(256, 256), background=0, intensity=5, sigma=3, noise=0, dtype='uint8', **kw)
+.. function:: simple_brownian_video(t1, t2=None, shape=(256, 256), background=0, intensity=5, sigma=3, dtype='uint8', **kw)
 
    DDM or c-DDM video generator.
-
 
    :param t1: Frame time
    :type t1: array-like
@@ -168,13 +180,40 @@ Module Contents
    :type intensity: int
    :param sigma: Sigma of the gaussian spread function for the particle
    :type sigma: float
-   :param noise: Intensity of the random noise
-   :type noise: float, optional
    :param dtype: Numpy dtype of frames, either uint8 or uint16
    :type dtype: dtype
    :param kw: Extra keyward arguments that are passed to :func:`brownian_particles`
    :type kw: extra arguments
 
    :Yields: **frames** (*tuple of ndarrays*) -- A single-frame or dual-frame images (ndarrays).
+
+
+.. function:: adc(frame, saturation=32768, black_level=0, bit_depth='14bit', readout_noise=0.0, noise_model='gaussian', out=None)
+
+   Simulated ADC conversion process of ideal signal.
+
+   It applies shot noise with the standard deviation of the square of the
+   provided signal and adds a readout_noise of the provided mean value and
+   shot noise characteristics.
+
+   :param frame: Input noisless signal
+   :type frame: ndarray
+   :param saturation: Defines the saturation value of the sensor
+   :type saturation: int
+   :param black_level: Defines black level subtraction value.
+   :type black_level: int
+   :param bit_depth: ADC bit depth. Either '8bit', '10bit', '12bit' or '14bit'. This defines
+                     what kind of scalling is performed when converting results to uint16
+                     (or uint8) image.
+   :type bit_depth: str
+   :param readout_noise: Value of the additional noise added to the frame.
+   :type readout_noise: float
+   :param noise_model: Either 'gaussian' or 'poisson' or 'none' to disable noise
+   :type noise_model: str
+   :param out: Output array.
+   :type out: ndarray, optional
+
+   :returns: **frame** -- Noissy image
+   :rtype: ndarray
 
 

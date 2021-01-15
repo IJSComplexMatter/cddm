@@ -7,22 +7,24 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 #diffusion constant
-from examples.paper.conf import D, DATA_PATH
+from examples.paper.one_component.conf import D, DATA_PATH
 import os.path as path
 
 SHOW_FITS = True
 
 colors = ["C{}".format(i) for i in range(10)]
 
-def _g1(x,f,a,b):
+def _g1(x,f,a):
     """g1: exponential decay"""
-    return a* np.exp(-f*x) + b
+    return a * np.exp(-f*x) 
 
 def fit_data(x, data, title = "", ax = None):
     """performs fitting and plotting of cross correlation data"""
-    popt = [0.1,1,0]
+    popt = [0.01,1]
     for i, (k, y) in enumerate(data):
+        
         try:
+            
             popt,pcov = curve_fit(_g1, x,y, p0 = popt)    
             if ax is not None:
                 ax.semilogx(x,y,"o",color = colors[i%len(colors)],fillstyle='none')
@@ -47,9 +49,9 @@ def fit(x,y, title = "data"):
     results = list(fit_data(x, k_data, title = title ,ax = ax))
 
     k_out = np.empty(shape = (len(results),),dtype = float)
-    p_out = np.empty(shape = (len(results),3),dtype = float)
-    c_out = np.empty(shape = (len(results),3,3),dtype = float)
-    results = np.array(list(fit_data(x, k_data)))
+    p_out = np.empty(shape = (len(results),2),dtype = float)
+    c_out = np.empty(shape = (len(results),2,2),dtype = float)
+    results = np.array(results)
     for i,(k,p,c) in enumerate(results):
         k_out[i] = k
         p_out[i,:] = p
@@ -60,9 +62,12 @@ def fit(x,y, title = "data"):
 fig = plt.figure() 
 ax = fig.subplots()
 
-for i,label in enumerate(("standard", "random", "dual")):
+norm = 6
+
+#for i,label in enumerate(("standard", "random", "dual")):
+for i,label in enumerate(("standard","fast","dual","random")):
     x = np.load(path.join(DATA_PATH, "corr_{}_t.npy".format(label)))
-    y = np.load(path.join(DATA_PATH, "corr_{}_data.npy".format(label)))
+    y = np.load(path.join(DATA_PATH, "corr_{}_data_norm{}.npy".format(label, norm)))
     
     mask = np.isnan(y)
     mask = np.logical_not(np.all(mask, axis = tuple(range(mask.ndim-1))))
@@ -74,7 +79,7 @@ for i,label in enumerate(("standard", "random", "dual")):
     ax.plot((k**2),f,"o", color = colors[i],fillstyle='none', label = "{}".format(label))
 
     x = k**2
-    popt,pcov = curve_fit(_lin, x, f)
+    popt,pcov = curve_fit(_lin, x, f, sigma = c[:,0,0]**0.5)
     ax.plot(x,_lin(x,*popt), "--", color = colors[i], label = "fit {}".format(label))
     err = np.sqrt(np.diag(pcov))/popt
     print("Measured D (norm = {}): {:.3e} (1 +- {:.4f})".format(label, popt[0], err[0]))
