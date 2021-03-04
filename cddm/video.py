@@ -534,7 +534,6 @@ def play_threaded(video, fps = None):
                 yield out
             if fps is not None:
                 if time.time()-t0 >= i/fps:
-
                     break
                 
         if out is None:
@@ -650,7 +649,7 @@ def show_video(video, id = 0, title = None, norm_func = lambda x : x.real):
             queue.put(frames[id],block = False)
         yield frames  
      
-def show_diff(video, title = None, normalize = False):
+def show_diff(video, title = None, normalize = False, dt = None, t1 = None, t2 = None):
     """Returns a video and performs image difference live video show.
     This works in connection with :func:`play` that does the actual display.
     
@@ -671,15 +670,7 @@ def show_diff(video, title = None, normalize = False):
     video : iterator
         A multi-frame iterator
     """
-    
-    if title is None:
-        title = figure_title("difference video")
-
-    viewer = ImageShow(title)
-    queue = Queue(1)
-    _FIGURES[title] = (viewer, queue)
-    
-    for frames in video:
+    def _process_frames(frames, queue):
         if queue.empty():
             x,y = frames
             x,y = x.real, y.real
@@ -688,13 +679,31 @@ def show_diff(video, title = None, normalize = False):
                 y = y/y.mean()
             m = 2* max(x.max(),y.max())
             im = x/m - y/m + 0.5
-            queue.put(im,block = False)
-        yield frames    
+            queue.put(im,block = False)        
+    
+    if title is None:
+        title = figure_title("difference video")
+
+    viewer = ImageShow(title)
+    queue = Queue(1)
+    _FIGURES[title] = (viewer, queue)
+    
+    if dt is None:
+        for frames in video:
+            _process_frames(frames, queue)
+            yield frames 
+    else:
+        for frames,_t1,_t2 in zip(video,t1,t2):
+            if abs(_t2-_t1) in dt:
+                _process_frames(frames, queue)
+            yield frames         
+        
 
 def random_video(shape = (512,512), count = 256, dtype = FDTYPE, max_value = 1., dual = False):
     """Random multi-frame video generator, useful for testing."""
     nframes = 2 if dual == True else 1 
     for i in range(count):
+        time.sleep(0.02)
         yield tuple((np.asarray(np.random.rand(*shape)*max_value,dtype) for i in range(nframes)))
 
         
@@ -705,20 +714,21 @@ if __name__ == '__main__':
     cddm.conf.set_verbose(2)
 
 
-#     cddm.conf.set_showlib("pyqtgraph")    
-#     #example how to use show_video and play
-#     video = random_video(count = 256, dual = True)
-#     video = show_video(video)
-#     video = show_diff(video)
-#     #v1,v2 = asarrays(video,count = 1256)
-  
-#     v1,v2 = asarrays(play_threaded(video, fps = None),count = 256)
-# ##    #example how to use ImageShow
-# ##    video = random_video(count = 256)
-# ##    viewer = ImageShow()
-# ##    for frames in video:
-# ##        viewer.show(frames[0])
-# ##        pause()
-# ##        
-# #    
+    cddm.conf.set_showlib("pyqtgraph")    
+    #example how to use show_video and play
+    video = random_video(count = 1256, dual = True)
+    video = load(video, 1256)
+    video = show_video(video)
+    video = show_diff(video)
+    #v1,v2 = asarrays(video,count = 1256)
+    #v1,v2 = asarrays(play(video,fps = 50),count = 1256)
+    v1,v2 = asarrays(play_threaded(video),count = 1256)
+##    #example how to use ImageShow
+##    video = random_video(count = 256)
+##    viewer = ImageShow()
+##    for frames in video:
+##        viewer.show(frames[0])
+##        pause()
+##        
+#    
     
