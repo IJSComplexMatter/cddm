@@ -85,9 +85,11 @@ def _readconfig(func, section, name, default):
     except:
         return default
 
+#setting environment variables does not seem to work properly in numba...
+#disable cache dir until I figure out how to do it properly.
 
-if NUMBA_CACHE_DIR != "":
-    os.environ["NUMBA_CACHE_DIR"] = NUMBA_CACHE_DIR #set it to os.environ.. so that numba can use it
+#if NUMBA_CACHE_DIR != "":
+#    os.environ["NUMBA_CACHE_DIR"] = NUMBA_CACHE_DIR #set it to os.environ.. so that numba can use it
 
 if _read_environ_variable("CDDM_TARGET_PARALLEL",
             default = _readconfig(config.getboolean, "numba", "parallel", False)):

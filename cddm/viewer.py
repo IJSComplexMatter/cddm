@@ -517,13 +517,27 @@ class MultitauViewer(CorrViewer):
         if mask is not None:
             self.kisize, self.kjsize = mask.shape
         
-    @doc_inherit
+    #@doc_inherit
     def set_norm(self, value):
+        """Sets norm parameter"""
         method = _method_from_data(self.data[0])
         self.norm = _default_norm_from_data(self.data[0],method,value)  
         
-    @doc_inherit
+    #@doc_inherit
     def set_data(self, data, background = None, variance = None):
+        """Sets correlation data.
+        
+        Parameters
+        ----------
+        data : tuple
+            A data tuple (as computed by ccorr, cdiff, adiff, acorr functions)
+        background : tuple or ndarray
+            Background data for normalization. For adiff, acorr functions this
+            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        variance : tuple or ndarray
+            Variance data for normalization. For adiff, acorr functions this
+            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        """
         self.data = data
         self.background = background
         self.variance = variance
