@@ -4,7 +4,7 @@ from __future__ import absolute_import, print_function, division
 
 
 import numpy as np
-from cddm.conf import CDTYPE
+from cddm.conf import CDTYPE, FDTYPE
 from cddm.print_tools import print1,print2, enable_prints, disable_prints
 
 from cddm._core_nb import _normalize_cdiff_1,_normalize_cdiff_3,\
@@ -279,8 +279,8 @@ def weight_from_data(corr, delta = 0., scale_factor = 1., mode = "corr", pre_fil
     out : ndarray
         Weight data for weighted sum calculation.
     """
-    scale_factor = np.asarray(scale_factor)
-    delta = np.asarray(delta)
+    scale_factor = np.asarray(scale_factor, FDTYPE)
+    delta = np.asarray(delta, FDTYPE)
     if mode == "corr":
         #make sure it is decreasing and clipped between 0 and 1
         if pre_filter == True:
@@ -328,7 +328,7 @@ def weight_prime_from_data(corr, bg1, bg2, delta = 0., scale_factor = 1., mode =
     out : ndarray
         Weight data for weighted sum calculation.
     """
-    scale_factor = np.asarray(scale_factor)
+    scale_factor = np.asarray(scale_factor, FDTYPE)
     delta = np.asarray(delta)
     bg1, bg2 = np.asarray(bg1), np.asarray(bg2)
     if mode == "corr":

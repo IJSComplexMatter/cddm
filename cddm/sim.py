@@ -412,6 +412,7 @@ def adc(frame,  saturation = 32768, black_level = 0, bit_depth = "14bit",
     frame : ndarray
         Noissy image
     """
+    readout_noise = np.array(readout_noise, FDTYPE)
     if noise_model == "gaussian":
         frame = shot_noise_gaussian(frame, readout_noise)
     elif noise_model == "poisson":

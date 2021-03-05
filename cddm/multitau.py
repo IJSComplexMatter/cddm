@@ -1466,7 +1466,7 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
         multi_base = normalize(multi, background = background, variance = variance, norm = norm_base, mode = mode,
                   scale = scale, mask = mask)   
   
-        _scale_factor = 1. if scale == True else scale_factor(variance,mask)
+        _scale_factor = np.array(1.,FDTYPE) if scale == True else scale_factor(variance,mask)
 
         #get data estimator
         x, y = log_merge(lin_comp, multi_comp)

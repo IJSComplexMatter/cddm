@@ -67,7 +67,7 @@ def interpolate(x_new, x,y,out):
             deltax = x1 - x0
             out[i] = (xi - x0) * deltay/deltax +  y[-2]            
 
-@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n), (m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.guvectorize([(I64[:],I64[:],F[:],F[:])],"(n), (m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _log_interpolate(x_new, x,y, out):
     """Linear interpolation in semilogx space."""
     assert len(x) >= 2

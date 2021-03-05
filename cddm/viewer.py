@@ -214,24 +214,27 @@ class DataViewer(object):
     def _init_map(self):
         self.kmap, self.anglemap = rfft2_kangle(self.kisize, self.kjsize, self.shape)
         self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
-     
+
+    def _init_graph(self):   
+        self.graph = np.zeros(self.indexmap.shape)
+        
+        max_graph_value =self.kmap.max() #max(self.kmap[0,:].max(), self.kmap[:,0].max()) 
+        self.graph[0,0] = max_graph_value 
+        
+        self._max_graph_value = max_graph_value        
+
     def _init_fig(self):
         if self.data is None:
             raise ValueError("You must first set data to plot!")
         self._init_map()
+        self._init_graph()
         
         self.fig, (self.ax1,self.ax2) = plt.subplots(1,2,gridspec_kw = {'width_ratios':[3, 1]})
         
         self.fig.show()
         
         plt.subplots_adjust(bottom=0.25)
-        
-        self.graph = np.zeros(self.indexmap.shape)
-        
-        max_graph_value =self.kmap.max() #max(self.kmap[0,:].max(), self.kmap[:,0].max()) 
-        self.graph[0,0] = max_graph_value 
-        
-        self._max_graph_value = max_graph_value
+
         
         self.im = self.ax2.imshow(np.fft.fftshift(self.graph,0), 
             extent=[0,self.graph.shape[1],self.graph.shape[0]//2+1,-self.graph.shape[0]//2-1])

@@ -6,7 +6,7 @@ This module defines several functions for fft processing  of multi-frame data.
 from __future__ import absolute_import, print_function, division
 
 import numpy as np
-from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED, PYFFTW_INSTALLED,  detect_number_of_cores
+from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED, PYFFTW_INSTALLED,  detect_number_of_cores, CDTYPE
 
 #from multiprocessing.pool import ThreadPool
 
@@ -59,15 +59,19 @@ def _rfft2(a, overwrite_x = False, extra = {}):
     libname = CDDMConfig["rfft2lib"]
     cutoff = a.shape[-1]//2 + 1
     if libname == "mkl_fft":
-        return mkl_fft.rfftn_numpy(a.real,axes =(-2, -1), **extra)
+        out = mkl_fft.rfftn_numpy(a.real,axes =(-2, -1), **extra)
         #return mkl_fft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]
     elif libname == "scipy":
-        return spfft.fft2(a, overwrite_x = overwrite_x, **extra)[...,0:cutoff]
+        out = spfft.fft2(a, overwrite_x = overwrite_x, **extra)[...,0:cutoff]
     elif libname == "numpy":
-        return np.fft.rfft2(a.real, **extra) #force real in case input is complex
+        out = np.fft.rfft2(a.real, **extra) #force real in case input is complex
     elif libname == "pyfftw":
-        return fftw.numpy_fft.rfft2(a.real, **extra) #force real in case input is complex 
-  
+        out = fftw.numpy_fft.rfft2(a.real, **extra) #force real in case input is complex 
+    
+    # depending on how the libraries are compiled, the output may not be of same dtype as requested
+    # float32 may be converted to complex128... so we make sure it is of specified type.
+    return np.asarray(out, CDTYPE)
+    
 def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
     if kimax is None:
         kisize = shape[0]

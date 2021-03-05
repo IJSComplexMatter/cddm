@@ -517,7 +517,7 @@ def play_threaded(video, fps = None):
                 q.put(frames)
         finally:
             q.put(None)
-            
+    
     threading.Thread(target=worker,args = (video,) ,daemon=True).start()
     out = False #dummy  
     t0 = None   
@@ -717,12 +717,13 @@ if __name__ == '__main__':
     cddm.conf.set_showlib("pyqtgraph")    
     #example how to use show_video and play
     video = random_video(count = 1256, dual = True)
-    video = load(video, 1256)
+    #video = load(video, 1256)
     video = show_video(video)
     video = show_diff(video)
+    #p = play_threaded(video)
     #v1,v2 = asarrays(video,count = 1256)
     #v1,v2 = asarrays(play(video,fps = 50),count = 1256)
-    v1,v2 = asarrays(play_threaded(video),count = 1256)
+    #v1,v2 = asarrays(play_threaded(video),count = 1256)
 ##    #example how to use ImageShow
 ##    video = random_video(count = 256)
 ##    viewer = ImageShow()
