@@ -53,7 +53,7 @@ w_lin = weight_from_data(yd, pre_filter = False)
 #: interpolate data points to x_lin values using log-interpolator
 w_lin= log_interpolate(x_lin, x, w_lin) 
 #: weighted correlation
-lin = weighted_sum(lin_5,lin_6,w_lin)
+lin = weighted_sum(lin_6,lin_5,w_lin)
 
 #: obtain data points x-values for the interpolator
 x_multi = t_multilevel(multi_6.shape, period = PERIOD)
@@ -62,7 +62,7 @@ w_multi = weight_from_data(yd,pre_filter = False)
 #: interpolate data points to x_multi values using log-interpolator
 w_multi = log_interpolate(x_multi, x, w_multi) 
 #: weighted correlation
-multi = weighted_sum(multi_5,multi_6,w_multi)
+multi = weighted_sum(multi_6,multi_5,w_multi)
 #: plot weight
 xm,w = log_merge(w_lin, w_multi)
 ax1.semilogx(xm[1:],w[i,j,1:], label = "w")
