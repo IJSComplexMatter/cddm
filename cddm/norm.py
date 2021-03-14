@@ -71,7 +71,8 @@ def norm_from_string(value):
     
     Examples
     --------
-    >>> norm_from_string(value)
+    >>> norm_from_string("structured")
+    2
     
     """
     values = value.split("|")
@@ -110,7 +111,7 @@ def norm_flags(structured = False, subtracted = False, weighted = False, compens
     >>> norm_flags(structured = True)
     2
     >>> norm_flags(compensated = True)
-    13
+    9
     """
     standard = True if structured == False and weighted == False else False
     norm = NORM_NONE
