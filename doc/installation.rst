@@ -3,7 +3,7 @@ Installation
 
 The source code is hosted at GitHub. You can install latest stable release with::
 
-    $ pip install cddm
+    $ pip install -U cddm
 
 Or you can clone or download the latest development code from the `repository`_ and run::
 
