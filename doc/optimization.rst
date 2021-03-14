@@ -81,7 +81,10 @@ Numba allows caching of compiled functions. If *CDDM_TARGET_PARALLEL* environmen
 
    >>> os.environ["CDDM_NUMBA_CACHE"]  = "0"
 
-Cached files are stored in *.cddm/numba_cache*  in user's home directory. You can remove this folder to force recompilation. To enable/disable caching you can modify the configuration file (see below).
+.. 
+   Cached files are stored in *.cddm/numba_cache*  in user's home directory. You can remove this folder to force recompilation. 
+
+To enable/disable caching you can modify the configuration file (see below).
 
 Precision
 +++++++++

@@ -4,16 +4,20 @@ Release notes
 V0.3.0 (In development)
 +++++++++++++++++++++++
 
+This release partially breaks the backward compatibility. Most users will not notice any difference, but be aware that the naming of normalization schemes have changed slightly. With this release we define NORM_STRUCTURED normalization, which was previously called NORM_COMPENSATED. The NORM_COMPENSATED now marks an experimental (photon-correlation-like compensated normalization scheme). Users need to adopt their code by renaming the NORM_COMPENSATED with NORM_STRUCTURED.
+Also, the flag values have changed. Therefore, if you used integer values for norm flags, and you did not setup the flags using the provided helper functions then you need to revise your code.
+
 New features
 ////////////
 
 * added functions to sim.py to simulate ADC signal conversion, readout noise and shot noise.
-* weight_from_data, returns weight for the compensated normalization. In previous versions
-  it was for the subtracted normalization.
+* weight_from_data, returns weight for the structured normalization. In previous versions
+  it was for the standard normalization.
 * added `norm.py` module and moved all normalization related functions here.
 * added functions for correlation data error estimation.
 * added `normalize` argument to `show_diff` function.
 * added the `weight` argument to `normalize` function.
+* added a threaded version of `play` function called :func:`.video.play_threaded`.
 
 Enhancements
 ////////////
@@ -28,6 +32,7 @@ Bug fixes
 * removed noise argument in simulation functions because shot noise was not implemented correctly.
   Shot noise is now simulated during ADC conversion. 
 * Renamed `particles` argument to `num_particles` in `brownian_particles` function.
+* Fixes segfaults which were caused by numba's mixup of cached data.
 
 
 V0.2.0 (May 6 2020)

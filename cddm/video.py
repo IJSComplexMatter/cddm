@@ -455,6 +455,10 @@ def play(video, fps = 100., max_delay = 0.1):
     
     >>> v1,v2 = asarrays(play(video, fps = 30),count = 256)
     
+    See Also
+    --------
+    :func:`.video.play_threaded`
+    
     """
     t0 = None
     for i, frames in enumerate(video):   
@@ -479,17 +483,16 @@ def play_threaded(video, fps = None):
     
     You must first call show functions (e.g. :func:`show_video`) to specify 
     what needs to be played. This function performs the actual display when in
-    a for loop.
+    a for loop. It works similar to :func:`play`, but it first creates a thread
+    and starts the video iterator in the background. 
     
     Parameters
     ----------
     video : iterable
         A multi-frame iterable object. 
     fps : float, optional
-        Expected FPS of the input video. If rendering of video is too slow
-        for the expected frame rate, frames will be skipped to assure the 
-        expected acquisition. Therefore, you must match exactly the acquisition
-        frame rate with this parameter.
+        Desired video fps for display. This may be different from the actual 
+        video fps. If not set, it will display video as fast as possible.
         
     Returns
     -------
@@ -506,7 +509,11 @@ def play_threaded(video, fps = None):
     
     Now we can load video to memory, and play it as we load frame by frame...
     
-    >>> v1,v2 = asarrays(play(video, fps = 30),count = 256)
+    >>> v1,v2 = asarrays(play_threaded(video, fps = 30),count = 256)
+
+    See Also
+    --------
+    :func:`.video.play`
     
     """
     q = Queue()
@@ -521,20 +528,28 @@ def play_threaded(video, fps = None):
     threading.Thread(target=worker,args = (video,) ,daemon=True).start()
     out = False #dummy  
     t0 = None   
-    i = 1
+    i = 0
     while True:
-        while not q.empty():
-            out = q.get()
-            q.task_done()
-            if t0 is None:
-                t0 = time.time()
-            if out is None:
-                break
-            else:
-                yield out
-            if fps is not None:
-                if time.time()-t0 >= i/fps:
+        if fps is None:
+            while not q.empty():
+                out = q.get()
+                q.task_done()
+                if out is None:
                     break
+                else:
+                    yield out
+        else:
+            while True:
+                out = q.get()
+                q.task_done()
+                if t0 is None:
+                    t0 = time.time()
+                if out is None:
+                    break
+                else:
+                    yield out
+                if time.time()-t0 >= i/fps:
+                    break            
                 
         if out is None:
             break
@@ -548,9 +563,7 @@ def play_threaded(video, fps = None):
         pause()
             
     _FIGURES.clear()
-    
-
-    
+        
 def figure_title(name):
     """Generate a unique figure title"""
     i = len(_FIGURES)+1
@@ -720,10 +733,11 @@ if __name__ == '__main__':
     #video = load(video, 1256)
     video = show_video(video)
     video = show_diff(video)
+
     #p = play_threaded(video)
     #v1,v2 = asarrays(video,count = 1256)
     #v1,v2 = asarrays(play(video,fps = 50),count = 1256)
-    #v1,v2 = asarrays(play_threaded(video),count = 1256)
+    v1,v2 = asarrays(play_threaded(video),count = 1256)
 ##    #example how to use ImageShow
 ##    video = random_video(count = 256)
 ##    viewer = ImageShow()
