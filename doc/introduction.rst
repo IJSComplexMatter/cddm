@@ -16,10 +16,10 @@ Highlights
 * In-memory and out-of-memory computation of cross- auto-correlation functions.
 * Data visualizer, and k-averaging.
 
-Status and limitations
-----------------------
+Status
+------
 
-``cddm``  package was developed mainly for the analysis of cross-DDM experiment, but it can be used for standard DDM analysis or any kind of correlation analysis. The package is fully operational. Currently, the work is focused on documenting the package and writing examples, and unittests. The API is stable, and is not expected to change in the future release version.
+``cddm``  package was developed mainly for the analysis of cross-DDM experiment, but it can be used for standard DDM analysis or any kind of correlation analysis. The package is fully operational. 
 
 .. _repository: https://github.com/IJSComplexMatter/cddm
 
