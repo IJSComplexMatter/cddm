@@ -1,10 +1,10 @@
 Release notes
 -------------
 
-V0.3.0 (In development)
-+++++++++++++++++++++++
+V0.3.0 (March 14 2021)
+++++++++++++++++++++++
 
-This release partially breaks the backward compatibility. Most users will not notice any difference, but be aware that the naming of normalization schemes have changed slightly. With this release we define NORM_STRUCTURED normalization, which was previously called NORM_COMPENSATED. The NORM_COMPENSATED now marks an experimental (photon-correlation-like compensated normalization scheme). Users need to adopt their code by renaming the NORM_COMPENSATED with NORM_STRUCTURED.
+This release partially breaks backward compatibility. Most users will not notice any difference, but be aware that the naming of normalization schemes have changed slightly. With this release we define NORM_STRUCTURED normalization, which was previously called NORM_COMPENSATED. The NORM_COMPENSATED now marks an experimental (photon-correlation-like compensated normalization scheme). Users need to adopt their code by renaming the NORM_COMPENSATED with NORM_STRUCTURED.
 Also, the flag values have changed. Therefore, if you used integer values for norm flags, and you did not setup the flags using the provided helper functions then you need to revise your code.
 
 New features
