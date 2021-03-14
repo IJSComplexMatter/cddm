@@ -121,7 +121,7 @@ for binning in (0,1):
     plt.subplot(122)
     plt.title("Mean error (std)")
     
-    for norm in (2,3,6):
+    for norm in (5,6,7):
         std = (((data[:,:,i,j,:] - y)**2).mean(axis = 0))**0.5
         plt.semilogx(x,std[norm],label = "norm = {}".format(norm))
     

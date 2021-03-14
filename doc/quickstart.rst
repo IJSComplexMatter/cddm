@@ -335,7 +335,7 @@ Now you can use your favorite tool for data analysis and fitting. But, most prob
 Multitau analysis
 +++++++++++++++++
 
-Instead of doing the linear analysis and log averaging, you can use the multiple-tau algorithm to achieve similar results. In module :mod:`.multitau` there is a multitau version of the :func:`.core.acorr` called  :func:`.core.acorr_multi` that you can use. Here we will work with the iterative version :func:`.core.iacorr_multi` which works on data iterators.
+Instead of doing the linear analysis and log averaging, you can use the multiple-tau algorithm to achieve similar results. In module :mod:`.multitau` there is a multitau version of the :func:`.core.acorr` called  :func:`.multitau.acorr_multi` that you can use. Here we will work with the iterative version :func:`.multitau.iacorr_multi` which works on data iterators.
 
 .. note::
 
@@ -633,7 +633,7 @@ In the examples in this guide we were simulating Brownian motion of particles, s
 
    Results from the fitting of the cross-correlation function computed with :func:`.multitau.iccorr_multi` using subtract_background = False option. For this example, the *norm = 6* datapoint are closest to the theoretically predicted value shown in graph with the black line.
 
-As can be seen, normalization with *norm = 6* and *norm = 7* appears to work best with this data. *norm = 6* normalization mode is the default mode used in the normalization procedure. It is a weighted normalization mode that works best on most data. It is computationally most complex, and there may be times when you will use different normalizations. These are explained in the next section.
+As can be seen, normalization with *norm = 7* appears to work best with this data. *norm = 7* normalization mode is the default mode used in the normalization procedure. It is a weighted normalization mode that works best on most data. It is computationally most complex, and there may be times when you will use different normalizations. These are explained in the next section.
 
 .. _normalization:
 
@@ -662,9 +662,9 @@ By default, computation and normalization is performed using
 
 .. doctest:: 
 
-   >>> from cddm.core import NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_BASELINE
+   >>> from cddm.core import NORM_COMPENSATED, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_STANDARD, NORM_STRUCTURED
    >>> norm = NORM_SUBTRACTED | NORM_WEIGHTED
-   >>> norm == 6
+   >>> norm == 7
    True
 
 There is a helper function, to build normalization flags:
@@ -673,42 +673,42 @@ There is a helper function, to build normalization flags:
 
    >>> from cddm.core import norm_flags
    >>> norm_flags(compensated = False, subtracted = True, weighted = True)
-   6
+   7
 
-When calculation of the correlation function is performed with `norm = NORM_SUBTRACTED | NORM_WEIGHTED` or with `norm = NORM_SUBTRACTED | NORM_COMPENSATED`, a full calculation is performed. This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in six different ways.
+When calculation of the correlation function is performed with `norm = NORM_SUBTRACTED | NORM_WEIGHTED` or with `norm = NORM_SUBTRACTED | NORM_STRUCTURED`, a full calculation is performed. This way it is possible to normalize the computed data with the :func:`.multitau.normalize` or :func:`.multitau.normalize_multi` functions in six different ways.
 
 Standard normalization
 ''''''''''''''''''''''
 For standard (non-weighted) normalization do:
 
-* **baseline** : `norm = NORM_BASELINE` (`norm = 0`), supported methods: `'corr'` and `'fft'` here we remove the baseline error introduced by the non-zero background frame, which produces an offset in the correlation data. For this to work, you must provide the background data to the :func:`.multitau.normalize_multi` or :func:`.core.normalize`.
-* **compensated** : `norm = NORM_COMPENSATED` (`norm = 1`), here we compensate the statistical error introduced at smaller delay times. Basically, we normalize the data as if we had calculated the cross-difference function instead of the cross-correlation. This requires one to calculate the delay-dependent squares of the intensities, so one extra channel, which slows down the computation when `method = 'corr' or 'fft'`.
-* **subtracted** : `norm = NORM_SUBTRACTED` (`norm = 2`), supported methods: `'corr'` and `'fft'`. Here we compensate for baseline error and for the linear error introduced by the not-known-in-advance background data. This requires one to track the delay-dependent sum of the data, so two extra channels.
-* **subtracted and compensated** : `norm = NORM_COMPENSATED | NORM_SUBTRACTED` (`norm = 3`), which does both the *subtracted* and *compensated* normalizations. Here, `'diff'` method is supported only in cross-analysis and not in auto-analysis. This is the most complex computation mode, as there are three additional channels to track.
+* **standard** : `norm = NORM_STANDARD` (`norm = 1`), supported methods: `'corr'` and `'fft'` here we remove the baseline error introduced by the non-zero background frame, which produces an offset in the correlation data. For this to work, you must provide the background data to the :func:`.multitau.normalize_multi` or :func:`.core.normalize`.
+* **structured** : `norm = NORM_STRUCTURED` (`norm = 2`), here we compensate the statistical error introduced at smaller delay times. Basically, we normalize the data as if we had calculated the cross-difference (structure) function instead of the cross-correlation. This requires one to calculate the delay-dependent squares of the intensities, so one extra channel, which slows down the computation when `method = 'corr' or 'fft'`.
+* **subtracted and standard** : `norm = NORM_STANDARD | NORM_SUBTRACTED ` (`norm = 5`), supported methods: `'corr'` and `'fft'`. Here we compensate for baseline error and for the linear error introduced by the not-known-in-advance background data. This requires one to track the delay-dependent sum of the data, so two extra channels.
+* **subtracted and structured** : `norm = NORM_STRUCTURED | NORM_SUBTRACTED` (`norm = 6`), which does both the *subtracted* and *compensated* normalizations. Here, `'diff'` method is supported only in cross-analysis and not in auto-analysis. This is the most complex computation mode, as there are three additional channels to track.
 
-`norm 1` or `norm 3` data is better for low lag times, while `norm 0` or `norm 2` has less noise and a more stable baseline at larger lag times. 
+`norm 2` or `norm 6` data are better for low lag times, while `norm 1` or `norm 5` have less noise and a more stable baseline at larger lag times. 
 
 Weighted normalization
 ''''''''''''''''''''''
 
 There are two weighted normalization modes that are supported only for calculation methods: `'corr'` and `'fft'`. These are:
 
-* **weighted** : `norm = NORM_WEIGHTED` (`norm = 4`). Performs weighted average of *compensated* and *baseline* normalized data. The weighting factor is to promote large delay data from *baseline* data and short delay from *compensated* data.
-* **subtracted and weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
+* **weighted** : `norm = NORM_WEIGHTED` (`norm = 3`). Performs weighted average of *structured* and *standard* normalized data. The weighting factor is to promote large delay data from *standard* data and short delay from *compensated* data.
+* **subtracted and weighted** : `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 7`) Performs weighted average of *subtracted and compensated* and *subtracted* normalized data. The weighting factor is to promote large delay data from *subtracted* data and short delay from *subtracted and compensating weighted* data.
 
-To describe how these work internally, we will perform weighted normalization manually. First, data is normalized with compensated (and background subtracted) and baseline (and background subtracted) modes:
+To describe how these work internally, we will perform weighted normalization manually. First, data is normalized with structured (and background subtracted) and standard (and background subtracted) modes:
 
 .. doctest::
 
-   >>> lin_2, multi_2 = normalize_multi(data, bg, var, norm = 2, scale = True)
-   >>> lin_3, multi_3 = normalize_multi(data, bg, var, norm = 3, scale = True)
+   >>> lin_5, multi_5 = normalize_multi(data, bg, var, norm = 5, scale = True)
+   >>> lin_6, multi_6 = normalize_multi(data, bg, var, norm = 6, scale = True)
 
 Then, correlation data estimator is calculated from the compensated data. Denoising is applied, data is clipped between (0,1) because we have scaled the data. If data is not scaled, you can use the :func:`core.scale_factor` to compute the proper scaling factor. Data is shaped so that it is monotonously decreasing:
 
 .. doctest::
    
    >>> from cddm.avg import denoise, decreasing
-   >>> x,y = log_merge(lin_3, multi_3)
+   >>> x,y = log_merge(lin_6, multi_6)
    >>> y = denoise(decreasing(np.clip(denoise(y),0,1)))
 
 This way we have built a correlation data estimator that is then used to interpolate weighting array. For linear part of the data you can build this using.
@@ -716,37 +716,37 @@ This way we have built a correlation data estimator that is then used to interpo
 .. doctest::
 
    >>> from cddm.avg import weight_from_data, weighted_sum, log_interpolate
-   >>> x_new = np.arange(lin_3.shape[-1])
+   >>> x_new = np.arange(lin_6.shape[-1])
    >>> w = weight_from_data(y, pre_filter = False)
    >>> w = log_interpolate(x_new, x, w)
 
-Here we have used `pre_filter = False` option, because we have already filtered the data. With `pre_filter=True` same denoising is performed as in the example above. The calculated weight is for the baseline data (norm = 2). The weight for the compensated data is :math:`1 - w`. You can do the weighted sum:
+Here we have used `pre_filter = False` option, because we have already filtered the data. With `pre_filter=True` same denoising is performed as in the example above. The calculated weight is for the standard data (norm = 5). The weight for the structured data is :math:`1 - w`. You can do the weighted sum:
 
 .. doctest::
 
-   >>> lin = weighted_sum(lin_2,lin_3, w)
+   >>> lin = weighted_sum(lin_5,lin_6, w)
 
 For the multilevel part, the procedure is the same, except that the x coordinates for the interpolator are different. There is a helper function to build the x coordinates of the multilevel data:
 
 .. doctest::
 
    >>> from cddm.multitau import t_multilevel
-   >>> x_new = t_multilevel(multi_3.shape, period = 32) 
+   >>> x_new = t_multilevel(multi_6.shape, period = 32) 
    >>> w = weight_from_data(y, pre_filter = False)
    >>> w = log_interpolate(x_new, x, w)
-   >>> multi = weighted_sum(multi_2,multi_3, w)
+   >>> multi = weighted_sum(multi_5,multi_6, w)
 
-for details, see source code in the example below. The weights `w`and `1 - w` are for norm = 2 and norm = 3 data, respectively.
+for details, see source code in the example below. The weights `w`and `1 - w` are for norm = 5 and norm = 6 data, respectively.
 
 .. plot:: examples/plots/plot_cross_correlate_weighted.py
 
-    Demonstrates how to perform weighted sum of norm = 2 and norm = 3 data. First, norm 3 data is taken as a first estimator, data is denoised and weights are calculated and a weighted sum of norm 3 and norm 2 data is performed.
+    Demonstrates how to perform weighted sum of norm = 6 and norm = 6 data. First, norm 6 data is taken as a first estimator, data is denoised and weights are calculated and a weighted sum of norm 6 and norm 5 data is performed.
 
-Note that for the calculation of the correlation data with e.g. :func:`.multitau.ccorr_multi`, `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) is identical to `norm = NORM_SUBTRACTED | NORM_COMPENSATED` (`norm = 3`), and `norm = NORM_WEIGHTED` (`norm = 4`) is identical to `norm = NORM_COMPENSATED` (`norm = 1`). In the normalization, the results are different, as shown in graphs below.
+Note that for the calculation of the correlation data with e.g. :func:`.multitau.ccorr_multi`, `norm = NORM_SUBTRACTED | NORM_WEIGHTED` (`norm = 6`) is identical to `norm = NORM_SUBTRACTED | NORM_STRUCTURED` (`norm = 5`), and `norm = NORM_WEIGHTED` (`norm = 3`) is identical to `norm = NORM_STRUCTURED` (`norm = 2`). In the normalization, the results are different, as shown in graphs below.
 
 .. note ::
 
-   :data:`.core.NORM_COMPENSATED` flag is ignored when working with weighted normalization. Therefore, `norm = 5` is identical to `norm = 4`, and `norm = 7` is identical to `norm = 6`. This might change in the future.
+   :data:`.core.NORM_WEIGHTED` is a shorthand for :data:`NORM_STANDARD|NORM_STRUCTURED`
 
 Instead of manually calculating the weights, you can use the `norm` argument and pass it to the normalize functions, like: 
 

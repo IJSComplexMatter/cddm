@@ -15,7 +15,7 @@ import os.path as path
 
 SHOW_FITS = False
 #: which norm modes to fit
-NORMS = (1,2,3,6)
+NORMS = (2,5,6,7)
 
 colors = ["C{}".format(i) for i in range(10)]
 
