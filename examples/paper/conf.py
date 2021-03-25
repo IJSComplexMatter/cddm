@@ -36,7 +36,9 @@ APPLY_WINDOW = True
 #: whether to apply dust particles or not
 APPLY_DUST = True
 #: whether to save plots, or show only.
-SAVE_FIGS = False
+SAVE_FIGS = True
+#: number of simulation runs for statistical analysis.
+NRUN = 32
 
 if SAVE_FIGS:
     import matplotlib as mpl
@@ -95,7 +97,6 @@ PERIOD_RANDOM = PERIOD // 2
 
 #: n parameter for irregular triggering
 N_PARAMETER = PERIOD//2
-
 
 NFRAMES_RANDOM = NFRAMES * 2
 

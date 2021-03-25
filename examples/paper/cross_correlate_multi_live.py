@@ -1,5 +1,5 @@
 """
-Demonstrates how to compute fft of videos and the compute cross-correlation
+Demonstrates how to compute fft of videos and then compute cross-correlation
 function with the out-of-memory version of the multitau algorithm and do
 live view of the computation.
 """

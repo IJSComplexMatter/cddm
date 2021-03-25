@@ -1,23 +1,14 @@
 """
-Builds sample dual-camera video of two-component system with two different
-particles for two-exponent data fitting examples.
+Dual-camera random triggered video.
 """
 
 from cddm.sim import simple_brownian_video, create_random_times1, adc
-from cddm._sim_nb import adc_12bit
 from cddm.viewer import VideoViewer 
-from cddm.video import multiply, load, crop, add
+from cddm.video import multiply, load, crop
 import matplotlib.pyplot as plt
-import numpy as np
-import scipy.ndimage as nd
 
 from examples.paper.simple_video.conf import NFRAMES_DUAL, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, VMAX, DT_DUAL,\
     INTENSITY, SIGMA, SHAPE, DUST1_PATH, DUST2_PATH, SATURATION, BIT_DEPTH, NOISE_MODEL, READOUT_NOISE,  NUM_PARTICLES, APPLY_DUST
-
-
-def move_pixels(frames, ni = 10):
-    f1,f2 = frames
-    return nd.zoom(f1,1.04)[10:512+10,10:512+10], f2
 
 #random time according to Eq.7 from the SoftMatter paper
 t1, t2 = create_random_times1(NFRAMES_DUAL,n = N_PARAMETER)
@@ -27,7 +18,6 @@ t1, t2 = create_random_times1(NFRAMES_DUAL,n = N_PARAMETER)
 video = simple_brownian_video(t1,t2, shape = SIMSHAPE,background = BACKGROUND,num_particles = NUM_PARTICLES,dt = DT_DUAL,
                               sigma = SIGMA, delta = DELTA, intensity = INTENSITY, dtype = "uint16")
 
-#video = (move_pixels(frames) for frames in video)
 
 #: crop video to selected region of interest 
 video = crop(video, roi = ((0,SHAPE[0]), (0,SHAPE[1])))

@@ -1,11 +1,11 @@
-"""Random triggering single camera video
+"""Random triggered single camera video
 """
 from cddm.core import auto_count
 from cddm.sim import simple_brownian_video, create_random_time, adc
 from cddm.viewer import VideoViewer 
 from cddm.video import crop, multiply
 from examples.paper.simple_video.conf import NFRAMES_RANDOM, SIMSHAPE, BACKGROUND, DELTA, INTENSITY, PERIOD_RANDOM,\
-    NUM_PARTICLES, SIGMA, SHAPE, DUST1_PATH, BIT_DEPTH, VMAX, SATURATION, READOUT_NOISE, NOISE_MODEL, APPLY_DUST, DT_RANDOM, DT_STANDARD
+    NUM_PARTICLES, SIGMA, SHAPE, DUST1_PATH, BIT_DEPTH, VMAX, SATURATION, READOUT_NOISE, NOISE_MODEL, APPLY_DUST, DT_RANDOM
 import matplotlib.pyplot as plt
 import numpy as np
 

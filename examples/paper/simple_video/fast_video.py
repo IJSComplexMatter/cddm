@@ -1,13 +1,13 @@
-"""Standrad (constant FPS video)
+"""A high FPS video.
 """
-from cddm.sim import simple_brownian_video, seed, adc
+
+from cddm.sim import simple_brownian_video, adc
 from cddm.viewer import VideoViewer 
 from cddm.video import load, crop, multiply
 from examples.paper.simple_video.conf import NFRAMES_FAST, SIMSHAPE, BACKGROUND, DELTA, DT_FAST, \
-    INTENSITY, PERIOD, SIGMA, SHAPE,DUST1_PATH, BIT_DEPTH, VMAX, NOISE_MODEL, SATURATION, READOUT_NOISE, APPLY_DUST
+    INTENSITY, SIGMA, SHAPE,DUST1_PATH, BIT_DEPTH, VMAX, NOISE_MODEL, SATURATION, READOUT_NOISE, APPLY_DUST
 import matplotlib.pyplot as plt
 
-import numpy as np
 
 #: this cretaes a brownian motion frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame)

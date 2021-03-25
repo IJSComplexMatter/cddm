@@ -1,4 +1,4 @@
-
+"""Computes and plots form factor"""
 
 # from cddm.viewer import MultitauViewer
 
@@ -30,6 +30,8 @@ formf = form_factor(window, sigma = SIGMA, intensity = INTENSITY, dtype = "uint1
 
 ifreq = np.fft.fftfreq(SHAPE[0], d=1/SHAPE[0])
 jfreq = np.fft.fftfreq(SHAPE[1], d=1/SHAPE[1])
+
+K_RADIUS = 35
 
 #i,j=np.meshgrid(ifreq,jfreq, indexing = "ij")
 
@@ -92,11 +94,11 @@ if __name__ == "__main__":
     ii = np.fft.fftshift(ifreq)
     jj = np.fft.fftshift(jfreq)
     rect = patches.Rectangle((-KIMAX,-KJMAX),KJMAX*2+1,KIMAX*2+1,linewidth=linewidth,edgecolor='w',facecolor='none')
-    patch= patches.Circle((0,0),35,linewidth=linewidth,edgecolor='r',facecolor='none')
+    #patch= patches.Circle((0,0),35,linewidth=linewidth,edgecolor='r',facecolor='none')
     
     plt.imshow(np.fft.fftshift(formf **2),extent=(ii[0],ii[-1],jj[0],jj[-1]))
     ax.add_patch(rect)
-    ax.add_patch(patch)
+    #ax.add_patch(patch)
     plt.colorbar()
     plt.title(r"$|f_{\bf{q}}|^2$")
     plt.xlabel("$q_x$")
@@ -105,9 +107,9 @@ if __name__ == "__main__":
     ax = plt.subplot(122)
     plt.imshow(np.fft.fftshift(g1(0)),extent=(ii[0],ii[-1],jj[0],jj[-1]))
     rect = patches.Rectangle((-KIMAX,-KJMAX),KJMAX*2+1,KIMAX*2+1,linewidth=linewidth,edgecolor='w',facecolor='none')
-    patch= patches.Circle((0,0),35,linewidth=linewidth,edgecolor='r',facecolor='none')
+    #patch= patches.Circle((0,0),35,linewidth=linewidth,edgecolor='r',facecolor='none')
     ax.add_patch(rect)
-    ax.add_patch(patch)
+    #ax.add_patch(patch)
     plt.colorbar()
     plt.title(r"$a_{\bf{q}}$")
     plt.xlabel("$q_x$")
