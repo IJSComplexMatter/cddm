@@ -1,8 +1,11 @@
 Release notes
 -------------
 
-V0.3.1 (In development)
-+++++++++++++++++++++++
+V0.4.0 (May 9 2021)
++++++++++++++++++++
+
+With this release we add new memory layout used in iccor_multi function. 
+Combined with some other tweaks, it improves the computation speed. 
 
 V0.3.0 (Mar 14 2021)
 ++++++++++++++++++++
