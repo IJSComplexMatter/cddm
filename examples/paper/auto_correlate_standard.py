@@ -1,12 +1,13 @@
 """
 """
 from cddm.viewer import DataViewer
-from cddm.video import multiply, normalize_video, crop, asarrays
+from cddm.video import multiply, asarrays
 from cddm.window import blackman
-from cddm.fft import rfft2, normalize_fft
+from cddm.fft import rfft2
 from cddm.core import acorr, normalize, stats
 from cddm.multitau import log_average
 from cddm.sim import seed
+from cddm.norm import norm_flags
 
 import numpy as np
 
@@ -21,7 +22,7 @@ seed(0)
 importlib.reload(video_simulator) #recreates iterator
 
 from examples.paper.conf import KIMAX, KJMAX, SHAPE, APPLY_WINDOW, NFRAMES_STANDARD, \
- DATA_PATH, PERIOD, NFRAMES_RANDOM, DT_STANDARD, NFRAMES
+ DATA_PATH, DT_STANDARD, NFRAMES
 
 
 #: create window for multiplication...
@@ -57,11 +58,11 @@ if __name__ == "__main__":
     data = acorr(fft_array,n = int(NFRAMES/DT_STANDARD), method = "fft")
     bg, var = stats(fft_array)
     
-    for norm in range(8):
+    for norm in (1,2,3,5,6,7,9,10,11):
     
         #: perform normalization and merge data
         data_lin = normalize(data, bg, var, scale = True, norm = norm)
-        if norm == 6:
+        if norm == norm_flags(weighted = True, subtracted = True):
             np.save(p.join(DATA_PATH, "corr_standard_linear.npy"),data_lin)                
         #: perform log averaging
         x,y = log_average(data_lin, size = 16)

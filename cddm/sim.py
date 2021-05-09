@@ -172,7 +172,7 @@ def brownian_particles(count = 500, shape = (256,256),num_particles = 100, delta
         yield data
              
 def particles_video(particles, t1, shape = (256,256), t2 = None, 
-                 background = 0, intensity = 10, sigma = None, dtype = "uint8"):
+                 background = 0, intensity = 10, sigma = None, dtype = "uint8", offset = None, rotation = None):
     """Creates brownian particles video
     
     Parameters
@@ -193,6 +193,10 @@ def particles_video(particles, t1, shape = (256,256), t2 = None,
         Sigma of the gaussian spread function for the particle
     dtype : dtype
         Numpy dtype of frames, either uint8 or uint16
+    offset : (float,float), optional
+        Camera 1 offset in pixels. 
+    rotation : float, optional
+        Camera 1 rotation angle in radians.       
         
     Yields
     ------
@@ -235,7 +239,8 @@ def particles_video(particles, t1, shape = (256,256), t2 = None,
     
         if i in t1[:1]:
             t1.pop(0)
-            out1 = get_frame(data)   
+            data1 = coordinate_transform(data, shape, offset = offset, rotation = rotation)
+            out1 = get_frame(data1)   
             
         if t2 is not None and i in t2[:1]:
             t2.pop(0)
@@ -340,7 +345,7 @@ def create_random_times2(nframes,n = 32):
     t2[mask] = t1[mask]
     return t1, t2 
 
-def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, intensity = 5, sigma = 3, dtype = "uint8", **kw):
+def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, intensity = 5, sigma = 3, dtype = "uint8", offset = None, rotation = None, **kw):
     """DDM or c-DDM video generator.
  
     Parameters
@@ -359,6 +364,10 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
         Sigma of the gaussian spread function for the particle
     dtype : dtype
         Numpy dtype of frames, either uint8 or uint16
+    offset : (float,float), optional
+        Camera 1 offset in pixels. 
+    rotation : float, optional
+        Camera 1 rotation angle in radians.     
     kw : extra arguments
         Extra keyward arguments that are passed to :func:`brownian_particles`
         
@@ -377,7 +386,7 @@ def simple_brownian_video(t1, t2 = None, shape = (256,256), background = 0, inte
     kw["count"] = count 
     kw["shape"] = shape
     p = brownian_particles(**kw) 
-    return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, dtype = dtype) 
+    return particles_video(p, t1 = t1, t2 = t2, shape = shape, sigma = sigma, background = background,intensity = intensity, dtype = dtype, offset = offset, rotation = rotation) 
 
     
 def adc(frame,  saturation = 32768, black_level = 0, bit_depth = "14bit", 
@@ -425,13 +434,51 @@ def adc(frame,  saturation = 32768, black_level = 0, bit_depth = "14bit",
     else:
         max_value = np.uint16(max_value)
     return adc_clean(frame,saturation,black_level, max_value, out = out)
+
+def coordinate_transform(data, shape, offset = None, rotation = None):
+    """Rotates coordinate around the frame center and offsets them.
+    Coordinate that becomes out of bounds are mirrored.
+    
+    Parameters
+    ----------
+    data : array
+        Coordinates array, as returned by :func:`brownian_walk`
+    shape : tuple
+        Shape of the frame.
+    offset : (float, float), optional
+        Offset in pixels (i_off,j_off).
+    rotation : float, optional
+        Rotation angle in radians.
         
+    Returns
+    -------
+    out : array
+        Transformed coordinates array.
+    """ 
+    if len(shape) != 2:
+        raise ValueError("Wrong `shape`, must be 2D.")
+    height, width = shape
+    frame_center = np.asarray((height/2, width/2))
+    rotation_offset = frame_center -_coordinate_rotate(frame_center, rotation = rotation) 
+    
+    if offset is None:
+        offset = rotation_offset
+    else:
+        offset = np.asarray(offset) +rotation_offset
 
 
+    data = _coordinate_rotate(data, rotation = rotation) + offset
         
-#
-#if __name__ == "__main__":
-#    import doctest
-#    doctest.testmod()
-#    seed(0)
-#    plot_random_walk(1024,6)
+    x1, x2 = 0, np.asarray(shape,FDTYPE)
+    return mirror(data,x1,x2) #make sure we start in the box
+        
+def _coordinate_rotate(data, rotation = None):
+    if rotation is None:
+        return data
+    c,s = np.cos(rotation), np.sin(rotation)
+    data = np.asarray(data, FDTYPE) #must be float so that out is float
+    out = np.empty_like(data)
+    out[...,0] = c * data[...,0] - s * data[...,1]
+    out[...,1] = s * data[...,0] + c * data[...,1]
+    return out
+

@@ -35,7 +35,7 @@ from cddm.conf import CDTYPE, FDTYPE, IDTYPE
 from cddm.print_tools import print_progress,  print_frame_rate, enable_prints, disable_prints
 from cddm.print_tools import print1, print2
 
-from cddm._core_nb import mean,  convolve, _calc_stats_vec
+from cddm._core_nb import mean,  convolve, _calc_stats_vec, _mean, _abs2
 
 from cddm.norm import weighted_sum,weight_from_data, _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor, norm_from_string
 from cddm.avg import log_interpolate
@@ -55,7 +55,9 @@ BINNING_CHOOSE = 2
 #for backward compatibility
 BINNING_SLICE = BINNING_FIRST
 
-def mean_data(data, axis = 0, out_axis = None,**kw):
+abs2 = _abs2
+
+def mean_data_parallel(data, axis = 0, out_axis = None,**kw):
     """Binning function. Takes data and performs channel binning over a specifed
     axis. If specified, also moves axis to out_axis."""
     if out_axis is None:
@@ -66,6 +68,18 @@ def mean_data(data, axis = 0, out_axis = None,**kw):
     f2 = np.moveaxis(f[...,1:n:2],-1,out_axis)
     out = np.empty(f1.shape, f1.dtype)
     return mean (f1, f2, out = out)
+
+def mean_data_cpu(data, axis = 0, out_axis = None,**kw):
+    """Binning function. Takes data and performs channel binning over a specifed
+    axis. If specified, also moves axis to out_axis."""
+    if out_axis is None:
+        out_axis = axis
+    f = np.moveaxis(data,axis,-1)
+    n = f.shape[-1] #this makes it possible to bin also odd-sized data.. skip one element
+    f1 = np.moveaxis(f[...,0:n-1:2],-1,out_axis)
+    f2 = np.moveaxis(f[...,1:n:2],-1,out_axis)
+    out = np.empty(f1.shape, f1.dtype)
+    return _mean(f1, f2, out = out)
 
 def choose_data(data, axis = 0, out_axis = None, r = None):
     """Instead of binning, this randomly selects data.
@@ -115,10 +129,13 @@ def _default_method_and_binning(method,binning):
         raise ValueError("Binning mode {} not supported for method '{}'".format(binning,method))
     return method, binning
             
-def _get_binning_function(binning):
+def _get_binning_function(binning, parallel = True):
     """returns binning function"""
     if binning == BINNING_MEAN:
-        _bin = mean_data
+        if parallel:
+            _bin = mean_data_parallel
+        else:
+            _bin = mean_data_cpu
     elif binning == BINNING_FIRST:
         _bin = slice_data   
     elif binning == BINNING_CHOOSE:
@@ -379,63 +396,96 @@ def acorr_multi(f, t = None,  level_size = 2**4, norm = None, method = None, ali
     
     return _compute_multi(f, t1 = t, axis = axis, period = period, level_size = level_size, align = align,
                          binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask)
+
+
+OPTIMIZE_LAYOUT = False
     
 def _add_data1(i,x, out, binning = True, r = None):
-    chunk_size = out.shape[-2]
+    chunk_size = out.shape[-2] if OPTIMIZE_LAYOUT else out.shape[1]
     n_decades = out.shape[0]
     
     index_top = i % chunk_size
-        
-    out[0,...,index_top,:] = x 
+    
+    if OPTIMIZE_LAYOUT:    
+        out[0,...,index_top,:] = x 
+    else:
+        out[0,index_top,...] = x 
     
     for j in range(1, n_decades):
         if (i+1) % (2**j) == 0:
             index_low = (i//(2**j)) % (chunk_size)
             
             if binning == BINNING_MEAN:
-                x = mean(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:])
+                
+                x = _mean(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:]) if OPTIMIZE_LAYOUT else _mean(x, out[j-1,index_top-1,...], out[j,index_low,...])
             elif binning == BINNING_CHOOSE:
                 if r is None:
                     r = np.randomd.rand()
-                x = x if r > 0.5 else out[j-1,...,index_top-1,:]
-                out[j,...,index_low,:] = x
-                #x = choose(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:])
+                if OPTIMIZE_LAYOUT:
+                    x = x if r > 0.5 else out[j-1,...,index_top-1,:]
+                    out[j,...,index_low,:] = x
+                    #x = choose(x, out[j-1,...,index_top-1,:], out[j,...,index_low,:])
+                else:
+                    x = x if r > 0.5 else out[j-1,index_top-1,...]
+                    out[j,index_low,...] = x                    
             else:
-                out[j,...,index_low,:] = x
+                if OPTIMIZE_LAYOUT:
+                    out[j,...,index_low,:] = x
+                else:
+                    out[j,index_low,...] = x
             
             index_top = index_low
         else:
             break
 
+
 def _add_data2(i,x1, x2, out1, out2, binning = True, r = None):
-    chunk_size = out1.shape[-2]
+    chunk_size = out1.shape[-2] if OPTIMIZE_LAYOUT else out1.shape[1]
     n_decades = out1.shape[0]
     
     index_top = i % chunk_size
-        
-    out1[0,...,index_top,:] = x1
-    out2[0,...,index_top,:] = x2   
+    
+    if OPTIMIZE_LAYOUT:
+        out1[0,...,index_top,:] = x1
+        out2[0,...,index_top,:] = x2   
+    else:
+        out1[0,index_top,...] = x1
+        out2[0,index_top,...] = x2     
     
     for j in range(1, n_decades):
         if (i+1) % (2**j) == 0:
             index_low = (i//(2**j)) % (chunk_size)
             
             if binning == BINNING_MEAN:
-                x1 = mean(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
-                x2 = mean(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
+                if OPTIMIZE_LAYOUT:
+                    x1 = _mean(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
+                    x2 = _mean(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
+                else:
+                    x1 = _mean(x1, out1[j-1,index_top-1,...], out1[j,index_low,...])
+                    x2 = _mean(x2, out2[j-1,index_top-1,...], out2[j,index_low,...])  
+                    
             elif binning == BINNING_CHOOSE:
                 if r is None:
                     r = np.randomd.rand()
-                x1 = x1 if r > 0.5 else out1[j-1,...,index_top-1,:]
-                x2 = x2 if r > 0.5 else out2[j-1,...,index_top-1,:]
-                out1[j,...,index_low,:] = x1
-                out2[j,...,index_low,:] = x2
-                #x1 = choose(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
-                #x2 = choose(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
+                if OPTIMIZE_LAYOUT:
+                    x1 = x1 if r > 0.5 else out1[j-1,...,index_top-1,:]
+                    x2 = x2 if r > 0.5 else out2[j-1,...,index_top-1,:]
+                    out1[j,...,index_low,:] = x1
+                    out2[j,...,index_low,:] = x2
+                    #x1 = choose(x1, out1[j-1,...,index_top-1,:], out1[j,...,index_low,:])
+                    #x2 = choose(x2, out2[j-1,...,index_top-1,:], out2[j,...,index_low,:])  
+                else:
+                    x1 = x1 if r > 0.5 else out1[j-1,index_top-1,...]
+                    x2 = x2 if r > 0.5 else out2[j-1,index_top-1,...]
+                    out1[j,index_low,...] = x1
+                    out2[j,index_low,...] = x2                    
             else:
-                out1[j,...,index_low,:] = x1
-                out2[j,...,index_low,:] = x2
-            
+                if OPTIMIZE_LAYOUT:
+                    out1[j,...,index_low,:] = x1
+                    out2[j,...,index_low,:] = x2
+                else:
+                    out1[j,index_low,...] = x1
+                    out2[j,index_low,...] = x2            
             index_top = index_low
         else:
             break
@@ -491,6 +541,163 @@ def _inspect_t1_t2_count(t1,t2,count,data):
         raise ValueError("Lengths of time arrays do not match")
     return t1,t2,count
 
+
+def _calc_stats(data, start, stop, sum_out, sqsum_out):  
+    if OPTIMIZE_LAYOUT:
+        return _calc_stats_vec(data[...,start:stop,:], sum_out, sqsum_out)
+    else:
+        return _calc_stats_vec(data[start:stop,...], sum_out, sqsum_out)
+
+def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True):
+    if OPTIMIZE_LAYOUT:
+        fast_shape = shape[0:-1] + (n_fast,) + shape[-1:]  
+    else :
+        fast_shape =  shape + (n_fast,)
+    
+    out_fast = np.zeros(fast_shape, FDTYPE)
+    if OPTIMIZE_LAYOUT:
+        out_fast = _transpose_data(out_fast) 
+    
+    if norm & NORM_SUBTRACTED:
+        m1_fast = np.zeros(fast_shape, CDTYPE)
+        if OPTIMIZE_LAYOUT:  
+            m1_fast = _transpose_data(m1_fast)        
+        m2_fast = np.zeros(fast_shape, CDTYPE) if cross  == True else None
+        if OPTIMIZE_LAYOUT: 
+            m2_fast = _transpose_data(m2_fast) if cross  == True else None
+    else:
+        m1_fast, m2_fast = None, None
+        
+    if (norm & NORM_STRUCTURED) and correlate == True:
+        sq_fast = np.zeros(fast_shape, FDTYPE)
+        if OPTIMIZE_LAYOUT: 
+            sq_fast = _transpose_data(sq_fast) 
+    else:
+        sq_fast = None
+        
+    count_fast = np.zeros((n_fast,),IDTYPE)
+    
+    if correlate:
+        data_fast = out_fast, count_fast, sq_fast, m1_fast, m2_fast
+    else:
+        data_fast = out_fast, count_fast, m1_fast, m2_fast
+    return data_fast
+
+def _init_data_slow(n_level, n_slow, shape, norm, cross = True, correlate = True):
+     
+    if OPTIMIZE_LAYOUT:
+        slow_shape = (n_level,) + shape[0:-1] + (n_slow,) + shape[-1:] 
+    else:
+        slow_shape = (n_level,) + shape + (n_slow,)  
+    
+    out_slow = np.zeros(slow_shape, FDTYPE) 
+    if OPTIMIZE_LAYOUT:
+        out_slow = _transpose_data(out_slow)    
+    
+    if norm & NORM_SUBTRACTED:
+        m1_slow = np.zeros(slow_shape, CDTYPE)  
+        if OPTIMIZE_LAYOUT:
+            m1_slow = _transpose_data(m1_slow)                  
+        m2_slow = np.zeros(slow_shape, CDTYPE) if cross  == True else None
+        if OPTIMIZE_LAYOUT:
+            m2_slow = _transpose_data(m2_slow) if cross  == True else None
+    else:
+        m1_slow, m2_slow = None, None
+    if (norm & NORM_STRUCTURED) and correlate == True:
+        sq_slow = np.zeros(slow_shape, FDTYPE) 
+        if OPTIMIZE_LAYOUT:
+            sq_slow = _transpose_data(sq_slow) 
+    else:
+        sq_slow = None
+        
+    count_slow = np.zeros((n_level, n_slow,),IDTYPE)
+        
+    if correlate:
+        data_slow = out_slow, count_slow, sq_slow, m1_slow, m2_slow
+    else:
+        data_slow = out_slow, count_slow, m1_slow, m2_slow
+    return data_slow
+
+def _init_data_f(n_decades, half_chunk_size, shape, cross = True):
+    chunk_size = half_chunk_size * 2
+    if n_decades > 0:
+        if OPTIMIZE_LAYOUT:
+            data_shape = (n_decades,) + shape[0:-1] + (chunk_size,) + shape[-1:]
+        else:
+            data_shape = (n_decades,chunk_size) + shape
+    else:
+        if OPTIMIZE_LAYOUT:
+            data_shape = (1,) + shape[0:-1] + (half_chunk_size,) + shape[-1:]
+        else:
+            data_shape = (1, half_chunk_size) + shape
+
+    fdata1 = np.empty(data_shape, CDTYPE)
+    fdata2 = np.empty(data_shape, CDTYPE) if cross  == True else None
+    return fdata1, fdata2
+
+def _init_data_sq(data_shape, norm, correlate = True, cross = True):
+    if (norm & NORM_STRUCTURED) and correlate == True:
+        #allocate memory for square data
+        sq1 = np.empty(data_shape, FDTYPE)
+        sq2 = np.empty(data_shape, FDTYPE) if cross  == True else None
+        return sq1, sq2
+    return None, None
+
+def _init_data_stats(shape):    
+    sum1 = np.zeros(shape, CDTYPE)
+    sqsum1 = np.zeros(shape, FDTYPE)
+    out_bg1 = np.empty(shape, CDTYPE)
+    out_var1 = np.empty(shape, FDTYPE)
+    return sum1, sqsum1, out_bg1, out_var1
+
+    
+def _set_data(i,x,fdata):
+    if OPTIMIZE_LAYOUT:
+        fdata[0,...,i,:] = x
+    else:
+        fdata[0,i,...] = x
+
+    return fdata
+
+def _calculate_background(fdata, half_chunk_size):
+    if OPTIMIZE_LAYOUT:
+        bg = fdata[0,...,0:half_chunk_size,:].mean(-2)
+    else:
+        bg = fdata[0,0:half_chunk_size,...].mean(1)
+    return bg   
+
+def _sliced_data(data,i,start,stop):
+    if OPTIMIZE_LAYOUT: 
+        return data[i,...,start:stop,:] 
+    else:
+        return data[i,start:stop,...]      
+
+
+def _remove_background(fdata1, fdata2, bg1,bg2, half_chunk_size, binning, sq1 = None, sq2 = None, cross = True):
+    for i in range(half_chunk_size):
+        r = np.random.rand()
+        if OPTIMIZE_LAYOUT:
+            x1 = fdata1[0,...,i,:] - bg1
+            x2 = fdata2[0,...,i,:] - bg2 if cross == True else None
+        else:
+            x1 = fdata1[0,i,...] - bg1
+            x2 = fdata2[0,i,...] - bg2 if cross == True else None
+  
+        if cross == True:
+            _add_data2(i,x1, x2, fdata1,fdata2, binning, r)
+            if sq1 is not None:
+                _add_data2(i,_abs2(x1), _abs2(x2), sq1,sq2, binning, r) 
+        else:
+            _add_data1(i,x1, fdata1, binning,r)
+            if sq1 is not None:
+                _add_data1(i,_abs2(x1),sq1,binning,r)     
+
+def _add_sq2(i,x1,x2,sq1,sq2,binning, r = None):
+    return _add_data2(i,_abs2(x1), _abs2(x2), sq1,sq2, binning,r)                            
+
+def _add_sq1(i,x1,sq1,binning, r = None):
+    return _add_data1(i,_abs2(x1), sq1, binning,r)  
+                       
 def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16, 
                         chunk_size = None,  binning = None, method = "corr", count = None,
                         auto_background = False, nlevel = None,  norm = None,
@@ -553,8 +760,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             #do initialization
             original_shape = x1.shape
             force_2d = True if mask is None else False
+            
             shape = thread_frame_shape(original_shape, thread_divisor, force_2d)
-
             norm = _default_norm(norm, method, cross)
             
             print1("Computing {}...".format("cross-correlation")) if cross else print1("Computing {}...".format("auto-correlation"))
@@ -576,112 +783,44 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             
             print_progress(0, nframes)
 
-            
-            fast_shape = shape[0:-1] + (n_fast,) + shape[-1:]
-            
-            out_fast = np.zeros(fast_shape, FDTYPE)
-            out_fast = _transpose_data(out_fast)
-            
-            if norm & NORM_SUBTRACTED:
-                m1_fast = np.zeros(fast_shape, CDTYPE)
-                m1_fast = _transpose_data(m1_fast)                  
-                m2_fast = np.zeros(fast_shape, CDTYPE) if cross  == True else None
-                m2_fast = _transpose_data(m2_fast) if cross  == True else None
-            else:
-                m1_fast, m2_fast = None, None
-                
-            if (norm & NORM_STRUCTURED) and correlate == True:
-                sq_fast = np.zeros(fast_shape, FDTYPE)
-                sq_fast = _transpose_data(sq_fast) 
-            else:
-                sq_fast = None
-                
-            count_fast = np.zeros((n_fast,),IDTYPE)
-            
+            data_fast = _init_data_fast(n_fast, shape, norm, cross = cross, correlate = correlate)
+            data_slow = _init_data_slow(nlevel, n_slow, shape, norm, cross = cross, correlate = correlate)
+         
             if correlate:
-                data_fast = out_fast, count_fast, sq_fast, m1_fast, m2_fast
+                out_fast, count_fast, sq_fast, m1_fast, m2_fast = data_fast
+                out_slow, count_slow, sq_slow, m1_slow, m2_slow = data_slow
             else:
-                data_fast = out_fast, count_fast, m1_fast, m2_fast
-            
-            slow_shape = (nlevel,) + shape[0:-1] + (n_slow,) + shape[-1:]
-            
-            
-            out_slow = np.zeros(slow_shape, FDTYPE)  
-            out_slow = _transpose_data(out_slow)    
-            
-            if norm & NORM_SUBTRACTED:
-                m1_slow = np.zeros(slow_shape, CDTYPE)  
-                m1_slow = _transpose_data(m1_slow)                  
-                m2_slow = np.zeros(slow_shape, CDTYPE) if cross  == True else None
-                m2_slow = _transpose_data(m2_slow) if cross  == True else None
-            else:
-                m1_slow, m2_slow = None, None
-            if (norm & NORM_STRUCTURED) and correlate == True:
-                sq_slow = np.zeros(slow_shape, FDTYPE)  
-                sq_slow = _transpose_data(sq_slow) 
-            else:
-                sq_slow = None
+                out_fast, count_fast, m1_fast, m2_fast = data_fast         
+                out_slow, count_slow, m1_slow, m2_slow = data_slow
                 
-            count_slow = np.zeros((nlevel, n_slow,),IDTYPE)
+            fdata1, fdata2 = _init_data_f(n_decades, half_chunk_size, shape, cross = cross)
             
-            if n_decades > 0:
-                data_shape = (n_decades,) + shape[0:-1] + (chunk_size,) + shape[-1:]
-            else:
-                data_shape = (1,) + shape[0:-1] + (half_chunk_size,) + shape[-1:]
-
-            fdata1 = np.empty(data_shape, CDTYPE)
-            fdata2 = np.empty(data_shape, CDTYPE) if cross  == True else None
-            
-            if correlate:
-                data_slow = out_slow, count_slow, sq_slow, m1_slow, m2_slow
-            else:
-                data_slow = out_slow, count_slow, m1_slow, m2_slow
-                     
-            
-            if (norm & NORM_STRUCTURED) and correlate == True:
-                #allocate memory for square data
-                sq1 = np.empty(data_shape, FDTYPE)
-                sq2 = np.empty(data_shape, FDTYPE) if cross  == True else None
+            sq1, sq2 = _init_data_sq(fdata1.shape, norm, correlate = correlate, cross = cross)
             
             if stats == True:
-                sum1 = np.zeros(shape, CDTYPE)
-                sum2 =  np.zeros(shape, CDTYPE) if cross  == True else None
-                sqsum1 = np.zeros(shape, FDTYPE)
-                sqsum2 = np.zeros(shape, FDTYPE) if cross  == True else None
-                out_bg1 = np.empty(shape, CDTYPE)
-                out_bg2 = np.empty(shape, CDTYPE) if cross  == True else None
-                out_var1 = np.empty(shape, FDTYPE)
-                out_var2 = np.empty(shape, FDTYPE) if cross  == True else None  
+                sum1, sqsum1, out_bg1, out_var1 = _init_data_stats(shape)
+                sum2, sqsum2, out_bg2, out_var2 = _init_data_stats(shape) if cross else (None,None,None, None)
+
             bg1, bg2 = None, None
             
-        
+            axis = -2 if OPTIMIZE_LAYOUT else 0
+            
+             
         x1 = x1.reshape(shape) 
-        if cross == True:
-            x2 = x2.reshape(shape)
+        x2 = x2.reshape(shape) if cross else None
+        
             
         if i < half_chunk_size and auto_background == True:
-            fdata1[0,...,i,:] = x1
-            if cross:
-                fdata2[0,...,i,:] = x2   
-
+            _set_data(i, x1,fdata1)
+            _set_data(i, x2,fdata2) if cross == True else None
+            
             if i == half_chunk_size -1:
-
-                bg1 = fdata1[0,...,0:half_chunk_size,:].mean(-2)
-                bg2 = fdata2[0,...,0:half_chunk_size,:].mean(-2) if cross  == True  else None
-             
+                bg1 = _calculate_background(fdata1,  half_chunk_size)
+                bg2 = _calculate_background(fdata2,  half_chunk_size) if cross == True else None
                 
-                for i in range(half_chunk_size):
-                    r = np.random.rand()
-                    x1 = fdata1[0,...,i,:] - bg1
-                    x2 = fdata2[0,...,i,:] - bg2 if cross == True else None
-                    if cross == True:
-                        _add_data2(i,x1, x2, fdata1,fdata2, binning, r)
-                        if (norm & NORM_STRUCTURED) and correlate:
-                            _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning, r) 
-                    else:
-                        _add_data1(i,x1, fdata1, binning,r)
-                        if (norm & NORM_STRUCTURED) and correlate:
-                            _add_data1(i,abs2(x1),sq1,binning,r)
+                _remove_background(fdata1, fdata2, bg1, bg2, half_chunk_size, binning,sq1 = sq1, sq2 = sq2, cross = cross)
+                
+
         else:
             if bg1 is not None:
                 x1 = x1 - bg1
@@ -692,11 +831,12 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             if cross == True:
                 _add_data2(i,x1, x2, fdata1,fdata2, binning,r)
                 if (norm & NORM_STRUCTURED) and correlate:
-                    _add_data2(i,abs2(x1), abs2(x2), sq1,sq2, binning,r)
+                    _add_sq2(i,x1,x2,sq1,sq2,binning,r)
+
             else:
                 _add_data1(i,x1, fdata1,binning,r)
                 if (norm & NORM_STRUCTURED) and correlate:
-                    _add_data1(i,abs2(x1),sq1,binning,r)                
+                    _add_sq1(i,x1,sq1,binning,r)                
                 
         if i % (half_chunk_size) == half_chunk_size -1: 
 
@@ -716,9 +856,10 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
 
 
             if stats == True:
-                _calc_stats_vec(fdata1[0,...,fstart1:fstop1,:], sum1, sqsum1)
-                _calc_stats_vec(fdata2[0,...,fstart1:fstop1,:], sum2, sqsum2) if cross else None
-                
+                _calc_stats(fdata1[0], fstart1, fstop1, sum1, sqsum1)
+                if cross:
+                    _calc_stats(fdata2[0], fstart1, fstop1, sum2, sqsum2)    
+
                 #divisor for normalization (mean value calculation)
                 _divisor =  (ichunk + 1) * half_chunk_size
                 
@@ -728,41 +869,49 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 np.divide(sqsum2, _divisor , out_var2)  if cross else None
                 np.subtract(out_var1, abs2(out_bg1), out_var1)
                 np.subtract(out_var2, abs2(out_bg2), out_var2)  if cross else None
-                               
-            f1s = sq1[0,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None
-            f2s = sq2[0,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate and cross else None
             
+            f1s = _sliced_data(sq1,0,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None
+            f2s = _sliced_data(sq2,0,fstart1,fstop1)  if (norm & NORM_STRUCTURED) and correlate and cross else None
+           
             out = data_fast
                 
             verbosity = disable_prints() #we do not want to print messages of f()
+            
 
             if cross:
-                ccorr(fdata1[0,...,fstart1:fstop1,:],fdata2[0,...,fstart1:fstop1,:],t1[istart1:istop1],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = -2, n = n_fast, norm = norm,aout = out, method = method) 
+                ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata2,0,fstart1,fstop1),t1[istart1:istop1],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast, norm = norm,aout = out, method = method) 
             else:
-                acorr(fdata1[0,...,fstart1:fstop1,:],t1[istart1:istop1],fs = f1s, axis = -2, n = n_fast, norm = norm, aout = out, method = method) 
+                acorr(_sliced_data(fdata1,0,fstart1,fstop1),t1[istart1:istop1],fs = f1s, axis = axis, n = n_fast, norm = norm, aout = out, method = method) 
 
             if istart2 >= 0 and mode == "full":
-                
-                f1s = sq1[0][...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None
-                
+
+                f1s = _sliced_data(sq2,0,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None
+ 
                 if cross:
-                    f2s = sq2[0][...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
-                    ccorr(fdata1[0][...,fstart1:fstop1,:],fdata2[0][...,fstart2:fstop2,:],t1[istart1:istop1],t2[istart2:istop2],f1s = f1s, f2s = f2s, axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
+
+                    f2s = _sliced_data(sq2,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+                    ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata2,0,fstart2,fstop2),t1[istart1:istop1],t2[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
+
                 else:
-                    f2s = sq1[0][...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
+
+                    f2s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+
                     if correlate:
                         out = data_fast[0],data_fast[1], data_fast[2], None, None 
                     else:
                         out = data_fast[0],data_fast[1], None, None 
-                    out = ccorr(fdata1[0][...,fstart1:fstop1,:],fdata1[0][...,fstart2:fstop2,:],t1[istart1:istop1],t1[istart2:istop2],f1s = f1s, f2s = f2s,  axis = -2, n = n_fast,norm = norm,aout = out, method = method)
+
+                    out = ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata1,0,fstart2,fstop2),t1[istart1:istop1],t1[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method)
+
                     if m1_fast is not None:
                         m1_fast += out[3] /2
                         m1_fast += out[4] /2
                 if cross:
-                    f1s = sq1[0][...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
-                    f2s = sq2[0][...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None  
-                    ccorr(fdata1[0][...,fstart2:fstop2,:],fdata2[0][...,fstart1:fstop1,:],t1[istart2:istop2],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
-  
+
+                    f1s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+                    f2s = _sliced_data(sq2,0,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None  
+                    ccorr(_sliced_data(fdata1,0,fstart2,fstop2),_sliced_data(fdata2,0,fstart1,fstop1),t1[istart2:istop2],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
+
 
             for j in range(1, n_decades):
 
@@ -783,38 +932,46 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                     istart2 = istart1 - half_chunk_size
                     istop2 = istop1 - half_chunk_size  
                 
-  
-                    f1s = sq1[j,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None
-                    f2s = sq2[j,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate and cross else None  
-                    
+
+                    f1s = _sliced_data(sq1,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None
+                    f2s = _sliced_data(sq2,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate and cross else None  
+
                     out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
-                    
+
                     if cross:
-                        ccorr(fdata1[j,...,fstart1:fstop1,:],fdata2[j,...,fstart1:fstop1,:],f1s = f1s, f2s = f2s, axis = -2, norm = norm, n = n_slow, aout = out, method = method)
+                        ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata2,j,fstart1,fstop1),f1s = f1s, f2s = f2s, axis = axis, norm = norm, n = n_slow, aout = out, method = method)
                     else:
-                        acorr(fdata1[j,...,fstart1:fstop1,:],fs = f1s, axis = -2, norm = norm, n = n_slow, aout = out, method = method)
-        
+                        acorr(_sliced_data(fdata1,j,fstart1,fstop1),fs = f1s, axis = axis, norm = norm, n = n_slow, aout = out, method = method)
+           
                     if istart2 >= 0 and mode == "full":
-                        f1s = sq1[j,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None
-                        
+
+                        f1s = _sliced_data(sq1,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None
+
                         if cross:
-                            f2s = sq2[j,...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
-                            ccorr(fdata1[j,...,fstart1:fstop1,:],fdata2[j,...,fstart2:fstop2,:],t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s, axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
+
+                            f2s = _sliced_data(sq2,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+                            ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata2,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
+
                         else:
-                            f2s = sq1[j,...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
+
+                            f2s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+
                             _out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
                             if correlate:
                                 out = _out[0],_out[1], _out[2], None, None 
                             else:
                                 out = _out[0],_out[1], None, None 
-                            out = ccorr(fdata1[j,...,fstart1:fstop1,:],fdata1[j,...,fstart2:fstop2,:],t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s,  axis = -2, n = n_fast,norm = norm,aout = out, method = method)
+
+                            out = ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata1,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method)
+
                             if m1_slow is not None:
                                 m1_slow[j-1] += out[3] /2
                                 m1_slow[j-1] += out[4] /2
                         if cross:
-                            f1s = sq1[j,...,fstart2:fstop2,:] if (norm & NORM_STRUCTURED) and correlate else None
-                            f2s = sq2[j,...,fstart1:fstop1,:] if (norm & NORM_STRUCTURED) and correlate else None  
-                            ccorr(fdata1[j,...,fstart2:fstop2,:],fdata2[j,...,fstart1:fstop1,:],t_slow[istart2:istop2],t_slow[istart1:istop1],f1s = f1s, f2s = f2s,axis = -2, n = n_fast,norm = norm,aout = out, method = method) 
+
+                            f1s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+                            f2s = _sliced_data(sq2,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None  
+                            ccorr(_sliced_data(fdata1,j,fstart2,fstop2),_sliced_data(fdata2,j,fstart1,fstop1),t_slow[istart2:istop2],t_slow[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
 
                 else:
                     break
@@ -849,21 +1006,22 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
         sq1 = sq1[-1]
         sq2 = sq2[-1] if cross else None
         
-    _bin = _get_binning_function(binning)
+    _bin = _get_binning_function(binning, parallel = False)
          
     for j in range(max(n_decades,1),nlevel+1):
         r = np.random.rand()
-        f1 = _bin(f1,-2, r = r)
-        f2 = _bin(f2,-2, r = r) if cross else None
-        sq1 = _bin(sq1,-2, r = r) if (norm & NORM_STRUCTURED) and correlate else None
-        sq2 = _bin(sq2,-2, r = r) if (norm & NORM_STRUCTURED) and correlate and cross else None
+        axis = axis if OPTIMIZE_LAYOUT else 0 
+        f1 = _bin(f1,axis, r = r)
+        f2 = _bin(f2,axis, r = r) if cross else None
+        sq1 = _bin(sq1,axis, r = r) if (norm & NORM_STRUCTURED) and correlate else None
+        sq2 = _bin(sq2,axis, r = r) if (norm & NORM_STRUCTURED) and correlate and cross else None
       
         out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
         
         if cross:
-            ccorr(f1,f2, f1s = sq1, f2s = sq2, axis = -2, norm = norm,n = n_slow, aout = out, method = method)
+            ccorr(f1,f2, f1s = sq1, f2s = sq2, axis = axis, norm = norm,n = n_slow, aout = out, method = method)
         else:
-            acorr(f1, fs = sq1, axis = -2, norm = norm,n = n_slow, aout = out, method = method)
+            acorr(f1, fs = sq1, axis = axis, norm = norm,n = n_slow, aout = out, method = method)
 
     enable_prints(verbosity)
 

@@ -1,16 +1,17 @@
 """
 """
 from cddm.viewer import CorrViewer
-from cddm.video import multiply, normalize_video, crop, load, asarrays
+from cddm.video import multiply, asarrays
 from cddm.window import blackman
-from cddm.fft import rfft2, normalize_fft
+from cddm.fft import rfft2
 from cddm.core import ccorr, normalize,stats
 from cddm.multitau import log_average
 from cddm.sim import seed
+from cddm.norm import norm_flags
 
 import importlib
 import numpy as np
-from examples.paper.conf import  PERIOD, SHAPE, KIMAX, KJMAX, NFRAMES_DUAL, DATA_PATH, APPLY_WINDOW
+from examples.paper.conf import SHAPE, KIMAX, KJMAX, NFRAMES_DUAL, DATA_PATH, APPLY_WINDOW
 
 seed(0)
 
@@ -49,12 +50,12 @@ if __name__ == "__main__":
     data = ccorr(fft1,fft2, t1 = t1,t2 = t2, n = NFRAMES_DUAL)
     bg, var = stats(fft1,fft2)
     
-    for norm in range(8):
+    for norm in (1,2,3,5,6,7,9,10,11):
     
         #: perform normalization and merge data
         data_lin = normalize(data, bg, var, scale = True, norm = norm)
 
-        if norm == 6:
+        if norm == norm_flags(weighted = True, subtracted = True):
             np.save(p.join(DATA_PATH, "corr_dual_linear.npy"),data_lin)
 
         #: change size, to define time resolution in log space

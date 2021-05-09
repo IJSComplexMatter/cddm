@@ -6,6 +6,7 @@ from cddm.sim import simple_brownian_video, create_random_times1, adc
 from cddm.viewer import VideoViewer 
 from cddm.video import multiply, load, crop
 import matplotlib.pyplot as plt
+import numpy as np
 
 from examples.paper.simple_video.conf import NFRAMES_DUAL, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, VMAX, DT_DUAL,\
     INTENSITY, SIGMA, SHAPE, DUST1_PATH, DUST2_PATH, SATURATION, BIT_DEPTH, NOISE_MODEL, READOUT_NOISE,  NUM_PARTICLES, APPLY_DUST

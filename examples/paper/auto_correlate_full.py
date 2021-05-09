@@ -1,10 +1,10 @@
 """
 """
 from cddm.viewer import DataViewer
-from cddm.video import multiply, normalize_video, crop, asarrays
+from cddm.video import multiply
 from cddm.window import blackman
-from cddm.fft import rfft2, normalize_fft
-from cddm.core import iacorr, normalize, stats
+from cddm.fft import rfft2
+from cddm.core import iacorr, normalize
 from cddm.multitau import log_average
 from cddm.sim import seed
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     data, bg, var = iacorr(fft,np.arange(NFRAMES_FULL),n = int(NFRAMES/DT_FULL), stats = True, norm = 6)
 
     
-    for norm in range(8):
+    for norm in (1,2,3,5,6,7,9,10,11):
     
         #: perform normalization and merge data
         data_lin = normalize(data, bg, var, scale = True, norm = norm)

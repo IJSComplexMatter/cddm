@@ -49,6 +49,7 @@ NORM_SUBTRACTED = 4
 NORM_COMPENSATED =8 # NORM_SUBTRACTED | 8
 """compensated normalization flag"""
 
+
 import sys
 _thismodule = sys.modules[__name__]
 

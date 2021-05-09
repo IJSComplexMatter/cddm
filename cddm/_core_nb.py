@@ -14,15 +14,34 @@ from cddm.decorators import doc_inherit
 
 #Some useful functions
 
+@nb.vectorize([F(C)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _abs2(x):
+    """Absolute square of data"""
+    return x.real*x.real + x.imag*x.imag
+
 @nb.vectorize([F(C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def abs2(x):
     """Absolute square of data"""
     return x.real*x.real + x.imag*x.imag
 
+@nb.vectorize([F(F,F),C(C,C)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _mean(a,b):
+    """Man value"""
+    return 0.5 * (a+b)
+
 @nb.vectorize([F(F,F),C(C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def mean(a,b):
     """Man value"""
     return 0.5 * (a+b)
+
+@nb.vectorize([F(F,F),C(C,C)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _choose(a,b):
+    """Chooses data randomly"""
+    r = np.random.rand()
+    if r >= 0.5:
+        return a
+    else:
+        return b  
 
 @nb.vectorize([F(F,F),C(C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def choose(a,b):
@@ -31,7 +50,9 @@ def choose(a,b):
     if r >= 0.5:
         return a
     else:
-        return b   
+        return b  
+    
+
  
 @nb.guvectorize([(F[:],F[:])],"(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def convolve(a, out):

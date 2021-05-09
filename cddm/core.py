@@ -1239,7 +1239,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         return cor, count, sq, ds1, ds2
     
 
-def iccorr(data, t1 = None, t2 = None, n = None, norm = 0, method = "corr", count = None,
+def iccorr(data, t1 = None, t2 = None, n = None, norm = None, method = "corr", count = None,
                 chunk_size = None, thread_divisor = None,  
                 auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
     """Iterative version of :func:`ccorr`.
@@ -1257,7 +1257,7 @@ def iccorr(data, t1 = None, t2 = None, n = None, norm = 0, method = "corr", coun
     n : int, optional
         Determines the length of the output (max time delay - 1 by default). 
     norm : int, optional
-        Specifies normalization procedure 0,1,2, or 3 (default).
+        Specifies normalization procedure 1,2,3,5,6,7.
     method : str, optional
         Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on 
         the rest of the input parameters.
@@ -1301,6 +1301,8 @@ def iccorr(data, t1 = None, t2 = None, n = None, norm = 0, method = "corr", coun
     
     if (t1 is None and t2 is not None) or (t2 is None and t1 is not None):
         raise ValueError("Both `t1` and `t2` arguments must be provided")
+        
+    norm = _default_norm(norm, method, cross = True)
     
     period = 1
     nlevel = 0
@@ -1389,6 +1391,9 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr", count = None,
 
     period = 1
     nlevel = 0
+    
+    norm = _default_norm(norm, method, cross = False)
+    
     #in order to prevent circular import we import it here
     from cddm.multitau import _compute_multi_iter, _VIEWERS
 

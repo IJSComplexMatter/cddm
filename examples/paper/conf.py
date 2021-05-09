@@ -36,7 +36,7 @@ APPLY_WINDOW = True
 #: whether to apply dust particles or not
 APPLY_DUST = True
 #: whether to save plots, or show only.
-SAVE_FIGS = True
+SAVE_FIGS = False
 #: number of simulation runs for statistical analysis.
 NRUN = 32
 
@@ -117,6 +117,7 @@ DT_RANDOM =DT_DUAL
 DT_FAST = DT_DUAL
 
 DT_FULL = DT_STANDARD // 4
+
 
 #: clipping value of the image (max value)
 VMAX = 2**int(BIT_DEPTH.split("bit")[0])

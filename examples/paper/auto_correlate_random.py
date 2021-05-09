@@ -1,11 +1,9 @@
 """
-Demonstrates how to compute fft of videos and the compute auto correlation
-function with the out-of-memory version of the multitau algorithm.
 """
-from cddm.viewer import DataViewer, CorrViewer
-from cddm.video import multiply, normalize_video, crop, asarrays
+from cddm.viewer import  CorrViewer
+from cddm.video import multiply,  asarrays
 from cddm.window import blackman
-from cddm.fft import rfft2, normalize_fft
+from cddm.fft import rfft2
 from cddm.core import acorr, normalize, stats
 from cddm.multitau import log_average
 from cddm.sim import seed
@@ -16,7 +14,7 @@ import numpy as np
 seed(0)
 
 #: see video_simulator for details, loads sample video
-import examples.paper.one_component.random_video as video_simulator
+import examples.paper.simple_video.random_video as video_simulator
 
 
 importlib.reload(video_simulator) #recreates iterator
@@ -56,7 +54,7 @@ if __name__ == "__main__":
     data = acorr(fft_array, t = video_simulator.t, n = int(NFRAMES/DT_RANDOM))
     bg, var = stats(fft_array)
     
-    for norm in range(8):
+    for norm in (1,2,3,5,6,7,9,10,11):
     
         #: perform normalization and merge data
         data_lin = normalize(data, bg, var, scale = True, norm = norm)

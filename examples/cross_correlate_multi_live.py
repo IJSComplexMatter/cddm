@@ -47,8 +47,7 @@ if __name__ == "__main__":
     #initial mask parameters
     viewer.k = 15
     viewer.sector = 30
-    
-    #: now perform auto correlation calculation with default parameters and show live
+
     data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer)
 
     #: save the normalized data to numpy files

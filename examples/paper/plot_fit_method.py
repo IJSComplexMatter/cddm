@@ -1,4 +1,11 @@
-"""
+"""Creates Figs 6 and 7 of the paper. You must first create correlation data:
+
+$ python cross_correlate.py
+$ python auto_correlate_full.py
+$ python auto_correlate_standard.py
+$ python auto_correlate_random.py
+$ python auto_correlate_fast.py
+
 """
 
 from cddm.map import  k_indexmap, rfft2_grid
@@ -10,13 +17,13 @@ from scipy.optimize import curve_fit
 #diffusion constant
 from examples.paper.simple_video.conf import D, DATA_PATH, KIMAX, KJMAX
 from examples.paper.simple_video.conf import *
+from examples.paper.conf import SAVE_FIGS
 
 
 from examples.paper.form_factor import g1
 
 import os.path as path
 
-SAVEFIG = True
 
 colors = ["C{}".format(i) for i in range(10)]
 
@@ -30,12 +37,21 @@ LABELS = {"full": r"DDM ($N={}$ @ $p = {}$)".format(NFRAMES_FULL,DT_FULL),
           "dual": r"C-DDM ($N={}$ @ $p = {}$)".format(NFRAMES_DUAL,PERIOD),
           "random": r"R-DDM ($N={}$ @ $p = {}$)".format(NFRAMES_RANDOM,PERIOD_RANDOM)}
 
-NORM_LABEL = {2 : "B", 3 : "C", 6 : "W"}
-NORM_MARKER = {2 : ":", 3 : "--", 6 : "-"}
+def l2(i):
+    return int(np.log2(i))
 
-NORM = 6
+#LABELS = {"full": r"DDM-3 ($N=2^{{{}}}$ @ $p = 2^{{{}}}$)".format(l2(NFRAMES_FULL),l2(DT_FULL)), 
+#          "standard": r"DDM-5 ($N=2^{{{}}}$ @ $p = 2^{{{}}}$)".format(l2(NFRAMES_STANDARD),l2(DT_STANDARD)),
+#          "fast": r"DDM-0 ($N=2^{{{}}}$ @ $p = 2^{{{}}}$)".format(l2(NFRAMES_FAST),l2(DT_FAST)),
+#          "dual": r"C-DDM ($N=2^{{{}}}$ @ $p = 2^{{{}}}$)".format(l2(NFRAMES_DUAL),l2(PERIOD)),
+#          "random": r"R-DDM ($N=2^{{{}}}$ @ $p = 2^{{{}}}$)".format(l2(NFRAMES_RANDOM),l2(PERIOD_RANDOM))}
 
-RNORMS = (2,3,6)
+NORM_LABEL = {5 : "B", 6 : "S", 7 : "W"}
+NORM_MARKER = {5 : ":", 6 : "--", 7 : "-"}
+
+NORM = 7
+
+RNORMS = (5,6,7)
 
 DNORMS = RNORMS
 
@@ -242,11 +258,10 @@ ax2.set_title(r"$a(q)$")
 ax2a.set_title(r"err$(q)$")
 # ax2a.set_title(r"$\sigma(q)$")
 
-
 fig1.tight_layout()
 fig2.tight_layout()
 
-if SAVEFIG:
+if SAVE_FIGS:
     fig1.savefig("plots/plot_fit_rate.pdf")
     fig2.savefig("plots/plot_fit_amplitude.pdf")
 

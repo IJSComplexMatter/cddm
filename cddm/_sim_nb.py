@@ -48,7 +48,8 @@ def make_step(x,scale, velocity):
 def psf_gauss(x,x0,y,y0,sigma,intensity):
     """Gaussian point-spread function. This is used to calculate pixel value
     for a given pixel coordinate x,y and particle position x0,y0."""
-    return intensity*math.exp(-0.5*((x-x0)**2+(y-y0)**2)/(sigma**2))
+    #the 0.5 offset in x/y is there to take the pixel center position from pixel index value x/y
+    return intensity*math.exp(-0.5*((x-x0+0.5)**2+(y-y0+0.5)**2)/(sigma**2))
 
 @nb.jit([U8[:,:](U8[:,:],F[:,:],U8[:]),U16[:,:](U16[:,:],F[:,:],U16[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)                
 def draw_points(im, points, intensity):

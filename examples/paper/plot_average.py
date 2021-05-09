@@ -1,11 +1,8 @@
-"""Plots cross-correlation and auto-correlation function
-You must first create data by running 
+"""Plots Fig 5 of the paper. Firs create data calling:
 
-$ cross_correlate.py 
+$ python cross_correlate.py 
+$ python auto_correlate_fast.py
 
-and 
-
-$ auto_correlate_fast.py
 """
 
 import matplotlib.pyplot as plt
