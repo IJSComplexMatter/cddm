@@ -663,7 +663,7 @@ def _calculate_background(fdata, half_chunk_size):
     if OPTIMIZE_LAYOUT:
         bg = fdata[0,...,0:half_chunk_size,:].mean(-2)
     else:
-        bg = fdata[0,0:half_chunk_size,...].mean(1)
+        bg = fdata[0,0:half_chunk_size,...].mean(0)
     return bg   
 
 def _sliced_data(data,i,start,stop):
