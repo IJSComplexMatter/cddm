@@ -546,7 +546,7 @@ def _calc_stats(data, start, stop, sum_out, sqsum_out):
     if OPTIMIZE_LAYOUT:
         return _calc_stats_vec(data[...,start:stop,:], sum_out, sqsum_out)
     else:
-        return _calc_stats_vec(data[start:stop,...], sum_out, sqsum_out)
+        return _calc_stats_vec(np.moveaxis(data[start:stop,...],0,-2), sum_out, sqsum_out)
 
 def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True):
     if OPTIMIZE_LAYOUT:
