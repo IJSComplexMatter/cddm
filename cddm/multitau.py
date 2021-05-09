@@ -884,12 +884,12 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 acorr(_sliced_data(fdata1,0,fstart1,fstop1),t1[istart1:istop1],fs = f1s, axis = axis, n = n_fast, norm = norm, aout = out, method = method) 
 
             if istart2 >= 0 and mode == "full":
-
-                f1s = _sliced_data(sq2,0,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None
+                if (norm & NORM_STRUCTURED) and correlate:
+                    f1s = _sliced_data(sq1,0,fstart1,fstop1)
  
                 if cross:
-
-                    f2s = _sliced_data(sq2,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+                    if (norm & NORM_STRUCTURED) and correlate:
+                        f2s = _sliced_data(sq2,0,fstart2,fstop2)
                     ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata2,0,fstart2,fstop2),t1[istart1:istop1],t2[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
 
                 else:
