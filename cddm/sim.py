@@ -458,7 +458,7 @@ def coordinate_transform(data, shape, offset = None, rotation = None):
     if len(shape) != 2:
         raise ValueError("Wrong `shape`, must be 2D.")
     height, width = shape
-    frame_center = np.asarray((height/2, width/2))
+    frame_center = np.asarray((height/2, width/2),FDTYPE)
     rotation_offset = frame_center -_coordinate_rotate(frame_center, rotation = rotation) 
     
     if offset is None:
