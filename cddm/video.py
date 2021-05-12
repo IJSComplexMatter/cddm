@@ -563,6 +563,41 @@ def play_threaded(video, fps = None):
         pause()
             
     _FIGURES.clear()
+    
+def threaded(video, queue_size = 0):
+    """
+    Returns a new iterator that runs the process in a background thread. 
+    
+    Parameters
+    ----------
+    video : iterator
+        A multi-frame iterator
+    queue_size : int
+        Size of Queue object. If queue_size is <= 0, the queue size is infinite.
+    
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator
+    """
+    q = Queue(queue_size)
+    
+    def worker(video):
+        try:
+            for frames in video: 
+                q.put(frames)
+        finally:
+            q.put(None)
+    
+    threading.Thread(target=worker,args = (video,) ,daemon=True).start()
+
+    while True:
+        out = q.get()
+        q.task_done()
+        yield out
+                
+        if out is None:
+            break
         
 def figure_title(name):
     """Generate a unique figure title"""
