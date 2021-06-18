@@ -47,7 +47,7 @@ For testing, we will build a sample video of a simulated Brownian motion of 100 
 
    >>> from cddm.sim import plot_random_walk, seed
    >>> seed(0) #sets numba and numpy seeds for random number generators  
-   >>> plot_random_walk(count = 1024, particles = 6, shape = (512+32,512+32)) 
+   >>> plot_random_walk(count = 1024, num_particles = 6, shape = (512+32,512+32)) 
 
 .. plot:: examples/plots/plot_random_walk.py
 
