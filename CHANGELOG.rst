@@ -1,11 +1,16 @@
 Release notes
 -------------
 
-V0.4.0 (May 9 2021)
+V0.4.0 (Jul 2 2021)
 +++++++++++++++++++
 
 With this release we add new memory layout used in iccor_multi function. 
 Combined with some other tweaks, it improves the computation speed. 
+
+New features
+////////////
+
+* added conf.set_num_threads.
 
 V0.3.0 (Mar 14 2021)
 ++++++++++++++++++++

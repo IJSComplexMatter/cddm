@@ -31,7 +31,8 @@ window_video = ((window,window),)*NFRAMES
 video = dual_video_simulator.video
 #video = load(video,count = NFRAMES)
 
-video = show_diff(video, dt = (5,7,8,9,10), t1= t1, t2 = t2)
+#video = show_diff(video, dt = (5,7,8,9,10), t1= t1, t2 = t2)
+video = show_video(video)
 
 #:perform the actual multiplication
 video = multiply(video, window_video)

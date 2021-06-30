@@ -225,6 +225,8 @@ class CDDMConfig(object):
         self.fftlib = "numpy"            
         self.verbose = 0
         self.showlib = "matplotlib"
+        self.fft_threads = 1
+        self.numba_threads = 1
         
     def __getitem__(self, item):
         return self.__dict__[item]
@@ -316,12 +318,43 @@ def set_rfft2lib(name = "numpy.fft"):
         raise ValueError("Unsupported fft library!")
     return out    
 
+def set_fft_threads(n):
+    """Sets number of threads used in fft functions."""
+    out = CDDMConfig.fft_threads
+    CDDMConfig.fft_threads = int(n)
+    try:
+        import mkl
+        mkl.set_num_threads(n)
+    except ImportError:
+        pass
+    try:
+        import pyfftw
+        pyfftw.config.NUM_THREADS = n
+    except ImportError:
+        pass
+    return out
+
+import numba
+    
+def set_numba_threads(n):
+    """Sets number of threads used in numba-accelerated functions."""
+    out = CDDMConfig.numba_threads
+    numba.set_num_threads(n)
+    n = numba.get_num_threads()
+    CDDMConfig.numba_threads = int(n)
+    return out
+  
 set_fftlib(_readconfig(config.get, "fft", "fftlib", ("mkl_fft" if MKL_FFT_INSTALLED else "numpy")))
 set_rfft2lib(_readconfig(config.get, "fft", "rfft2lib", "numpy"))
 set_verbose(_readconfig(config.getint, "core", "verbose", 0))
 set_showlib(_readconfig(config.get, "core", "showlib", "cv2" if CV2_INSTALLED else "matplotlib"))
+set_fft_threads(_readconfig(config.getint, "fft", "nthreads", detect_number_of_cores()))
 
-import numba
+try:
+    set_numba_threads(_readconfig(config.getint, "numba", "nthreads", detect_number_of_cores()))
+except ValueError:
+    set_numba_threads(numba.get_numba_threads())
+    pass
 
 F32 = numba.float32
 F64 = numba.float64
@@ -346,5 +379,6 @@ else:
     C = C64
     U = U32
     I = I32
-  
+    
+
     
