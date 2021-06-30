@@ -1,7 +1,5 @@
 """
-Demonstrates how to compute fft of videos and then compute cross-correlation
-function with the out-of-memory version of the multitau algorithm and do
-live view of the computation.
+For testing, inspects videos and performs live correlation calculation...
 """
 from cddm.viewer import MultitauViewer
 from cddm.video import multiply, normalize_video, crop, show_video, play_threaded, asarrays, load, show_diff

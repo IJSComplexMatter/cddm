@@ -1,5 +1,7 @@
 """
-Dual-camera random triggered video.
+Dual-camera random triggered simple brownian motion video.
+
+This script also creates sample frames from both cameras (Fig 1 in the paper).
 """
 
 from cddm.sim import simple_brownian_video, create_random_times1, adc
@@ -8,7 +10,7 @@ from cddm.video import multiply, load, crop
 import matplotlib.pyplot as plt
 import numpy as np
 
-from examples.paper.simple_video.conf import NFRAMES_DUAL, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, VMAX, DT_DUAL,\
+from examples.paper.simple_video.conf import SAVE_FIGS, NFRAMES_DUAL, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, VMAX, DT_DUAL,\
     INTENSITY, SIGMA, SHAPE, DUST1_PATH, DUST2_PATH, SATURATION, BIT_DEPTH, NOISE_MODEL, READOUT_NOISE,  NUM_PARTICLES, APPLY_DUST
 
 #random time according to Eq.7 from the SoftMatter paper
@@ -28,10 +30,6 @@ if APPLY_DUST:
       dust1 = plt.imread(DUST1_PATH)[0:SHAPE[0],0:SHAPE[1],0] #float normalized to (0,1)
       dust2 = plt.imread(DUST2_PATH)[0:SHAPE[0],0:SHAPE[1],0] #float normalized to (0,1)
       
-      #dust = ((dust1[::-1],dust1[::-1]),)*(NFRAMES_DUAL//2)  + ((dust2[::-1],dust2[::-1]),)*(NFRAMES_DUAL//2) 
-      
-      #video = multiply(video, dust, dtype ="uint16")
-      
       dust = ((dust1,dust2),)*(NFRAMES_DUAL) 
       video = multiply(video, dust, dtype ="uint16")
       
@@ -47,21 +45,23 @@ if __name__ == "__main__":
     #: no need to load video, but this way we load video into memory, and we 
     #: can scroll back and forth with the viewer. Uncomment the line below
     video = load(video, NFRAMES_DUAL) # loads and displays progress bar
-    import matplotlib.pyplot as plt
-    plt.figure(figsize = (8,3))
-    plt.subplot(121)
-    plt.imshow(video[0][0], cmap = "gray")
-    plt.colorbar()
-    plt.yticks([])
-    plt.xticks([])
-    plt.title("Camera 1")
-    plt.subplot(122)
-    plt.imshow(video[0][1], cmap = "gray")
-    plt.colorbar()
-    plt.yticks([])
-    plt.xticks([])
-    plt.title("Camera 2")
-    plt.savefig("frames.pdf")
+    if SAVE_FIGS == True:
+    
+        import matplotlib.pyplot as plt
+        plt.figure(figsize = (8,3))
+        plt.subplot(121)
+        plt.imshow(video[0][0], cmap = "gray")
+        plt.colorbar()
+        plt.yticks([])
+        plt.xticks([])
+        plt.title("Camera 1")
+        plt.subplot(122)
+        plt.imshow(video[0][1], cmap = "gray")
+        plt.colorbar()
+        plt.yticks([])
+        plt.xticks([])
+        plt.title("Camera 2")
+        plt.savefig("frames.pdf")
     
     
 

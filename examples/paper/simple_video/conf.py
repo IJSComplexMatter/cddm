@@ -1,4 +1,4 @@
-"""Additional configuration parameters for the one_component simulations"""
+"""Additional configuration parameters for the simple_video simulations"""
 import numpy as np
 from examples.paper.conf import *
 

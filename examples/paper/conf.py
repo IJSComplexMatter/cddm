@@ -26,7 +26,7 @@ PERIOD = 64
 #: bit depth of ADC converter
 BIT_DEPTH = "12bit"
 #: noise model for shot noise (either 'poisson' or 'gaussian' or 'none' if you want to disable photon noise)
-NOISE_MODEL = "gaussian"
+NOISE_MODEL = "poisson"
 #: extra noise added to the image (in addition to photon noise)
 READOUT_NOISE = 0.
 #: sensor saturation value above which data is clipped
@@ -36,7 +36,7 @@ APPLY_WINDOW = True
 #: whether to apply dust particles or not
 APPLY_DUST = True
 #: whether to save plots, or show only.
-SAVE_FIGS = False
+SAVE_FIGS = True
 #: number of simulation runs for statistical analysis.
 NRUN = 32
 

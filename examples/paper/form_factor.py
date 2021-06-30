@@ -1,7 +1,5 @@
 """Computes and plots form factor. (Fig 2. in the paper)"""
 
-# from cddm.viewer import MultitauViewer
-
 from cddm.window import blackman
 from cddm.sim import form_factor
 from cddm.norm import noise_level
