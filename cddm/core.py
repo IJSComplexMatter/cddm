@@ -1,6 +1,6 @@
 """
 Core functionality and main computation functions are defined here. There are
-low level implementations.
+low level implementations:
 
 * :func:`cross_correlate` 
 * :func:`cross_correlate_fft`
@@ -9,15 +9,15 @@ low level implementations.
 * :func:`cross_difference` 
 * :func:`auto_difference`
 
-along with functions for calculating tau-dependent mean signal and mean square
-of the signal that are needed for normalization.
+Functions for calculating tau-dependent mean signal and mean square
+of the signal that are needed for normalization:
 
 * :func:`cross_sum`
 * :func:`cross_sum_fft`
 * :func:`auto_sum`
 * :func:`auto_sum_fft`
 
-High-level functions include (in-memory calculation):
+High-level functions (in-memory calculation):
 
 * :func:`ccorr` to calculate cross-correlation/difference functions
 * :func:`acorr` to calculate auto-correlation/difference functions
@@ -48,9 +48,13 @@ from cddm._core_nb import _cross_corr_fft_regular, _cross_corr_fft, \
   _cross_diff_regular,_cross_diff,_cross_diff_vec, \
   _auto_corr_regular,_auto_corr, _auto_corr_vec, \
   _auto_diff_regular,_auto_diff, _auto_diff_vec,\
-  _cross_sum_regular,_cross_sum,_cross_sum_vec,\
-  _cross_sum_fft,_fill_ones,_cross_sum_rfft, abs2,\
-  _add_count_cross,_add_count_auto
+  _cross_sum_regular,_cross_sum,_cross_sum_vec,_cross_sum_complex_vec,\
+  _cross_sum_fft,_cross_sum_complex_fft,_fill_ones,  abs2,\
+  _add_count_cross,_add_count_auto, _add_count_cross_complex
+  
+#complex versions
+from cddm._core_nb import _cross_corr_complex_regular, _cross_corr_complex, _cross_corr_complex_vec, \
+  _auto_corr_complex_regular,_auto_corr_complex, _auto_corr_complex_vec, _cross_sum_complex, _cross_sum_complex_regular
 
 #imported for backward compatibility
 from cddm.norm import NORM_STANDARD, NORM_SUBTRACTED, NORM_STRUCTURED, NORM_WEIGHTED, NORM_COMPENSATED
@@ -68,7 +72,7 @@ def _move_axis_and_align(f, axis, new_axis = -2, align = False):
             f = f.copy()  
     return f
 
-def _inspect_cross_arguments(f1,f2,t1,t2,axis,n, aout, dtype = CDTYPE):
+def _inspect_cross_arguments(f1,f2,t1,t2,axis,n, aout, dtype = CDTYPE, aout_full_size = False):
     """Inspects and returns processed input arguments for cross_* functions"""
     if (t1 is None and t2 is not None) or (t2 is None and t1 is not None):
         raise ValueError("You must define both `t1` and `t2`")
@@ -95,7 +99,10 @@ def _inspect_cross_arguments(f1,f2,t1,t2,axis,n, aout, dtype = CDTYPE):
         if aout is not None:
             if not isinstance(aout, np.ndarray):
                 raise TypeError("aout must be a valid numpy array.")
-            n = aout.shape[-1]
+            if aout_full_size == False:
+                n = aout.shape[-1]
+            else:
+                n = (aout.shape[-1]+1)//2
         else:
             n = _determine_full_length_cross(f1.shape,t1,t2,axis)
             
@@ -164,9 +171,12 @@ def _inspect_auto_arguments(f,t,axis,n,aout, dtype = CDTYPE):
 def _transpose_data(data, axis = -2):
     return np.moveaxis(data,axis,-1)
 
-def _default_out(out, data_shape, n, calc_axis, dtype = FDTYPE):
+def _default_out(out, data_shape, n, calc_axis, dtype = FDTYPE, complex = False):
     shape = list(data_shape)
-    shape[calc_axis] = n
+    if complex == True:
+        shape[calc_axis] = n*2 -1
+    else:
+        shape[calc_axis] = n
 
     if out is None:
         out = np.zeros(shape, dtype)
@@ -179,7 +189,7 @@ def _default_out(out, data_shape, n, calc_axis, dtype = FDTYPE):
             raise ValueError("Wrong output dtype")
     return out
 
-def cross_correlate_fft(f1,f2, t1 = None, t2 = None, axis = 0, n = None, aout = None):
+def cross_correlate_fft(f1,f2, t1 = None, t2 = None, axis = 0, n = None, complex = False, aout = None):
     """Calculates cross-correlation function of two equal sized input arrays using FFT.
     
     For large arrays and large n, this is faster than correlate. The output of 
@@ -188,7 +198,7 @@ def cross_correlate_fft(f1,f2, t1 = None, t2 = None, axis = 0, n = None, aout = 
     See :func:`cross_correlate` for details.
     """
     #use None for "n" argument to determine length needed for FFT
-    f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n,aout)
+    f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n,aout, aout_full_size = complex)
     #determine fft length
     length = _determine_full_length_cross(f1.shape,t1,t2,axis)
             
@@ -196,16 +206,18 @@ def cross_correlate_fft(f1,f2, t1 = None, t2 = None, axis = 0, n = None, aout = 
     f1 = np.moveaxis(f1,axis, -1)
     f2 = np.moveaxis(f2,axis, -1)
     
-    out = _default_out(aout,f1.shape,n,-1)
-
+    complex = bool(complex)   
+    dtype = CDTYPE if complex else FDTYPE
+    
+    out = _default_out(aout,f1.shape,n,-1, dtype = dtype, complex = complex)
 
     if t1 is None: 
         return _cross_corr_fft_regular(f1,f2,out, out)
     else:
         #random spaced data algorithm
-        return _cross_corr_fft(f1,f2,t1,t2,length,out, out)
-
-def auto_correlate_fft(f, t = None, axis = 0, n = None, aout = None):
+        return _cross_corr_fft(f1,f2,t1,t2,length,out, out) 
+    
+def auto_correlate_fft(f, t = None, axis = 0, n = None, complex = False, aout = None):
     """Calculates auto-correlation function of input array using FFT.
     
     For large arrays and large n, this is faster than correlate. The output of 
@@ -219,15 +231,19 @@ def auto_correlate_fft(f, t = None, axis = 0, n = None, aout = None):
                 
     #algorithm needs calculation to be done over the last axis.. so move it here
     f = np.moveaxis(f,axis, -1)
-    out = _default_out(aout,f.shape,n,-1)
+    
+    complex = bool(complex)   
+    dtype = CDTYPE if complex else FDTYPE
+    
+    out = _default_out(aout,f.shape,n,-1, dtype = dtype)
 
     if t is None: 
         #regular spaced data algorithm
-        return _auto_corr_fft_regular(f,out, out)
+        return _auto_corr_fft_regular(f,out, out) 
     else:
         #random spaced data algorithm
-        return _auto_corr_fft(f,t,length,out, out)    
-
+        return _auto_corr_fft(f,t,length,out, out)
+    
 def _is_aligned(data, axis, align):
     try:
         return (((axis == -1 or axis == data.ndim-1) and data.data.contiguous == True) or align == True)    
@@ -371,12 +387,16 @@ def reshape_output(data, shape = None, mask = None):
     else: 
         return tuple((_reshape(i,x) for (i,x) in enumerate(data)))
 
-def cross_correlate(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = False,aout = None):
+def cross_correlate(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = False, complex = False, aout = None):
     """Calculates cross-correlation function of two equal sized input arrays.
 
-    This function performs 
-    out[k] = sum_{i,j, where  k = abs(t1[i]-t2[j])} (real(f1[i]*conj(f2[j])) 
-    
+    When complex set to False (default), this function performs
+    out[k] = sum_{i,j, where  k = abs(t1[i]-t2[j])} real(f1[i]*conj(f2[j])) 
+                                                     
+    When complex set to True, this function performs: 
+    out[k] = sum_{i,j, where  k = abs(t1[i]-t2[j])} f1[i]*conj(f2[j]) 
+                                                     
+                                                     
     Parameters
     ----------
     f1 : array-like
@@ -395,7 +415,10 @@ def cross_correlate(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = Fal
     align : bool, optional
        Specifies whether data is aligned in memory first, before computation takes place.
        This may speed up computation in some cases (large n). Note that this requires
-       a complete copy of the input arrays. 
+       a complete copy of the input arrays.
+    complex : bool, optional
+       If set to False (default), a real-valued correlation is calculated. If set 
+       to True, a complex-valued correlation is calculated.
     aout : ndarray, optional
        If provided, this must be zero-initiated output array to which data is
        added.
@@ -411,7 +434,9 @@ def cross_correlate(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = Fal
     cddm.multitau.ccorr_multi
     """
     #check validity of arguments and make defaults
-    f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n, aout)
+    complex = bool(complex)
+    dtype = CDTYPE if complex  else FDTYPE
+    f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n, aout,aout_full_size = complex)
 
     regular = False
     new_axis = -2 if f1.ndim > 1 else -1    
@@ -428,15 +453,15 @@ def cross_correlate(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = Fal
     f1 = _move_axis_and_align(f1,axis,new_axis, align)
     f2 = _move_axis_and_align(f2,axis,new_axis, align)
     
-    out = _default_out(aout,f1.shape,n,new_axis)
+    out = _default_out(aout,f1.shape,n,new_axis, dtype = dtype, complex = complex)
     
     if regular == True:
-        out = _cross_corr_regular(f1,f2,out,out)
+        out = _cross_corr_complex_regular(f1,f2,out,out) if complex else _cross_corr_regular(f1,f2,out,out) 
     else:
         if f1.ndim == 1:
-            out = _cross_corr(f1,f2,t1,t2,out,out)
+            out = _cross_corr_complex(f1,f2,t1,t2,out,out) if complex else _cross_corr(f1,f2,t1,t2,out,out)
         else:
-            out = _cross_corr_vec(f1,f2,t1,t2,out,out)
+            out = _cross_corr_complex_vec(f1,f2,t1,t2,out,out) if complex else _cross_corr_vec(f1,f2,t1,t2,out,out)
             
     return _transpose_data(out,new_axis)
 
@@ -509,12 +534,15 @@ def cross_difference(f1,f2, t1 = None, t2 = None, axis = 0, n = None, align = Fa
             
     return _transpose_data(out,new_axis)
 
-def auto_correlate(f, t = None, axis = 0, n = None, align = False, aout = None):
+def auto_correlate(f, t = None, axis = 0, n = None, align = False, complex = False, aout = None):
     """Calculates auto-correlation function.
     
-    This function performs 
-    out[k] = sum_{i,j, where  k = j - i >= 0} (real(f[i]*conj(f[j])) 
-    
+    If `complex` set to False (default), this function performs 
+    out[k] = sum_{i,j, where  k = j - i >= 0} real(f[i]*conj(f[j])) 
+
+    If `complex` set to True this function performs 
+    out[k] = sum_{i,j, where  k = j - i >= 0} f[i]*conj(f[j])                                                
+
     Parameters
     ----------
     f : array-like
@@ -530,6 +558,9 @@ def auto_correlate(f, t = None, axis = 0, n = None, align = False, aout = None):
        Specifies whether data is aligned in memory first, before computation takes place.
        This may speed up computation in some cases (large n). Note that this requires
        a complete copy of the input arrays. 
+    complex : bool, optional
+       If set to False (default), a real-valued correlation is calculated. If set 
+       to True, a complex-valued correlation is calculated.
     aout : ndarray, optional
        If provided, this must be zero-initiated output array to which data is
        added.
@@ -558,20 +589,22 @@ def auto_correlate(f, t = None, axis = 0, n = None, align = False, aout = None):
         
     f = _move_axis_and_align(f,axis,new_axis, align)
     
-    out = _default_out(aout,f.shape,n,new_axis) 
+    complex = bool(complex)
+    dtype = CDTYPE if complex  else FDTYPE
+    
+    out = _default_out(aout,f.shape,n,new_axis, dtype = dtype) 
     
     if regular == True:
-        out = _auto_corr_regular(f,out,out)
+        out = _auto_corr_complex_regular(f,out,out) if complex else _auto_corr_regular(f,out,out)
     else:
         #out = _auto_corr(f,t,out,out)
         if f.ndim > 1:
-            out = _auto_corr_vec(f,t,out,out)
+            out = _auto_corr_complex_vec(f,t,out,out) if complex else _auto_corr_vec(f,t,out,out) 
         else:
             #out = _auto_corr_vec(f[:,None],t,out[:,None],out[:,None])[:,0]
-            out = _auto_corr(f,t,out,out)
+            out = _auto_corr_complex(f,t,out,out) if complex else _auto_corr(f,t,out,out)
 
     return _transpose_data(out,new_axis)
-
 
 def auto_difference(f, t = None, axis = 0, n = None, align = False, aout = None):
     """Calculates auto-difference function.
@@ -633,7 +666,7 @@ def auto_difference(f, t = None, axis = 0, n = None, align = False, aout = None)
 
     return _transpose_data(out,new_axis)
 
-def _default_count(t1,t2, n, out):
+def _default_count(t1,t2, n, out, complex = False):
     if out is None:
         if n is None:
             t1 = np.asarray(t1)
@@ -641,14 +674,15 @@ def _default_count(t1,t2, n, out):
             t1min,t1max = t1.min(), t1.max()
             t2min,t2max = t2.min(), t2.max()
             n =  1 + max(t2max-t1min, t1max - t2min)
-
+        if complex == True:
+            n = n*2-1
         out = np.zeros((int(n),), IDTYPE)
     else:
         if out.dtype != IDTYPE or out.ndim < 1:
             raise ValueError("Input array is not integer dtype or has wrong dimensions.")
     return out
 
-def cross_count(t1,t2 = None, n = None, aout = None):
+def cross_count(t1,t2 = None, n = None, complex = False, aout = None):
     """Culculate number of occurences of possible time delays in cross analysis
     for a given set of time arrays.
     
@@ -684,8 +718,9 @@ def cross_count(t1,t2 = None, n = None, aout = None):
         t2 = np.asarray(t2, I64DTYPE)
         if t2.ndim == 0:
             t2 = np.arange(t2)
-    out = _default_count(t1,t2,n, aout)
-    _add_count_cross(t1,t2,out)
+    out = _default_count(t1,t2,n, aout, complex = complex)
+    
+    _add_count_cross_complex(t1,t2,out) if complex else _add_count_cross(t1,t2,out)
     return out
 
 def auto_count(t, n = None, aout = None):
@@ -721,7 +756,7 @@ def auto_count(t, n = None, aout = None):
 #------------------------------------------------------
 # delay-dependent data sum function - for normalizations 
 
-def cross_sum(f, t = None, t_other = None, axis = 0, n = None, align = False, aout = None):
+def cross_sum(f, t = None, t_other = None, axis = 0, n = None, align = False, complex = False, time_inversion = False, aout = None):
     """Calculates sum of array, useful for normalization of correlation data.
     
     This function performs:
@@ -753,8 +788,10 @@ def cross_sum(f, t = None, t_other = None, axis = 0, n = None, align = False, ao
     out : ndarray
         Calculated sum.
     """
+    complex = bool(complex)
+    time_inversion = bool(time_inversion)
     
-    f,f,t,t_other,axis,n = _inspect_cross_arguments(f,f,t,t_other,axis,n,aout, dtype = None)
+    f,f,t,t_other,axis,n = _inspect_cross_arguments(f,f,t,t_other,axis,n,aout, dtype = None, aout_full_size = complex)
 
     if t is None and t_other is None:
         regular = True
@@ -766,49 +803,57 @@ def cross_sum(f, t = None, t_other = None, axis = 0, n = None, align = False, ao
     #transpose input data so that calculation axis is either -1 or -2, optionally, copy data to make it aligned in memory    
     f = _move_axis_and_align(f,axis, new_axis, align)
     
-    out = _default_out(aout,f.shape,n,new_axis, dtype = f.dtype) 
+    #we use 2n size, because we need to track negative values 
     
+    out = _default_out(aout,f.shape,n ,new_axis, dtype = f.dtype, complex = complex) 
+    
+        
     if regular == True:
-        out = _cross_sum_regular(f,out,out)
+        out = _cross_sum_complex_regular(f,out,out) if complex else _cross_sum_regular(f,out,out) 
     else:
+        if time_inversion == True:
+            t, t_other = -t, -t_other
         if f.ndim == 1: 
-            out = _cross_sum(f,t,t_other,out,out)
+            out = _cross_sum_complex(f,t,t_other,out,out) if complex else _cross_sum(f,t,t_other,out,out) 
         else:   
-            out = _cross_sum_vec(f,t,t_other,out,out)
+            out = _cross_sum_complex_vec(f,t,t_other,out,out) if complex else _cross_sum_vec(f,t,t_other,out,out)
+    
 
     out = _transpose_data(out, new_axis)
     return out
 
-def cross_sum_fft(f, t, t_other = None, axis = 0, n = None, aout = None):
+def cross_sum_fft(f, t, t_other = None, axis = 0, n = None, complex = False, time_inversion = False, aout = None):
     """Calculates sum of array, useful for normalization of correlation data.
     
     This function is defined for irregular-spaced data only.
     
     See :func:`cross_sum` for details.
     """
-
-    f,f,t,t_other,axis,n = _inspect_cross_arguments(f,f,t,t_other,axis,n, aout,dtype = None)
+    complex = bool(complex)
+    time_inversion = bool(time_inversion)
+    f,f,t,t_other,axis,n = _inspect_cross_arguments(f,f,t,t_other,axis,n, aout,dtype = None, aout_full_size = complex)
 
     length = _determine_full_length_cross(f.shape,t,t_other,axis)
         
     #algorithm needs calculation to be done over the last axis.. so move it here
     f = np.moveaxis(f,axis, -1)
     
-    out = _default_out(aout,f.shape,n,-1, dtype = f.dtype) 
+    out = _default_out(aout,f.shape,n,-1, dtype = f.dtype, complex = complex) 
 
     if t is None: 
         raise ValueError("Not implemented for regular spaced data! Use cross_sum instead.")
-    else:        
+    else: 
+        if time_inversion:
+            t, t_other = -t, -t_other
         #we need conjugate version of FFT of zero-padded ones at t_other times
         y = np.zeros((length*2), CDTYPE)
         _fill_ones(t_other, y)
         y = _fft(y, overwrite_x = True)
-        np.conj(y, out = y)
         
-        if np.iscomplexobj(f):
+        if complex == False:  
             return _cross_sum_fft(f,y,t,length,out, out)
         else:
-            return _cross_sum_rfft(f,y,t,length,out, out)
+            return _cross_sum_complex_fft(f,y,t,length,out, out)
 
 
 def auto_sum(f, t = None, axis = 0, n = None, align = False, aout = None):
@@ -900,12 +945,9 @@ def auto_sum_fft(f, t, axis = 0, n = None, aout = None):
         y = np.zeros((length*2), CDTYPE)
         _fill_ones(t, y)
         y = _fft(y, overwrite_x = True)
-        np.conj(y, out = y)
-        
-        if np.iscomplexobj(f):
-            out0 = _cross_sum_fft(f,y,t,length,out0, out0)
-        else:
-            out0 = _cross_sum_rfft(f,y,t,length,out0, out0)
+
+        out0 = _cross_sum_fft(f,y,t,length,out0, out0)
+
         #we used cross sum to calculate.. we counted all but first data twice
         out0[...,1:] /= 2.
         out += out0
@@ -975,7 +1017,7 @@ def _default_norm(norm, method, cross = True):
     return norm
 
 def acorr(f, t = None, fs = None,  n = None,  norm = None, 
-           method = None, align = False, axis = 0, aout = None):  
+           method = None, align = False, axis = 0, complex = False, aout = None):  
     """Computes auto-correlation of the input signals of regular or irregular 
     time - spaced data.
     
@@ -1003,6 +1045,9 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
         the data takes place.
     axis : int, optional
         Axis over which to calculate.
+    complex : bool, optional
+        If set to False (default), a real-valued correlation is calculated. If set 
+        to True, a complex-valued correlation is calculated.
     aout : a tuple of ndarrays, optional
         Tuple of output arrays. 
         For method =  'diff' : (corr, count, _, _) 
@@ -1050,9 +1095,9 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
     print2("   * method : {}".format(method))
 
     if method == "fft":
-        cor = auto_correlate_fft(f,t, axis = new_axis, n = n, aout = cor)
+        cor = auto_correlate_fft(f,t, axis = new_axis, n = n, complex = complex, aout = cor)
     elif method == "corr":
-        cor = auto_correlate(f,t, axis = new_axis, n = n, aout = cor)
+        cor = auto_correlate(f,t, axis = new_axis, n = n,complex = complex, aout = cor)
     else:
         cor = auto_difference(f,t, axis = new_axis, n = n, aout = cor)
     if t is None:
@@ -1072,6 +1117,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
             fs = _move_axis_and_align(fs,axis, new_axis, align)
     
         print2("... Computing asquare...")
+        # we multiply with 2 so that it is equivalent to ccorr implementation where sq = sq1 + sq2
         sq = _sum(2*fs,t,axis = new_axis, n = n, aout = sq) 
     
     if norm & NORM_SUBTRACTED and correlate:
@@ -1087,7 +1133,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
  
 def ccorr(f1,f2,t1 = None, t2 = None,  n = None, 
           norm = None,  method = None, 
-          align = False, axis = 0, f1s = None, f2s = None, aout = None):  
+          align = False, axis = 0, complex = False, f1s = None, f2s = None, aout = None):  
     """Computes cross-correlation of the input signals of regular or irregular 
     time - spaced data.
     
@@ -1119,6 +1165,9 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         the data takes place.
     axis : int, optional
         Axis over which to calculate.
+    complex : bool, optional
+        If set to False (default), a real-valued correlation is calculated. If set 
+        to True, a complex-valued correlation is calculated.
     f1s : array-like, optional
         First absolute square of the input data. For norm = NORM_COMPENSATED square of the 
         signal is analysed. If not given it is calculated on the fly.
@@ -1157,6 +1206,8 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
     """
     t0 = time.time()
     
+    complex = bool(complex)
+    
     method = _default_method(method, n)
     print1("Computing {}...".format(method))
     norm = _default_norm(norm, method, cross = True)
@@ -1164,11 +1215,13 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
     correlate = False if method == "diff" else True
     
     if method == "diff":
+        if complex == True:
+            raise ValueError("`complex` calculation not supported for method == 'diff'.")
         cor, count, ds1, ds2 = (None,)*4 if aout is None else aout 
     else:
         cor, count, sq, ds1, ds2 = (None,)*5 if aout is None else aout 
 
-    f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n,cor)
+    f1,f2,t1,t2,axis,n = _inspect_cross_arguments(f1,f2,t1,t2,axis,n,cor,aout_full_size = complex)
     
     nframes = f1.shape[axis]
     
@@ -1183,26 +1236,27 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
     f1 = _move_axis_and_align(f1,axis,new_axis, align)
     f2 = _move_axis_and_align(f2,axis,new_axis, align)
     
-    print2("   * axis   : {}".format(axis))
-    print2("   * norm   : {}".format(norm))
-    print2("   * n      : {}".format(n))
-    print2("   * align  : {}".format(align))
-    print2("   * method : {}".format(method))
+    print2("   * axis    : {}".format(axis))
+    print2("   * norm    : {}".format(norm))
+    print2("   * n       : {}".format(n))
+    print2("   * align   : {}".format(align))
+    print2("   * method  : {}".format(method))
+    print2("   * complex : {}".format(complex))
  
     if norm != 0:
         print2("... correlate")
 
     if method == "fft":
-        cor = cross_correlate_fft(f1,f2,t1,t2, axis = new_axis, n = n, aout = cor)
+        cor = cross_correlate_fft(f1,f2,t1,t2, axis = new_axis, n = n, complex = complex, aout = cor)
     elif method == "corr":
-        cor = cross_correlate(f1,f2,t1,t2, axis = new_axis, n = n, aout = cor)
+        cor = cross_correlate(f1,f2,t1,t2, axis = new_axis, n = n, complex = complex, aout = cor)
     else:
         cor = cross_difference(f1,f2,t1,t2, axis = new_axis, n = n, aout = cor)
     if t1 is None:
         t = np.arange(f1.shape[new_axis])
-        count = cross_count(t,t,n, aout = count)
+        count = cross_count(t,t,n, complex = complex, aout = count)
     else:
-        count = cross_count(t1,t2,n, aout = count)
+        count = cross_count(t1,t2,n, complex = complex, aout = count)
     
     if method == "fft" and regular == False:
         _sum = cross_sum_fft
@@ -1222,14 +1276,14 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         else:
             f2s = _move_axis_and_align(f2s,axis, new_axis, align)
             
-        sq = _sum(f1s,t1,t_other = t2,axis = new_axis, n = n, aout = sq) 
-        sq = _sum(f2s,t2,t_other = t1,axis = new_axis, n = n ,aout = sq) 
+        sq = _sum(f1s,t1,t_other = t2,axis = new_axis, n = n, aout = sq, complex = complex) 
+        sq = _sum(f2s,t2,t_other = t1,axis = new_axis, n = n ,aout = sq, complex = complex, time_inversion = True) 
     
     if norm & NORM_SUBTRACTED:
         print2("... tau sum signal")
         
-        ds1 = _sum(f1,t = t1,t_other = t2,axis = new_axis, n = n, aout = ds1)
-        ds2 = _sum(f2,t = t2,t_other = t1,axis = new_axis, n = n, aout = ds2)
+        ds1 = _sum(f1,t = t1,t_other = t2,axis = new_axis, n = n, aout = ds1, complex = complex)
+        ds2 = _sum(f2,t = t2,t_other = t1,axis = new_axis, n = n, aout = ds2, complex = complex, time_inversion = True)
     
     print_frame_rate(nframes, t0)
     

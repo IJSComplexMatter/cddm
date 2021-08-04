@@ -3,12 +3,25 @@ from __future__ import absolute_import, print_function, division
     
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
+from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons, AxesWidget
 from cddm.map import rfft2_kangle,  sector_indexmap
 from cddm.multitau import normalize_multi, log_merge, log_average
-from cddm.norm import normalize, _default_norm_from_data, _method_from_data, NORM_STRUCTURED, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_STANDARD, NORM_COMPENSATED
+from cddm.norm import normalize, _default_norm_from_data, _method_from_data, NORM_STRUCTURED, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_STANDARD, NORM_COMPENSATED, fold_data
 from cddm.print_tools import disable_prints, enable_prints
 from cddm.decorators import doc_inherit, skip_runtime_error
+
+
+_matplotlib_3_4_or_greater = False
+
+
+try:
+    import matplotlib
+    major, minor = matplotlib.__version__.split(".")[0:2]
+    if int(major) >= 3 and int(minor) >=4:
+        _matplotlib_3_4_or_greater = True
+except:
+    print("Could not determine matplotlib version you are using, assuming < 3.4")
+
 
 class VideoViewer(object):
     """
@@ -173,7 +186,92 @@ class VideoViewer(object):
         """Shows video."""
         plt.show()
         
+class CustomRadioButtons(RadioButtons):
 
+    def __init__(self, ax, labels, active=0, activecolor='blue', size=49,
+                 orientation="horizontal", **kwargs):
+        """
+        Add radio buttons to an `~.axes.Axes`.
+        Parameters
+        ----------
+        ax : `~matplotlib.axes.Axes`
+            The axes to add the buttons to.
+        labels : list of str
+            The button labels.
+        active : int
+            The index of the initially selected button.
+        activecolor : color
+            The color of the selected button.
+        size : float
+            Size of the radio buttons
+        orientation : str
+            The orientation of the buttons: 'vertical' (default), or 'horizontal'.
+        Further parameters are passed on to `Legend`.
+        """
+        AxesWidget.__init__(self, ax)
+        self.activecolor = activecolor
+        axcolor = ax.get_facecolor()
+        self.value_selected = None
+
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_navigate(False)
+
+        circles = []
+        for i, label in enumerate(labels):
+            if i == active:
+                self.value_selected = label
+                facecolor = activecolor
+            else:
+                facecolor = axcolor
+            p = ax.scatter([],[], s=size, marker="o", edgecolor='black',
+                           facecolor=facecolor)
+            circles.append(p)
+        if orientation == "horizontal":
+            kwargs.update(ncol=len(labels), mode="expand")
+        kwargs.setdefault("frameon", False)    
+        self.box = ax.legend(circles, labels, loc="center", **kwargs)
+        self.labels = self.box.texts
+        self.circles = self.box.legendHandles
+        for c in self.circles:        
+            c.set_picker(5)
+            
+        if _matplotlib_3_4_or_greater:
+            self._observers = matplotlib.widgets.cbook.CallbackRegistry()
+            
+        else:
+            self.cnt = 0
+            self.observers = {}
+
+        self.connect_event('pick_event', self._clicked)
+
+
+    def _clicked(self, event):
+        if (self.ignore(event) or event.mouseevent.button != 1 or
+            event.mouseevent.inaxes != self.ax):
+            return
+        if event.artist in self.circles:
+            self.set_active(self.circles.index(event.artist))
+
+#: available complex correlation data representation modes
+AVAILABLE_DATA_REPR_MODES = ("real", "imag", "abs", "phase")
+
+def _inspect_data_repr_mode(mode):
+    mode = str(mode).strip().lower()
+    if mode not in AVAILABLE_DATA_REPR_MODES:
+        raise ValueError("Invalid data representation mode. Must be one of {}".format(AVAILABLE_DATA_REPR_MODES))
+    return mode  
+            
+def data_repr(data, mode = "real"):
+    mode = _inspect_data_repr_mode(mode)
+    if mode == "real":
+        return data.real
+    elif mode == "imag":
+        return data.imag
+    elif mode == "abs":
+        return np.abs(data)
+    elif mode == "phase":
+        return np.arctan2(data.imag, data.real)
 
 class DataViewer(object):
     """Plots normalized correlation data. You need to hold reference to this object, 
@@ -202,6 +300,7 @@ class DataViewer(object):
     angle = 0
     sector = 5
     kstep = 1
+    mode = "real"
     
     def __init__(self, semilogx = True, shape = None, mask = None):
         self.semilogx = semilogx
@@ -235,10 +334,14 @@ class DataViewer(object):
         
         plt.subplots_adjust(bottom=0.25)
 
-        
+
         self.im = self.ax2.imshow(np.fft.fftshift(self.graph,0), 
             extent=[0,self.graph.shape[1],self.graph.shape[0]//2+1,-self.graph.shape[0]//2-1])
-       
+
+        self.selectorax = plt.axes([0.1, 0.95, 0.65, 0.03])
+        self.selectorindex = CustomRadioButtons(self.selectorax, ["real", "imag", "abs", "phase"], active = "real")
+        
+        
         self.kax = plt.axes([0.1, 0.15, 0.65, 0.03])
         self.kindex = Slider(self.kax, "k",0,int(self.kmap.max()),valinit = self.k, valfmt='%i')
 
@@ -248,13 +351,20 @@ class DataViewer(object):
         self.sectorax = plt.axes([0.1, 0.05, 0.65, 0.03])
         self.sectorindex = Slider(self.sectorax, "sector",0,180,valinit = self.sector, valfmt='%.2f') 
         
+
         def update(val):
             self.set_mask(int(round(self.kindex.val)),self.angleindex.val,self.sectorindex.val, self.kstep)
-            self.plot()
+            self.plot()        
+        
+        def update_mode(val):
+            self.mode = val
+            update(val)
+
             
         self.kindex.on_changed(update)
         self.angleindex.on_changed(update)
         self.sectorindex.on_changed(update)
+        self.selectorindex.on_clicked(update_mode)
               
     def set_data(self, data, t = None):
         """Sets correlation data.
@@ -273,9 +383,11 @@ class DataViewer(object):
             raise ValueError("Wrong time array length")
         else:
             self.t = t
-        
+            
     def _get_avg_data(self):
-        return self.t, np.nanmean(self.data[...,self.mask,:], axis = -2)
+        avg = np.nanmean(self.data[...,self.mask,:], axis = -2)
+        return self.t, data_repr(avg, self.mode)
+        
         
     def get_data(self):
         """Returns computed k-averaged data and time
@@ -285,6 +397,7 @@ class DataViewer(object):
         x, y : ndarray, ndarray
             Time, data ndarrays.
         """
+        
         if self.data is None:
             raise ValueError("No data, you must first set data.")
         if self.mask is None:
@@ -393,18 +506,21 @@ class CorrViewer(DataViewer):
         Scale constant used in normalization.
     mask : ndarray, optional
         A boolean array indicating which data elements were computed.
+    fold : bool
+        For complex data this is a required parameter. I specifies whether to 
+        fold data or not.
     """
     background = None
     variance = None
     
-    
-    def __init__(self, semilogx = True,  shape = None, size = None, norm = None, scale = False, mask = None):
+    def __init__(self, semilogx = True,  shape = None, size = None, norm = None, scale = False, mask = None, fold = None):
         self.norm  = norm
         self.scale = scale
         self.semilogx = semilogx
         self.shape = shape
         self.size = size
         self.computed_mask = mask
+        self.fold = fold
         if mask is not None:
             self.kisize, self.kjsize = mask.shape
         
@@ -483,13 +599,22 @@ class CorrViewer(DataViewer):
         
     def _get_avg_data(self):
         data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
+
+        if np.iscomplexobj(data) :
+            if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
+                data = fold_data(data)
+            else:
+                raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
         
         if self.size is not None:
-            t, data = log_average(data, self.size)
+            # folding has already been made, so set to False
+            t, data = log_average(data, self.size, fold = False)
         else:
             t = np.arange(data.shape[-1])
         
-        return t, np.nanmean(data, axis = -2)
+        avg = np.nanmean(data, axis = -2)
+        
+        return t, data_repr(avg, self.mode)
     
             
 class MultitauViewer(CorrViewer):
@@ -509,14 +634,18 @@ class MultitauViewer(CorrViewer):
         Scale constant used in normalization.
     mask : ndarray, optional
         A boolean array indicating which data elements were computed.
+    fold : bool
+        For complex data this is a required parameter. I specifies whether to 
+        fold data or not.
     """
-    def __init__(self,  semilogx = True,  shape = None, norm = None, scale = False, mask = None):
+    def __init__(self,  semilogx = True,  shape = None, norm = None, scale = False, mask = None, fold = None):
 
         self.norm  = norm
         self.scale = scale
         self.semilogx = semilogx
         self.shape = shape
         self.computed_mask = mask
+        self.fold = fold
         if mask is not None:
             self.kisize, self.kjsize = mask.shape
         
@@ -549,10 +678,25 @@ class MultitauViewer(CorrViewer):
             self.kisize, self.kjsize = self.kshape
         
     def _get_avg_data(self):
+        
         data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
-        t, data = log_merge(*data)
-        avg_data = np.nanmean(data, axis = -2) 
-        return t, avg_data
+        
+        if np.iscomplexobj(data[0]) :
+            if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
+                data = fold_data(data[0]), fold_data(data[1])
+            else:
+                raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
+
+        if self.semilogx == True:
+            t, data = log_merge(*data, fold = False)
+        else:
+            fast, slow = data
+            t = np.arange(fast.shape[-1])
+            data = fast
+        avg = np.nanmean(data, axis = -2)
+        
+        return t, data_repr(avg, self.mode)
+
         
 #       
 #if __name__ == "__main__":

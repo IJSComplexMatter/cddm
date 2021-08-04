@@ -37,7 +37,7 @@ from cddm.print_tools import print1, print2
 
 from cddm._core_nb import mean,  convolve, _calc_stats_vec, _mean, _abs2
 
-from cddm.norm import weighted_sum,weight_from_data, _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor, norm_from_string
+from cddm.norm import weighted_sum,weight_from_data, _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor, norm_from_string, fold_data
 from cddm.avg import log_interpolate
 
 import time
@@ -156,7 +156,7 @@ def _determine_lengths(length, n, period, nlevel):
     return n_fast, n_slow, nlevel
 
 def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, level_size = 2**4, 
-                         binning = None,  nlevel = None, norm = None, method = None, align = False, thread_divisor = None, mask = None):
+                         binning = None,  nlevel = None, norm = None, method = None, align = False, thread_divisor = None, mask = None, complex = False):
     """Implements multiple tau algorithm for cross(auto)-correlation(difference) calculation.
     """
     #initial time for computation time computation
@@ -209,6 +209,7 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     print2("   * level_size     : {}".format(level_size))
     print2("   * binning        : {}".format(binning))
     print2("   * method         : {}".format(method))
+    print2("   * is complex     : {}".format(complex))
     print2("   * nlevel         : {}".format(nlevel))
     print2("   * norm           : {}".format(norm))
     print2("   * align          : {}".format(align))
@@ -221,20 +222,22 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     
 
     if cross == True:
-        data_fast = ccorr(f1,f2,t1,t2, f1s = f1s, f2s = f2s, axis = axis, n = n_fast, norm = norm, method = method)
+        data_fast = ccorr(f1,f2,t1,t2, f1s = f1s, f2s = f2s, axis = axis, n = n_fast, norm = norm, method = method, complex = complex)
     else:
-        data_fast = acorr(f1, t = t1, fs = f1s, axis = axis, n = n_fast, norm = norm, method = method)
+        data_fast = acorr(f1, t = t1, fs = f1s, axis = axis, n = n_fast, norm = norm, method = method, complex = complex)
 
     k_shape = data_fast[0].shape[0:-1]
     
     if axis == -1:
         new_axis = -1
         slow_shape = (nlevel,) + k_shape + (n_slow,)
+        slow_shape = (nlevel,) + k_shape + (n_slow*2+1,) if complex else slow_shape
     else:
         new_axis = axis
         slow_shape = (nlevel,) + k_shape[0:-1] + (n_slow,) + k_shape[-1:] 
+        slow_shape = (nlevel,) + k_shape[0:-1] + (n_slow*2+1,) + k_shape[-1:] if complex else slow_shape
 
-    out_slow = np.zeros(slow_shape, FDTYPE)  
+    out_slow = np.zeros(slow_shape, CDTYPE) if complex else np.zeros(slow_shape, FDTYPE) 
     out_slow = _transpose_data(out_slow, new_axis) 
         
     count_slow = np.zeros((nlevel, n_slow,),IDTYPE)
@@ -279,9 +282,9 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
         v = disable_prints() 
 
         if cross == True:
-            ccorr(f1,f2, f1s = f1s, f2s = f2s,axis = axis, n = n_slow, norm = norm, aout = _out, method = method)
+            ccorr(f1,f2, f1s = f1s, f2s = f2s,axis = axis, n = n_slow, norm = norm, aout = _out, method = method, complex = complex)
         else:
-            acorr(f1, fs = f1s,axis = axis, norm = norm, n = n_slow, aout = _out, method = method)
+            acorr(f1, fs = f1s,axis = axis, norm = norm, n = n_slow, aout = _out, method = method, complex = complex)
 
         enable_prints(v)
         progress = progress*0.5
@@ -298,7 +301,7 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
 
 
 def ccorr_multi(f1,f2, t1 = None, t2 = None,  level_size = 2**4, norm = None, method = None, align = False, axis = 0,
-                period = 1, binning = None,  nlevel = None,  thread_divisor = None, mask = None):
+                period = 1, binning = None,  nlevel = None,  thread_divisor = None, mask = None, complex = False):
     """Multitau version of :func:`.core.ccorr`
         
     Parameters
@@ -347,10 +350,10 @@ def ccorr_multi(f1,f2, t1 = None, t2 = None,  level_size = 2**4, norm = None, me
         See :func:`.core.ccorr` for definition of ccorr_type
     """
     return _compute_multi(f1,f2, t1,t2, axis = axis, period = period, level_size = level_size, align = align,
-                         binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask)
+                         binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask, complex = complex)
 
 def acorr_multi(f, t = None,  level_size = 2**4, norm = None, method = None, align = False, axis = 0,
-                period = 1, binning = None,  nlevel = None,  thread_divisor = None, mask = None):
+                period = 1, binning = None,  nlevel = None,  thread_divisor = None, mask = None, complex = False):
     """Multitau version of :func:`.core.acorr`
         
     Parameters
@@ -395,7 +398,7 @@ def acorr_multi(f, t = None,  level_size = 2**4, norm = None, method = None, ali
     """
     
     return _compute_multi(f, t1 = t, axis = axis, period = period, level_size = level_size, align = align,
-                         binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask)
+                         binning = binning,  nlevel = nlevel, method = method, norm = norm,thread_divisor = thread_divisor, mask = mask, complex = complex)
 
 
 OPTIMIZE_LAYOUT = False
@@ -548,13 +551,20 @@ def _calc_stats(data, start, stop, sum_out, sqsum_out):
     else:
         return _calc_stats_vec(np.moveaxis(data[start:stop,...],0,-2), sum_out, sqsum_out)
 
-def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True):
+def _full_size(n):
+    return 2 * n -1
+
+def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True, complex = False):
     if OPTIMIZE_LAYOUT:
         fast_shape = shape[0:-1] + (n_fast,) + shape[-1:]  
+        if complex:
+            fast_shape = shape[0:-1] + (_full_size(n_fast),) + shape[-1:] 
     else :
         fast_shape =  shape + (n_fast,)
-    
-    out_fast = np.zeros(fast_shape, FDTYPE)
+        if complex:
+            fast_shape = shape + (_full_size(n_fast),)
+            
+    out_fast = np.zeros(fast_shape, CDTYPE) if complex else np.zeros(fast_shape, FDTYPE)
     if OPTIMIZE_LAYOUT:
         out_fast = _transpose_data(out_fast) 
     
@@ -575,7 +585,7 @@ def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True):
     else:
         sq_fast = None
         
-    count_fast = np.zeros((n_fast,),IDTYPE)
+    count_fast = np.zeros((_full_size(n_fast),),IDTYPE) if complex else np.zeros((n_fast,),IDTYPE)
     
     if correlate:
         data_fast = out_fast, count_fast, sq_fast, m1_fast, m2_fast
@@ -583,14 +593,18 @@ def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True):
         data_fast = out_fast, count_fast, m1_fast, m2_fast
     return data_fast
 
-def _init_data_slow(n_level, n_slow, shape, norm, cross = True, correlate = True):
+def _init_data_slow(n_level, n_slow, shape, norm, cross = True, correlate = True, complex = False):
      
     if OPTIMIZE_LAYOUT:
         slow_shape = (n_level,) + shape[0:-1] + (n_slow,) + shape[-1:] 
+        if complex:
+            slow_shape = (n_level,) + shape[0:-1] + (_full_size(n_slow),) + shape[-1:] 
     else:
         slow_shape = (n_level,) + shape + (n_slow,)  
+        if complex:
+            slow_shape = (n_level,) + shape + (_full_size(n_slow),)  
     
-    out_slow = np.zeros(slow_shape, FDTYPE) 
+    out_slow = np.zeros(slow_shape, CDTYPE) if complex else np.zeros(slow_shape, FDTYPE) 
     if OPTIMIZE_LAYOUT:
         out_slow = _transpose_data(out_slow)    
     
@@ -610,7 +624,7 @@ def _init_data_slow(n_level, n_slow, shape, norm, cross = True, correlate = True
     else:
         sq_slow = None
         
-    count_slow = np.zeros((n_level, n_slow,),IDTYPE)
+    count_slow = np.zeros((n_level, _full_size(n_slow),),IDTYPE) if complex else np.zeros((n_level, n_slow,),IDTYPE) 
         
     if correlate:
         data_slow = out_slow, count_slow, sq_slow, m1_slow, m2_slow
@@ -701,7 +715,7 @@ def _add_sq1(i,x1,sq1,binning, r = None):
 def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16, 
                         chunk_size = None,  binning = None, method = "corr", count = None,
                         auto_background = False, nlevel = None,  norm = None,
-                        stats = False, thread_divisor = None, mode = "full", mask = None, cross = True):
+                        stats = False, thread_divisor = None, mode = "full", mask = None, cross = True, complex = False):
     t0 = time.time()
     
     if mode not in ("full", "chunk"):
@@ -773,6 +787,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             print2("   * level_size      : {}".format(level_size))
             print2("   * binning         : {}".format(binning))
             print2("   * method          : {}".format(method))
+            print2("   * is complex      : {}".format(complex))
             print2("   * auto_background : {}".format(auto_background))
             print2("   * nlevel          : {}".format(nlevel))
             print2("   * norm            : {}".format(norm))
@@ -783,8 +798,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             
             print_progress(0, nframes)
 
-            data_fast = _init_data_fast(n_fast, shape, norm, cross = cross, correlate = correlate)
-            data_slow = _init_data_slow(nlevel, n_slow, shape, norm, cross = cross, correlate = correlate)
+            data_fast = _init_data_fast(n_fast, shape, norm, cross = cross, correlate = correlate, complex = complex)
+            data_slow = _init_data_slow(nlevel, n_slow, shape, norm, cross = cross, correlate = correlate, complex = complex)
          
             if correlate:
                 out_fast, count_fast, sq_fast, m1_fast, m2_fast = data_fast
@@ -879,9 +894,9 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             
 
             if cross:
-                ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata2,0,fstart1,fstop1),t1[istart1:istop1],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast, norm = norm,aout = out, method = method) 
+                ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata2,0,fstart1,fstop1),t1[istart1:istop1],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast, norm = norm,aout = out, method = method, complex = complex) 
             else:
-                acorr(_sliced_data(fdata1,0,fstart1,fstop1),t1[istart1:istop1],fs = f1s, axis = axis, n = n_fast, norm = norm, aout = out, method = method) 
+                acorr(_sliced_data(fdata1,0,fstart1,fstop1),t1[istart1:istop1],fs = f1s, axis = axis, n = n_fast, norm = norm, aout = out, method = method, complex = complex) 
 
             if istart2 >= 0 and mode == "full":
                 if (norm & NORM_STRUCTURED) and correlate:
@@ -890,7 +905,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 if cross:
                     if (norm & NORM_STRUCTURED) and correlate:
                         f2s = _sliced_data(sq2,0,fstart2,fstop2)
-                    ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata2,0,fstart2,fstop2),t1[istart1:istop1],t2[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
+                    ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata2,0,fstart2,fstop2),t1[istart1:istop1],t2[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex) 
 
                 else:
 
@@ -901,7 +916,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                     else:
                         out = data_fast[0],data_fast[1], None, None 
 
-                    out = ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata1,0,fstart2,fstop2),t1[istart1:istop1],t1[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method)
+                    out = ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata1,0,fstart2,fstop2),t1[istart1:istop1],t1[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex)
 
                     if m1_fast is not None:
                         m1_fast += out[3] /2
@@ -910,7 +925,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
 
                     f1s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
                     f2s = _sliced_data(sq2,0,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None  
-                    ccorr(_sliced_data(fdata1,0,fstart2,fstop2),_sliced_data(fdata2,0,fstart1,fstop1),t1[istart2:istop2],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
+                    ccorr(_sliced_data(fdata1,0,fstart2,fstop2),_sliced_data(fdata2,0,fstart1,fstop1),t1[istart2:istop2],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex) 
 
 
             for j in range(1, n_decades):
@@ -939,9 +954,9 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                     out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
 
                     if cross:
-                        ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata2,j,fstart1,fstop1),f1s = f1s, f2s = f2s, axis = axis, norm = norm, n = n_slow, aout = out, method = method)
+                        ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata2,j,fstart1,fstop1),f1s = f1s, f2s = f2s, axis = axis, norm = norm, n = n_slow, aout = out, method = method, complex = complex)
                     else:
-                        acorr(_sliced_data(fdata1,j,fstart1,fstop1),fs = f1s, axis = axis, norm = norm, n = n_slow, aout = out, method = method)
+                        acorr(_sliced_data(fdata1,j,fstart1,fstop1),fs = f1s, axis = axis, norm = norm, n = n_slow, aout = out, method = method, complex = complex)
            
                     if istart2 >= 0 and mode == "full":
 
@@ -950,7 +965,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                         if cross:
 
                             f2s = _sliced_data(sq2,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
-                            ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata2,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
+                            ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata2,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex) 
 
                         else:
 
@@ -962,7 +977,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                             else:
                                 out = _out[0],_out[1], None, None 
 
-                            out = ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata1,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method)
+                            out = ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata1,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex)
 
                             if m1_slow is not None:
                                 m1_slow[j-1] += out[3] /2
@@ -971,7 +986,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
 
                             f1s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
                             f2s = _sliced_data(sq2,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None  
-                            ccorr(_sliced_data(fdata1,j,fstart2,fstop2),_sliced_data(fdata2,j,fstart1,fstop1),t_slow[istart2:istop2],t_slow[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast,norm = norm,aout = out, method = method) 
+                            ccorr(_sliced_data(fdata1,j,fstart2,fstop2),_sliced_data(fdata2,j,fstart1,fstop1),t_slow[istart2:istop2],t_slow[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex) 
 
                 else:
                     break
@@ -1019,9 +1034,9 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
         out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
         
         if cross:
-            ccorr(f1,f2, f1s = sq1, f2s = sq2, axis = axis, norm = norm,n = n_slow, aout = out, method = method)
+            ccorr(f1,f2, f1s = sq1, f2s = sq2, axis = axis, norm = norm,n = n_slow, aout = out, method = method, complex = complex)
         else:
-            acorr(f1, fs = sq1, axis = axis, norm = norm,n = n_slow, aout = out, method = method)
+            acorr(f1, fs = sq1, axis = axis, norm = norm,n = n_slow, aout = out, method = method, complex = complex)
 
     enable_prints(verbosity)
 
@@ -1038,7 +1053,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
 
 def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
-                 auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
+                 auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True, complex = False):
     """Iterative version of :func:`.ccorr_multi`
         
     Parameters
@@ -1109,7 +1124,7 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, met
     
     for i, data in enumerate(_compute_multi_iter(data, t1, t2, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count, auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor, cross = True)):
+                        nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor, cross = True, complex = complex)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["ccorr_multi"] = viewer
@@ -1125,7 +1140,7 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, met
 
 def iacorr_multi(data, t = None, level_size = 2**4, norm = None, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
-                 auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
+                 auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True, complex = False):
     """Iterative version of :func:`.acorr_multi`
         
     Parameters
@@ -1190,7 +1205,7 @@ def iacorr_multi(data, t = None, level_size = 2**4, norm = None, method = "corr"
     """
     for i, data in enumerate(_compute_multi_iter(data, t, None, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count,auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor, mask = mask, cross = False)):
+                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor, mask = mask, cross = False, complex = complex)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["acorr_multi"] = viewer
@@ -1354,7 +1369,7 @@ def _inspect_binning(binning):
         raise ValueError("Unsupported binning mode")
     return binning
     
-def multilevel(data, level_size = 16, binning = BINNING_MEAN):
+def multilevel(data, level_size = 16, binning = BINNING_MEAN, fold = None):
     """Computes a multi-level version of the linear time-spaced data.
     
     Parameters
@@ -1365,6 +1380,9 @@ def multilevel(data, level_size = 16, binning = BINNING_MEAN):
         Level size
     binning : int
         Binning mode, either BINNING_FIRST or BINNING_MEAN (default).
+    fold : bool
+        This is a required parameter in case input data is complex. It specifies
+        whether to fold data by calling :func:`fold_data` or not. 
         
     Returns
     -------
@@ -1378,6 +1396,13 @@ def multilevel(data, level_size = 16, binning = BINNING_MEAN):
         raise ValueError("level_size must be greater than 1")
     #determine multitau level (number of decades)
     level = 0
+    
+    if np.iscomplexobj(data):
+        if fold is None:
+            raise ValueError("You must specify whether to fold data or not. ")
+        if bool(fold) == True:
+            data = fold_data(data)
+    
     while size * 2**(level) < data.shape[-1]:
         level +=1
     
@@ -1443,7 +1468,7 @@ def merge_multilevel(data, mode = "full"):
     else:
         raise ValueError("Unknown merging mode")
                  
-def log_average(data, size = 8):
+def log_average(data, size = 8, fold = None):
     """Performs log average of normalized linear-spaced data.
     
     You must first normalize with :func:`.core.normalize` before averaging!
@@ -1455,6 +1480,9 @@ def log_average(data, size = 8):
     size : int
         Sampling size. Number of data points per each doubling of time.
         Any positive number is valid.
+    fold : bool
+        This is a required parameter in case input data is complex. It specifies
+        whether to fold data by calling :func:`fold_data` or not. 
         
     Returns
     -------
@@ -1466,7 +1494,7 @@ def log_average(data, size = 8):
         raise ValueError("`size` must be greater than 0")
     print1("Log-averaging...")
     print2("   * size : {}".format(size))
-    ldata = multilevel(data, size*2)
+    ldata = multilevel(data, size*2, fold = fold)
     return merge_multilevel(ldata)
 
 def log_average_count(count, size = 8):
@@ -1500,7 +1528,7 @@ def _period_from_data(lin, multi):
         raise ValueError("Fast and slow data are not compatible")
     return period
 
-def log_merge(lin,multi, binning = BINNING_MEAN):
+def log_merge(lin,multi, binning = BINNING_MEAN, fold = None):
     """Merges normalized multi-tau data.
     
     You must first normalize with :func:`normalize_multi` before merging!
@@ -1517,6 +1545,9 @@ def log_merge(lin,multi, binning = BINNING_MEAN):
     binning : int
         Binning mode used for multilevel calculation of the linear part of the data.
         either BINNING_FIRST or BINNING_MEAN (default).
+    fold : bool
+        This is a required parameter in case input data is complex. It specifies
+        whether to fold data by calling :func:`fold_data` or not. 
         
     Returns
     -------
@@ -1524,6 +1555,17 @@ def log_merge(lin,multi, binning = BINNING_MEAN):
         Time and log-spaced data arrays.
     """
     binning = _inspect_binning(binning)
+    if np.iscomplexobj(lin):
+        1/0
+        if fold is None:
+            raise ValueError("You must specify whether to fold data or not. ")
+        if bool(fold) == True:
+            lin = fold_data(lin)
+    if np.iscomplexobj(multi):
+        if fold is None:
+            raise ValueError("You must specify whether to fold data or not. ")
+        if bool(fold) == True:
+            multi = fold_data(multi)
     period = _period_from_data(lin, multi)
     nslow = multi.shape[-1]
 
@@ -1535,7 +1577,7 @@ def log_merge(lin,multi, binning = BINNING_MEAN):
     return t, cc
 
 def log_merge_count(lin_count,multi_count, binning = BINNING_MEAN):
-    """Merges multi-tau count data. This function cab be used to obtain
+    """Merges multi-tau count data. This function can be used to obtain
     effective count data of results merged by :func:`log_merge`. You must
     first call equivalent count function, like :func:`ccorr_multi_count`.
     
@@ -1609,7 +1651,7 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
     level = disable_prints()
     
     
-    if (norm & NORM_WEIGHTED == NORM_WEIGHTED):
+    if ((norm & NORM_WEIGHTED == NORM_WEIGHTED)):
     
         norm_comp = (norm & (NORM_COMPENSATED | NORM_SUBTRACTED))|NORM_STRUCTURED
         norm_base = (norm & (NORM_COMPENSATED | NORM_SUBTRACTED)) |NORM_STANDARD     
@@ -1626,19 +1668,26 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
   
         _scale_factor = np.array(1.,FDTYPE) if scale == True else scale_factor(variance,mask)
 
-        #get data estimator
-        x, y = log_merge(lin_comp, multi_comp)
-        
-        x_lin = np.arange(lin_comp.shape[-1])
-        weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode)
-        weight = log_interpolate(x_lin,x,weight)
+        weight = weight_from_data(lin_base, scale_factor = _scale_factor, mode = mode)
         lin = weighted_sum(lin_comp,lin_base,weight)
         
-        period = _period_from_data(lin_comp, multi_comp)
-        x_multi = t_multilevel(multi_comp.shape, period = period)
-        weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode,)
-        weight = log_interpolate(x_multi,x,weight)
-        multi = weighted_sum(multi_comp,multi_base, weight)        
+        weight = weight_from_data(multi_base, scale_factor = _scale_factor, mode = mode,)
+        multi = weighted_sum(multi_comp,multi_base, weight)  
+
+
+        # #get data estimator
+        # x, y = log_merge(lin_comp, multi_comp)
+        
+        # x_lin = np.arange(lin_comp.shape[-1])
+        # weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode)
+        # weight = log_interpolate(x_lin,x,weight)
+        # lin = weighted_sum(lin_comp,lin_base,weight)
+        
+        # period = _period_from_data(lin_comp, multi_comp)
+        # x_multi = t_multilevel(multi_comp.shape, period = period)
+        # weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode,)
+        # weight = log_interpolate(x_multi,x,weight)
+        # multi = weighted_sum(multi_comp,multi_base, weight)        
 
     else:
         lin = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,

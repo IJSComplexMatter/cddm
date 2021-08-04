@@ -1,4 +1,10 @@
-"""Normalization helper functions"""
+"""Normalization helper functions.
+
+User-level function are:
+    
+* :func:`normalize` for normalization of ccorr and accorr data.
+
+"""
 
 from __future__ import absolute_import, print_function, division
 
@@ -9,6 +15,10 @@ from cddm.print_tools import print1,print2, enable_prints, disable_prints
 
 from cddm._core_nb import _normalize_cdiff_1,_normalize_cdiff_3,\
   _normalize_ccorr_0,_normalize_ccorr_1,_normalize_ccorr_2,_normalize_ccorr_2b,_normalize_ccorr_3,_normalize_ccorr_3b
+
+
+from cddm._core_nb import normalize_corr_baseline, normalize_corr_compensated, normalize_corr_subtracted
+from cddm._core_nb import normalize_struct_baseline, normalize_struct_subtracted
 
 from cddm._core_nb import weighted_sum, weight_from_g, weight_from_d, sigma_weighted, sigma_prime_weighted,\
        weight_prime_from_g, weight_prime_from_d
@@ -23,16 +33,7 @@ NORM_NONE = 0
 """none normalization flag"""
 
 NORM_BASELINE = 0
-
-# NORM_COMPENSATED = 1
-# """compensated normalization (cross-diff) flag"""
-
-# NORM_SUBTRACTED = 2
-# """background subtraction normalization flag"""
-
-# NORM_WEIGHTED = 4
-# """weighted normalization flag"""
-
+"""baseline normalization flag"""
 
 NORM_STANDARD = 1
 """standard normalization flag"""
@@ -287,9 +288,9 @@ def weight_from_data(corr, delta = 0., scale_factor = 1., mode = "corr", pre_fil
         #make sure it is decreasing and clipped between 0 and 1
         if pre_filter == True:
             corr = _avg.denoise(corr)
-            corr = _avg.decreasing(corr)
-            corr = np.clip(corr,0.,scale_factor[...,None])
-            corr = _avg.denoise(corr)
+            #corr = _avg.decreasing(corr)
+            #corr = np.clip(corr,0.,scale_factor[...,None])
+            #corr = _avg.denoise(corr)
             
         g = np.divide(corr,scale_factor[...,None])
         
@@ -298,9 +299,9 @@ def weight_from_data(corr, delta = 0., scale_factor = 1., mode = "corr", pre_fil
     elif mode == "diff":
         if pre_filter == True:
             corr = _avg.denoise(corr)
-            corr = _avg.increasing(corr)
-            corr = np.clip(corr,0.,scale_factor[...,None]*2)
-            corr = _avg.denoise(corr)
+            #corr = _avg.increasing(corr)
+            #corr = np.clip(corr,0.,scale_factor[...,None]*2)
+            #corr = _avg.denoise(corr)
         
         d = np.divide(corr,scale_factor[...,None])
 
@@ -383,6 +384,8 @@ def _norm_from_ccorr_data(data, norm = None):
     if norm is None:
         return default_norm
     else:
+        if isinstance(norm, str):
+            norm = norm_from_string(norm)
         if norm not in (1,2,3,5,6,7,9,10,11,13,14,15):
             raise ValueError("Normalization mode must be one of (1,2,3,5,6,7,9,10,11,13,14,15)")
         if  (norm & available_norm) == norm:
@@ -404,6 +407,8 @@ def _norm_from_cdiff_data(data, norm = None):
     if norm is None:
         return default_norm
     else:
+        if isinstance(norm, str):
+            norm = norm_from_string(norm)
         if norm not in available_norms:
             raise ValueError("Normalization mode can be one of {}".format(available_norms))
         if  (norm & default_norm) == norm:
@@ -514,7 +519,6 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         must provide it here, otherwise it is computed from the data (default).
     ret_weight : bool, optional
         Whether to return weight (when calculating weighted normalization)
-        
     out : ndarray, optional
         Output array
         
@@ -554,7 +558,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     
     bg1, bg2 = _inspect_background(background, norm, mask)
     
-    if (norm & NORM_WEIGHTED == NORM_WEIGHTED):
+    if (norm & NORM_WEIGHTED == NORM_WEIGHTED and False):
         level = disable_prints()
         norm_comp = (norm & (NORM_SUBTRACTED | NORM_COMPENSATED)) | NORM_STRUCTURED
         comp_data = normalize(data, background, variance, norm = norm_comp,  mode = mode, 
@@ -617,19 +621,17 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         count = np.expand_dims(count,-2)
         
     if norm == NORM_STANDARD:
-        result = _normalize_ccorr_0(data[0], count, bg1, bg2, out = out)
+        #result = _normalize_ccorr_0(data[0], count, bg1, bg2, out = out)
+        result = normalize_corr_baseline(data[0], count, bg1, bg2, out = out)
         if mode == "diff":
             result = _corr2diff(result, variance, mask)
     
     elif norm == NORM_STRUCTURED:
         if method == "corr":
             offset = _variance2offset(variance, mask)
-            result = _normalize_ccorr_1(data[0], count, bg1, bg2, data[2],  out = out)
-            #m1 = data[3]
-            #m2 = data[4] if data[4] is not None else m1
-            #result = _normalize_ccorr_3b(data[0], count, data[2], m1, m2,  out = out)
-            
-            result += offset
+            result = normalize_struct_baseline(data[0], count, bg1, bg2, offset, data[2],  out = out)
+            #result = _normalize_ccorr_1(data[0], count, bg1, bg2, data[2],  out = out)
+            #result += offset
             if mode == "diff":
                 result = _corr2diff(result, variance, mask)
         
@@ -642,7 +644,8 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     elif (norm == NORM_SUBTRACTED|NORM_STANDARD) or (norm == NORM_SUBTRACTED|NORM_STANDARD|NORM_COMPENSATED) :
         m1 = data[3]
         m2 = data[4] if data[4] is not None else m1
-        result = _normalize_ccorr_2(data[0], count, bg1, bg2, m1,m2, out = out)
+        #result = _normalize_ccorr_2(data[0], count, bg1, bg2, m1,m2, out = out)
+        result = normalize_corr_subtracted(data[0], count, bg1, bg2,m1,m2, out = out)
         if mode == "diff":
             result = _corr2diff(result, variance, mask)
             
@@ -650,6 +653,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         m1 = data[3]
         m2 = data[4] if data[4] is not None else m1
         result = _normalize_ccorr_2b(data[0], count, m1,m2, out = out)
+
         if mode == "diff":
             result = _corr2diff(result, variance, mask)        
 
@@ -659,8 +663,9 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
             m1 = data[3]
             m2 = data[4] if data[4] is not None else m1
             #result = _normalize_ccorr_2b(data[0], count, m1,m2, out = out)
-            result = _normalize_ccorr_3(data[0], count, bg1, bg2, data[2], m1, m2,  out = out)
-            result += offset
+            result = normalize_struct_subtracted(data[0], count, bg1, bg2, offset, data[2], m1, m2,  out = out)
+            #result = _normalize_ccorr_3(data[0], count, bg1, bg2, data[2], m1, m2,  out = out)
+            #result += offset
             if mode == "diff":
                 result = _corr2diff(result, variance, mask)
         else:
@@ -723,6 +728,50 @@ def take_data(data, mask):
         return data
         
     return tuple((_mask(i,d) for (i,d) in enumerate(data)))
+
+def fold_data(data, mode = 0):
+    """Folds or crops time axis of input complex cross correlation data. 
+    
+    Input data must have n positive and n negative delay time values stored 
+    in an array of size 2 * n - 1. First half is for positive, second half are 
+    negative values. This function either takes the positive half, negative half or 
+    it performs averaging.
+
+    
+    Parameters
+    ----------
+    data : array
+        Input array (normalized complex cross-correlation data) 
+        Shape is (..., 2 * n - 1).
+    mode : int
+       Either `-1` to take negative values, `+1` to take positive values or `0`
+       to take the mean.
+       
+    Returns
+    -------
+    out : ndarray
+        Output array of shape (..., n).
+        With mode = 0: out[i] = 0.5 * data[i] + np.conj(data[-i])
+        With mode = 1: out[i] = data[i] 
+        With mode = 2: out[i] = data[-i]
+    """
+    n = (data.shape[-1]+1)//2
+    if mode not in (0,1,-1):
+        raise ValueError("Invalid mode `{}`".format(mode))
+    if mode >= 0:   
+        out = data[...,0:n].copy()
+        if mode == 0:
+            #fold negative values and take mean
+            out[...,1:] += np.conj(data[...,-1:-n:-1])
+            out[...,1:] /= 2
+    else:
+        #take all negative values and largest positive value
+        out = data[...,-1:-n-1:-1].copy()
+        #first one is zero, so overwrite the largest positive value.
+        out[...,0] = data[...,0]
+        
+    return out
+
 
 __all__ = ["weight_from_data","weighted_sum","scale_factor", "noise_delta",
            "weight_from_g", "weight_from_d","sigma_weighted","normalize", "take_data",

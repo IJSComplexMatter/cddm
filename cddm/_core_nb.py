@@ -54,7 +54,7 @@ def choose(a,b):
     
 
  
-@nb.guvectorize([(F[:],F[:])],"(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.guvectorize([(F[:],F[:]),(C[:],C[:])],"(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def convolve(a, out):
     """Convolves input array with kernel [0.25,0.5,0.25]"""
     n = len(out)
@@ -67,7 +67,16 @@ def convolve(a, out):
     out[i] = result
     out[-1] = a[-1]
 
-@nb.guvectorize([(F[:],F[:],F[:],F[:])],"(n),(m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+# @nb.guvectorize([(F[:],F[:]),(C[:],C[:])],"(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+# def convolve(a, out):
+#     """Convolves input array with kernel [0.25,0.5,0.25]"""
+#     n = len(out)
+#     assert n > 2  
+#     for i in range(n):
+#         out[i] = a[i] 
+
+
+@nb.guvectorize([(F[:],F[:],F[:],F[:]),(F[:],F[:],C[:],C[:])],"(n),(m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def interpolate(x_new, x,y,out):
     """Linear interpolation"""
     assert len(x) >= 2
@@ -88,7 +97,7 @@ def interpolate(x_new, x,y,out):
             deltax = x1 - x0
             out[i] = (xi - x0) * deltay/deltax +  y[-2]            
 
-@nb.guvectorize([(I64[:],I64[:],F[:],F[:])],"(n), (m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.guvectorize([(I64[:],I64[:],F[:],F[:]),(I64[:],I64[:],C[:],C[:])],"(n), (m),(m)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _log_interpolate(x_new, x,y, out):
     """Linear interpolation in semilogx space."""
     assert len(x) >= 2
@@ -124,8 +133,9 @@ def log_interpolate(x_new, x,y, out = None):
     
 log_interpolate.__doc__ = _log_interpolate.__doc__
 
+
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def median(array, out):
+def _median(array, out):
     """Performs median filter."""
     n = len(array)
     assert n > 2
@@ -148,14 +158,39 @@ def median(array, out):
     #out[n-1] = result_out
     #out[0] = out[1]
 
+def median(array, out = None):
+    """Performs median filter of complex or float data."""
+    array = np.asarray(array)
+    if np.iscomplexobj(array):
+        if out is None:
+            out = np.empty_like(array)
+        _median(array.real, out.real)
+        _median(array.imag, out.imag)
+        return out
+    else:
+        return _median(array, out)
+        
+    
 @nb.vectorize([F(F,F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
-def weighted_sum(x, y, weight):
+def _weighted_sum_real(x, y, weight):
+    return x * weight + (1.- weight) * y
+
+@nb.vectorize([C(C,C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)    
+def _weighted_sum_complex(x, y, weight):
+    real = x.real * weight.real + (1.- weight.real) * y.real
+    imag = x.imag * weight.imag + (1.- weight.imag) * y.imag
+    return real + 1j * imag
+
+def weighted_sum(x, y, weight, out = None):
     """Performs weighted sum of two data sets, given the weight data.
     Weight must be normalized between 0 and 1. Performs:
     `x * weight + (1.- weight) * y`
     """ 
-    return x * weight + (1.- weight) * y
-    
+    if np.iscomplexobj(weight):
+        return _weighted_sum_complex(x, y, weight, out)
+    else:
+        return _weighted_sum_real(x, y, weight, out)
+        
 @nb.guvectorize([(F[:],F[:])],"(n)->(n)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _median_slow(array, out):
     """Performs median filter. slow implementation... for testing"""
@@ -210,6 +245,16 @@ def _cross_corr_add_vec(xv,yv, out):
         tmp = x.real * y.real + x.imag * y.imag
         #add 
         out[j] = out[j] + tmp 
+        
+@nb.jit([(C[:],C[:], C[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_corr_complex_add_vec(xv,yv, out):
+    for j in range(xv.shape[0]):
+        x = xv[j]
+        y = yv[j]
+        #calculate cross product
+        tmp = y * np.conj(x)
+        #add 
+        out[j] = out[j] + tmp 
 
 @nb.jit([(C[:],C[:]), (F[:],F[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _add_vec(x, out):
@@ -236,15 +281,22 @@ def _calc_stats_vec(f,out1, out2):
     for i in range(f.shape[0]):
         _add_stats_vec(f[i],out1,out2)
 
- 
 @nb.guvectorize([(C[:,:],C[:,:],I64[:],I64[:],F[:,:],F[:,:])],"(l,k),(n,k),(l),(n),(m,k)->(m,k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_corr_vec(f1,f2,t1,t2,dummy,out):
     for i in range(f1.shape[0]):
         for j in range(f2.shape[0]):
             m=abs(t2[j]-t1[i])
             if m < out.shape[0]:
-                _cross_corr_add_vec(f2[j],f1[i], out[m])
-                
+                _cross_corr_add_vec(f1[i],f2[j], out[m])
+
+@nb.guvectorize([(C[:,:],C[:,:],I64[:],I64[:],C[:,:],C[:,:])],"(l,k),(n,k),(l),(n),(m,k)->(m,k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_corr_complex_vec(f1,f2,t1,t2,dummy,out):
+    for i in range(f1.shape[0]):
+        for j in range(f2.shape[0]):
+            m=t2[j]-t1[i]
+            if abs(m) < (out.shape[0]+1)//2:
+                _cross_corr_complex_add_vec(f1[i],f2[j], out[m])
+                            
 @nb.guvectorize([(C[:],C[:],I64[:],I64[:],F[:],F[:])],"(m),(n),(m),(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_corr(x,y,t1,t2,dummy,out):
     for i in range(x.shape[0]):
@@ -255,6 +307,15 @@ def _cross_corr(x,y,t1,t2,dummy,out):
                 tmp = x[i].real * y[j].real + x[i].imag * y[j].imag
                 out[m] += tmp
 
+@nb.guvectorize([(C[:],C[:],I64[:],I64[:],C[:],C[:])],"(m),(n),(m),(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_corr_complex(x,y,t1,t2,dummy,out):
+    for i in range(x.shape[0]):
+        for j in range(y.shape[0]):
+            m = t2[j]-t1[i]
+            if abs(m) < (out.shape[0]+1)//2:
+                tmp = np.conj(x[i]) *y[j]
+                out[m] += tmp
+                
 @nb.jit([(C[:],C[:], F[:])], nopython = True)
 def _cross_corr_add(xv,yv, out):
     for j in range(xv.shape[0]):
@@ -265,13 +326,32 @@ def _cross_corr_add(xv,yv, out):
         #add 
         out[0] = out[0] + tmp 
 
+@nb.jit([(C[:],C[:], C[:])], nopython = True)
+def _cross_corr_complex_add(xv,yv, out):
+    for j in range(xv.shape[0]):
+        x = xv[j]
+        y = yv[j]
+        #calculate cross product
+        tmp = y * np.conj(x)
+        #add 
+        out[0] = out[0] + tmp 
+
 @nb.guvectorize([(C[:],C[:],F[:],F[:])],"(n),(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_corr_regular(x,y,dummy,out):
     for i in range(out.shape[0]):
         n = x.shape[0] - i
-        _cross_corr_add(y[i:],x[0:n], out[i:i+1])
+        _cross_corr_add(x[0:n],y[i:], out[i:i+1])
         if i > 0:
             _cross_corr_add(y[0:n],x[i:], out[i:i+1])
+            
+@nb.guvectorize([(C[:],C[:],C[:],C[:])],"(n),(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_corr_complex_regular(x,y,dummy,out):
+    for i in range((out.shape[0]+1)//2):
+        n = x.shape[0] - i
+        _cross_corr_complex_add(x[0:n],y[i:], out[i:i+1])
+        if i > 0:
+            j = out.shape[0] - i
+            _cross_corr_complex_add(x[i:], y[0:n], out[j:j+1])
 
 @nb.guvectorize([(C[:],F[:],F[:])],"(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _auto_corr_regular(x,dummy,out):
@@ -279,25 +359,59 @@ def _auto_corr_regular(x,dummy,out):
         n = x.shape[0] - i
         _cross_corr_add(x[i:],x[0:n], out[i:i+1])
 
+@nb.guvectorize([(C[:],C[:],C[:])],"(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _auto_corr_complex_regular(x,dummy,out):
+    for i in range(out.shape[0]):
+        n = x.shape[0] - i
+        _cross_corr_complex_add(x[0:n],x[i:], out[i:i+1])
 
 @nb.guvectorize([(C[:,:],I64[:],F[:,:],F[:,:])],"(l,k),(l),(m,k)->(m,k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _auto_corr_vec(f,t,dummy,out):
     for i in range(f.shape[0]):
         for j in range(i, f.shape[0]):
-            m=abs(t[j]-t[i])
+            m= abs(t[j]-t[i])
             if m < out.shape[0]:
-                _cross_corr_add_vec(f[j],f[i], out[m])
+                _cross_corr_add_vec(f[i],f[j], out[m])
             #else just skip calculation
-            
+
+@nb.guvectorize([(C[:,:],I64[:],C[:,:],C[:,:])],"(l,k),(l),(m,k)->(m,k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _auto_corr_complex_vec(f,t,dummy,out):
+    for i in range(f.shape[0]):
+        for j in range(i, f.shape[0]):
+            m= t[j]-t[i] 
+            if m >= 0:
+                if m < out.shape[0]:
+                    _cross_corr_complex_add_vec(f[i],f[j], out[m])
+            else:
+                m = abs(m)
+                if m < out.shape[0]:
+                    #negative tau, so store complex conjugate
+                    _cross_corr_complex_add_vec(f[j],f[i], out[m])                
+                
 @nb.guvectorize([(C[:],I64[:],F[:],F[:])],"(l),(l),(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _auto_corr(f,t,dummy,out):
     for i in range(f.shape[0]):
         for j in range(i, f.shape[0]):
-            m=abs(t[j]-t[i])
+            m= abs(t[j]-t[i])
             if m < out.shape[0]:
                 tmp = f[i].real * f[j].real + f[i].imag * f[j].imag
                 out[m] += tmp
-              
+                
+@nb.guvectorize([(C[:],I64[:],C[:],C[:])],"(l),(l),(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _auto_corr_complex(f,t,dummy,out):
+    for i in range(f.shape[0]):
+        for j in range(i, f.shape[0]):
+            m = t[j]-t[i] 
+            if m >= 0:
+                if m < out.shape[0]:
+                    tmp = np.conj(f[i]) * f[j]
+                    out[m] += tmp
+            else:
+                m = abs(m)
+                if m < out.shape[0]:
+                    tmp = f[i] * np.conj(f[j])
+                    out[m] += tmp                
+                         
 @nb.jit([(C[:],C[:], F[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_diff_add_vec(xv,yv, out):
     for j in range(xv.shape[0]):
@@ -369,22 +483,38 @@ def _auto_diff(f,t,dummy,out):
                 d = tmp.real*tmp.real + tmp.imag*tmp.imag
                 out[m] += d
 
-
 @nb.guvectorize([(C[:,:],I64[:],I64[:],C[:,:],C[:,:]),(F[:,:],I64[:],I64[:],F[:,:],F[:,:])],"(l,k),(l),(n),(m,k)->(m,k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_sum_vec(f,t1,t2,dummy,out):
     for i in range(t1.shape[0]):
         for j in range(t2.shape[0]):
-            m=abs(t2[j]-t1[i])
+            m = abs(t2[j]-t1[i])
             if m < out.shape[0]:
                 _add_vec(f[i], out[m])
 
+@nb.guvectorize([(C[:,:],I64[:],I64[:],C[:,:],C[:,:]),(F[:,:],I64[:],I64[:],F[:,:],F[:,:])],"(l,k),(l),(n),(m,k)->(m,k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_sum_complex_vec(f,t1,t2,dummy,out):
+    for i in range(t1.shape[0]):
+        for j in range(t2.shape[0]):
+            m = t2[j]-t1[i]
+            if abs(m) < (out.shape[0]+1)//2:
+                _add_vec(f[i], out[m])
+                    
 @nb.guvectorize([(C[:],I64[:],I64[:],C[:],C[:]),(F[:],I64[:],I64[:],F[:],F[:])],"(l),(l),(n),(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_sum(f,t1,t2,dummy,out):
     for i in range(t1.shape[0]):
         for j in range(t2.shape[0]):
-            m=abs(t2[j]-t1[i])
+            m = abs(t2[j]-t1[i])
             if m < out.shape[0]:
                 out[m] += f[i]
+
+@nb.guvectorize([(C[:],I64[:],I64[:],C[:],C[:]),(F[:],I64[:],I64[:],F[:],F[:])],"(l),(l),(n),(m)->(m)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_sum_complex(f,t1,t2,dummy,out):
+    for i in range(t1.shape[0]):
+        for j in range(t2.shape[0]):
+            m = t2[j]-t1[i]
+            if abs(m) < (out.shape[0]+1)//2:
+                out[m] += f[i]
+
                                 
 @nb.guvectorize([(C[:],C[:],C[:]), (F[:],F[:],F[:])],"(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_sum_regular(x,dummy,out):
@@ -400,10 +530,26 @@ def _cross_sum_regular(x,dummy,out):
         if i > 0:
             prev = prev - x[i-1] - x[n]
             out[i] += prev 
+            
+@nb.guvectorize([(C[:],C[:],C[:]), (F[:],F[:],F[:])],"(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_sum_complex_regular(x,dummy,out):
+    for i in range((out.shape[0]+1)//2):
+        n = x.shape[0] - i
+        if i == 0:
+            tmp = out[0]
+            tmp = tmp*0.
+            for j in range(x.shape[0]):
+                tmp = tmp + x[j]
+            out[0] += tmp
+        if i > 0:
+            out[i] += out[i-1] - x[n]
+            out[-i] += out[1-i] - x[i-1]
 
-@nb.guvectorize([(C[:],C[:],F[:],F[:])],"(n),(n),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.guvectorize([(C[:],C[:],F[:],F[:]),(C[:],C[:],C[:],C[:])],"(n),(n),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_corr_fft_regular(x, y, dummy, out):
     out_length = len(dummy)
+    if np.iscomplexobj(out):
+        out_length = (out_length+1)//2
     length = len(x)
     tmp1 = np.empty((length*2), x.dtype)
     tmp1[0:length] = x
@@ -414,14 +560,17 @@ def _cross_corr_fft_regular(x, y, dummy, out):
     x = _fft(tmp1, overwrite_x = True)
     y = _fft(tmp2, overwrite_x = True)
     
-    x = x*np.conj(y)
+    x = np.conj(x)*y
 
     _out = _ifft(x, overwrite_x = True)
-
-    out[:] += _out[:out_length].real
-    out[1:] += _out[-1:-out_length:-1].real
+    if np.iscomplexobj(out):
+        out[:out_length] += _out[:out_length]
+        out[-1:-out_length:-1] += _out[-1:-out_length:-1]        
+    else:
+        out[:] += _out[:out_length].real
+        out[1:] += _out[-1:-out_length:-1].real
     
-@nb.guvectorize([(C[:],F[:],F[:])],"(n),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.guvectorize([(C[:],F[:],F[:]),(C[:],C[:],C[:])],"(n),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _auto_corr_fft_regular(x, dummy, out):
     out_length = len(dummy)
     length = len(x)
@@ -433,7 +582,12 @@ def _auto_corr_fft_regular(x, dummy, out):
     x = x*np.conj(x)
 
     _out = _ifft(x, overwrite_x = True)
-    out[:] += _out[:out_length].real    
+    
+    if np.iscomplexobj(out):
+        out[:] += _out[:out_length]
+    else:
+        out[:] += _out[:out_length].real
+    
 
 @nb.jit([(C[:],I64[:],C[:]),(F[:],I64[:],C[:])], nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _fill_data(x,t, out):
@@ -449,9 +603,11 @@ def _fill_ones(t, out):
         if m < out.shape[0]:
             out[m] = 1.
          
-@nb.guvectorize([(C[:],C[:],I64[:],I64[:],I64[:],F[:],F[:])],"(n),(n),(n),(n),(),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.guvectorize([(C[:],C[:],I64[:],I64[:],I64[:],F[:],F[:]),(C[:],C[:],I64[:],I64[:],I64[:],C[:],C[:])],"(n),(n),(n),(n),(),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_corr_fft(x, y, t1,t2,length, dummy, out):
     out_length = len(dummy)
+    if np.iscomplexobj(out):
+        out_length = (out_length+1)//2
     
     tmp1 = np.zeros((length*2), x.dtype)
     _fill_data(x,t1, tmp1)
@@ -461,13 +617,17 @@ def _cross_corr_fft(x, y, t1,t2,length, dummy, out):
     #tmp2[list(t2)] = y 
     x = _fft(tmp1, overwrite_x = True)
     y = _fft(tmp2, overwrite_x = True)
-    np.conj(y, out = y)
+    np.conj(x, out = x)
     np.multiply(x,y, out = x)
     _out = _ifft(x, overwrite_x = True)
-    out[:] += _out[:out_length].real
-    out[1:] += _out[-1:-out_length:-1].real
-    
-@nb.guvectorize([(C[:],I64[:],I64[:],F[:],F[:])],"(n),(n),(),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+    if np.iscomplexobj(out):
+        out[:out_length] += _out[:out_length]
+        out[-1:-out_length:-1] += _out[-1:-out_length:-1]       
+    else:
+        out[:] += _out[:out_length].real
+        out[1:] += _out[-1:-out_length:-1].real
+        
+@nb.guvectorize([(C[:],I64[:],I64[:],F[:],F[:]),(C[:],I64[:],I64[:],C[:],C[:])],"(n),(n),(),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _auto_corr_fft(x, t,length, dummy, out):
     out_length = len(dummy)
     
@@ -478,30 +638,44 @@ def _auto_corr_fft(x, t,length, dummy, out):
     y = np.conj(x)
     np.multiply(x,y, out = x)
     _out = _ifft(x, overwrite_x = True)
-    out[:] += _out[:out_length].real
-
-@nb.guvectorize([(C[:],C[:],I64[:],I64[:],C[:],C[:])],"(n),(m),(n),(),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+    if np.iscomplexobj(out):
+        out[:] += _out[:out_length]
+    else:
+        out[:] += _out[:out_length].real
+    
+@nb.guvectorize([(C[:],C[:],I64[:],I64[:],F[:],F[:]), (C[:],C[:],I64[:],I64[:],C[:],C[:])],"(n),(m),(n),(),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_sum_fft(x, y,t,length, dummy, out):
     out_length = len(dummy)
     tmp1 = np.zeros((length*2), x.dtype)
     _fill_data(x,t, tmp1)
     x = _fft(tmp1, overwrite_x = True)
-    np.multiply(x,y, out = x)
+    np.multiply(np.conj(x),y, out = x)
     _out = _ifft(x, overwrite_x = True)
-    out[:] += _out[:out_length]
-    out[1:] += _out[-1:-out_length:-1]
-
-
-@nb.guvectorize([(F[:],C[:],I64[:],I64[:],F[:],F[:])],"(n),(m),(n),(),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _cross_sum_rfft(x, y,t,length, dummy, out):
+    if np.iscomplexobj(out):
+        out[:] += np.conj(_out[:out_length])
+        out[1:] += np.conj(_out[-1:-out_length:-1])
+    else:
+        out[:] += _out[:out_length].real
+        out[1:] += _out[-1:-out_length:-1].real
+        
+    
+@nb.guvectorize([(C[:],C[:],I64[:],I64[:],F[:],F[:]),(C[:],C[:],I64[:],I64[:],C[:],C[:])],"(n),(m),(n),(),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_sum_complex_fft(x, y,t,length, dummy, out):
     out_length = len(dummy)
-    tmp1 = np.zeros((length*2), y.dtype)
+    out_length = (out_length+1)//2
+    tmp1 = np.zeros((length*2), x.dtype)
     _fill_data(x,t, tmp1)
     x = _fft(tmp1, overwrite_x = True)
-    np.multiply(x,y, out = x)
+    np.multiply(np.conj(x),y, out = x)
     _out = _ifft(x, overwrite_x = True)
-    out[:] += _out[:out_length].real
-    out[1:] = out[1:] + _out[-1:-out_length:-1].real
+    if np.iscomplexobj(out):
+        out[:out_length] += np.conj(_out[:out_length])
+        out[-1:-out_length:-1] += np.conj(_out[-1:-out_length:-1])
+    else:
+        out[:out_length] += _out[:out_length].real
+        out[-1:-out_length:-1] += _out[-1:-out_length:-1].real       
+
+
 
 #-----------------------------
 # occurence count functions
@@ -510,8 +684,16 @@ def _cross_sum_rfft(x, y,t,length, dummy, out):
 def _add_count_cross(t1,t2,n):
     for ii in range(t1.shape[0]):
         for jj in range(t2.shape[0]):
-            m = abs(t1[ii] - t2[jj])
+            m = abs(t2[jj] - t1[ii])
             if m < len(n):
+                n[m] += 1   
+
+@nb.jit(nopython = True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH) 
+def _add_count_cross_complex(t1,t2,n):
+    for ii in range(t1.shape[0]):
+        for jj in range(t2.shape[0]):
+            m = t2[jj] - t1[ii]
+            if abs(m) < (len(n)+1)/2:
                 n[m] += 1   
                 
 # @nb.jit([(I64[:],I64[:],I64[:,:],I64[:,:])],cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
@@ -544,7 +726,7 @@ def cross_tau_times(t1,t2,tpos,tneg):
         for jj in range(t2.shape[0]):
             m = t1[ii] - t2[jj]
             if abs(m) < tpos.shape[0]:
-                if m > 0:
+                if m >= 0:
                     i = count_pos[m]
                     if i < tpos.shape[1]:
                         tpos[m,i] = t1[ii]   
@@ -621,6 +803,198 @@ def _add_count_auto(t,n):
     
 #normalization functions
 #-----------------------
+
+# complex inf 
+CINF = C(np.inf + np.inf*1j)
+
+@nb.vectorize([F(F,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_baseline_real(data, count, bg1, bg2):
+    return data/count - (bg1.real * bg2.real + bg1.imag * bg2.imag)
+
+@nb.vectorize([C(C,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_baseline_complex(data, count, bg1, bg2):
+    if count != 0:
+        return data/count - bg2 * np.conj(bg1)
+    else:
+        return CINF
+
+def normalize_corr_baseline(data, count, bg1, bg2, out = None):
+    if np.iscomplexobj(data):
+        return _normalize_corr_baseline_complex(data, count, bg1, bg2, out)
+    else:
+        return _normalize_corr_baseline_real(data, count, bg1, bg2, out)
+
+
+@nb.vectorize([F(F,I64,C,C,F,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_struct_baseline_real(data, count, bg1, bg2, var, sq):
+    tmp = data - 0.5 * sq
+    
+    tmp = tmp/count
+    
+    d = (bg1.real - bg2.real)
+    d2 = d*d
+    d = (bg1.imag - bg2.imag)
+    d2 = d2 + d*d
+    
+    return tmp + (0.5 * d2) + var
+
+@nb.vectorize([C(C,I64,C,C,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_struct_baseline_complex(data, count, bg1, bg2, var, sq):
+    tmp = data - 0.5 * sq * (1. + 1j)
+    
+    if count != 0:
+        tmp = tmp/count
+    else:
+        tmp = CINF
+    
+    d = (bg1.real - bg2.real)
+    d2 = d*d
+    d = (bg1.imag - bg2.imag)
+    d2 = d2 + d*d
+    
+    real = (0.5 * d2) + var
+    
+    d = (bg1.imag + bg2.real)
+    d2 = d*d
+    d = (bg1.real - bg2.imag)
+    d2 = d2 + d*d    
+    
+    imag = (0.5 * d2) + var
+    
+    return tmp + real + (1j* imag)
+
+def normalize_struct_baseline(data, count, bg1, bg2, var, sq, out = None):
+    if np.iscomplexobj(data):
+        return _normalize_struct_baseline_complex(data, count, bg1, bg2, var, sq, out)
+    else:
+        return _normalize_struct_baseline_real(data, count, bg1, bg2, var, sq, out)
+
+@nb.vectorize([F(F,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_compensated_real(data, count, m1, m2):
+    tmp = m1.real * m2.real + m1.imag * m2.imag
+    tmp = tmp/count
+    tmp = data - tmp
+    return tmp/count
+
+@nb.vectorize([C(C,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_compensated_complex(data, count, m1, m2):
+    tmp = m1.real * m2.real + m1.imag * m2.imag
+    tmp = tmp/count
+    tmp = data - tmp
+    return tmp/count
+
+
+@nb.vectorize([F(F,I64,C,C,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_subtracted_real(data, count, bg1, bg2, m1, m2):
+    tmp = data
+    tmp = tmp - bg1.real * m2.real - bg1.imag * m2.imag
+    tmp = tmp - bg2.real * m1.real - bg2.imag * m1.imag
+    return  tmp/count + bg1.real * bg2.real + bg1.imag * bg2.imag
+
+
+@nb.vectorize([C(C,I64,C,C,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_subtracted_complex(data, count, bg1, bg2, m1, m2):
+    tmp = data
+    
+    tmp = tmp - np.conj(bg1) * m2 - np.conj(m1) * bg2
+    
+    if count != 0:
+        return tmp/count + np.conj(bg1) * bg2
+    else:
+        return CINF
+
+
+def normalize_corr_subtracted(data, count, bg1, bg2, m1,m2, out = None):
+    if np.iscomplexobj(data):
+        return _normalize_corr_subtracted_complex(data, count, bg1, bg2, m1,m2, out)
+    else:
+        return _normalize_corr_subtracted_real(data, count, bg1, bg2, m1, m2, out)
+
+
+@nb.vectorize([F(F,I64,C,C,F,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_struct_subtracted_real(data, count, bg1, bg2, var, sq, m1, m2):
+    tmp = data - 0.5 * sq
+    
+    tmp = tmp + (m1.real-m2.real)* (bg1.real- bg2.real)
+    tmp = tmp + (m1.imag-m2.imag)* (bg1.imag- bg2.imag)
+
+    tmp = tmp/count
+    
+    d = (bg1.real - bg2.real)
+    d2 = d*d
+    d = (bg1.imag - bg2.imag)
+    d2 = d2 + d*d
+    
+    return tmp - (0.5 * d2) + var
+
+@nb.vectorize([C(C,I64,C,C,F,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_struct_subtracted_complex(data, count, bg1, bg2, var, sq, m1, m2):
+    tmp = data  - 0.5 * sq * (1. + 1j)
+    
+    
+    real = (m1.real-m2.real)* (bg1.real- bg2.real)
+    real += (m1.imag-m2.imag)* (bg1.imag- bg2.imag)
+    
+    imag = (m1.imag + m2.real)* (bg1.imag + bg2.real)
+    imag += (m1.real-m2.imag)* (bg1.real- bg2.imag)
+    
+    
+    tmp = tmp + real + imag * 1j
+    
+    if count != 0:
+        tmp = tmp/count
+    else:
+        tmp = CINF
+    
+    d = (bg2.real - bg1.real)
+    d2 = d*d
+    d = (bg1.imag - bg2.imag)
+    d2 = d2 + d*d
+    
+    real = (0.5 * d2) - var
+    
+    d = (bg1.imag + bg2.real)
+    d2 = d*d
+    d = (bg1.real - bg2.imag)
+    d2 = d2 + d*d    
+    
+    imag = (0.5 * d2) - var
+    
+    c = real + 1j* imag
+    
+    return tmp - c
+
+def normalize_struct_subtracted(data, count, bg1, bg2, var, m1,m2, sq, out = None):
+    if np.iscomplexobj(data):
+        return _normalize_struct_subtracted_complex(data, count, bg1, bg2, var, m1, m2, sq, out)
+    else:
+        return _normalize_struct_subtracted_real(data, count, bg1, bg2, var, m1, m2, sq, out)
+
+
+    
+@nb.vectorize([F(F,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_compensated_real(data, count, m1, m2):
+    tmp = m1.real * m2.real + m1.imag * m2.imag
+    tmp = tmp/count
+    tmp = data - tmp
+    return tmp/count
+
+@nb.vectorize([C(C,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_compensated_complex(data, count, m1, m2):
+    tmp = m1 * np.conj(m2)
+    tmp = tmp/count
+    tmp = data - tmp
+    if count != 0:
+        return tmp/count
+    else:
+        return CINF
+
+def normalize_corr_compensated(data, count, m1,m2, out = None):
+    if np.iscomplexobj(data):
+        return _normalize_corr_compensated_complex(data, count,  m1, m2, out)
+    else:
+        return _normalize_corr_compensated_real(data, count,  m1, m2, out)
+        
     
 @nb.vectorize([F(F,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _normalize_ccorr_0(data, count, bg1, bg2):
@@ -699,11 +1073,11 @@ def _normalize_ccorr_1(data, count, bg1, bg2, sq):
 #     tmp2 = g**2 + 1 + 2*delta**2
 #     return tmp1/tmp2    
 
-@nb.vectorize([F(C,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+@nb.vectorize([F(F,F),C(C,F)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def weight_from_g(g, delta):
     """Computes weight for weighted normalization from normalized and scaled 
     correlation function"""
-    tmp1 = 2*g.real
+    tmp1 = 2*g
     g2 = g.real**2 + g.imag**2
     tmp2 = g2 + 1 + delta**2
     return tmp1/tmp2    

@@ -1,4 +1,4 @@
-"""Plots Fig 5 of the paper. Firs create data calling:
+"""Plots Fig 5 of the paper. First create data calling:
 
 $ python cross_correlate.py 
 $ python auto_correlate_fast.py
