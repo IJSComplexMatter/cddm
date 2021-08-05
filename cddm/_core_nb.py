@@ -532,6 +532,24 @@ def _cross_sum_regular(x,dummy,out):
             out[i] += prev 
             
 @nb.guvectorize([(C[:],C[:],C[:]), (F[:],F[:],F[:])],"(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _cross_sum_complex_regular_inverted(x,dummy,out):
+    for i in range((out.shape[0]+1)//2):
+        n = x.shape[0] - i
+        if i == 0:
+            tmp = out[0]
+            tmp = tmp*0.
+            for j in range(x.shape[0]):
+                tmp = tmp + x[j]
+            prev1 = tmp
+            prev2 = tmp
+            out[0] += tmp
+        if i > 0:
+            prev1 = prev1 - x[i-1]
+            prev2 = prev2 - x[n]
+            out[i] += prev1 
+            out[-i] += prev2 
+
+@nb.guvectorize([(C[:],C[:],C[:]), (F[:],F[:],F[:])],"(n),(k)->(k)", target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_sum_complex_regular(x,dummy,out):
     for i in range((out.shape[0]+1)//2):
         n = x.shape[0] - i
@@ -540,10 +558,15 @@ def _cross_sum_complex_regular(x,dummy,out):
             tmp = tmp*0.
             for j in range(x.shape[0]):
                 tmp = tmp + x[j]
+            prev1 = tmp
+            prev2 = tmp
             out[0] += tmp
         if i > 0:
-            out[i] += out[i-1] - x[n]
-            out[-i] += out[1-i] - x[i-1]
+            prev1 = prev1 - x[i-1]
+            prev2 = prev2 - x[n]
+            out[i] += prev2 
+            out[-i] += prev1 
+
 
 @nb.guvectorize([(C[:],C[:],F[:],F[:]),(C[:],C[:],C[:],C[:])],"(n),(n),(k)->(k)", forceobj=True, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _cross_corr_fft_regular(x, y, dummy, out):
@@ -878,11 +901,86 @@ def _normalize_corr_compensated_real(data, count, m1, m2):
 
 @nb.vectorize([C(C,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _normalize_corr_compensated_complex(data, count, m1, m2):
+    if count != 0:
+        tmp = m2 * np.conj(m1)
+        tmp = tmp/count
+        tmp = data - tmp
+        return tmp/count
+    else:
+        return CINF
+
+def normalize_corr_compensated(data, count, m1, m2, out = None):
+    if np.iscomplexobj(data):
+        return _normalize_corr_compensated_complex(data, count, m1, m2, out)
+    else:
+        return _normalize_corr_compensated_real(data, count, m1, m2, out)
+
+@nb.vectorize([F(F,I64,C,C,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_compensated_subtracted_real(data, count, bg1, bg2, m1, m2):
     tmp = m1.real * m2.real + m1.imag * m2.imag
     tmp = tmp/count
     tmp = data - tmp
-    return tmp/count
+    tmp = tmp/count 
+    
+    tmp += (m1.real/count - bg1.real)*(m2.real/count - bg2.real)
+    tmp += (m1.imag/count - bg1.imag)*(m2.imag/count - bg2.imag)
+    return tmp
 
+@nb.vectorize([C(C,I64,C,C,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_corr_compensated_subtracted_complex(data, count, bg1, bg2, m1, m2):
+    if count != 0:
+        tmp = m2 * np.conj(m1)
+        tmp = tmp/count
+        tmp = data - tmp
+        tmp = tmp/count
+        tmp += np.conj(m1/count-bg1)*(m2/count-bg2)
+        return tmp
+    else:
+        return CINF
+
+def normalize_corr_compensated_subtracted(data, count, bg1, bg2, m1, m2, out = None):
+    if np.iscomplexobj(data):
+        return _normalize_corr_compensated_subtracted_complex(data, count, bg1, bg2, m1, m2, out)
+    else:
+        return _normalize_corr_compensated_subtracted_real(data, count, bg1, bg2, m1, m2, out)
+
+
+
+@nb.vectorize([F(F,I64,F,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_struct_compensated_real(data, count, var, sq, m1, m2):
+
+    tmp = (m1.real-m2.real)* (m1.real- m2.real)
+    tmp = tmp + (m1.imag-m2.imag)* (m1.imag- m2.imag)
+    tmp = 0.5*tmp/count
+    tmp = data + tmp - 0.5 * sq 
+
+    return tmp/count + var
+
+@nb.vectorize([C(C,I64,F,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _normalize_struct_compensated_complex(data, count, var, sq, m1, m2):
+    if count == 0:
+        return CINF
+    else:
+        real = (m1.real-m2.real)* (m1.real- m2.real)
+        real = real + (m1.imag-m2.imag)* (m1.imag- m2.imag)
+        real = 0.5*real/count - 0.5 * sq 
+        real = real/count + var
+        
+        imag = (m1.imag+m2.real)* (m1.imag+ m2.real)
+        imag = imag + (m1.real-m2.imag)* (m1.real- m2.imag)
+        imag = 0.5*imag/count - 0.5 * sq 
+        imag = imag/count + var    
+        
+        c = real + 1j* imag
+    
+        return data/count + c
+
+def normalize_struct_compensated(data, count, var, sq, m1,m2, out = None):
+    if np.iscomplexobj(data):
+        return _normalize_struct_compensated_complex(data, count, var, sq, m1,m2, out)
+    else:
+        return _normalize_struct_compensated_real(data, count, var, sq, m1,m2, out)
+        
 
 @nb.vectorize([F(F,I64,C,C,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _normalize_corr_subtracted_real(data, count, bg1, bg2, m1, m2):
@@ -929,40 +1027,43 @@ def _normalize_struct_subtracted_real(data, count, bg1, bg2, var, sq, m1, m2):
 
 @nb.vectorize([C(C,I64,C,C,F,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _normalize_struct_subtracted_complex(data, count, bg1, bg2, var, sq, m1, m2):
-    tmp = data  - 0.5 * sq * (1. + 1j)
-    
-    
-    real = (m1.real-m2.real)* (bg1.real- bg2.real)
-    real += (m1.imag-m2.imag)* (bg1.imag- bg2.imag)
-    
-    imag = (m1.imag + m2.real)* (bg1.imag + bg2.real)
-    imag += (m1.real-m2.imag)* (bg1.real- bg2.imag)
-    
-    
-    tmp = tmp + real + imag * 1j
-    
-    if count != 0:
-        tmp = tmp/count
+    if count == 0:
+        return CINF
     else:
-        tmp = CINF
     
-    d = (bg2.real - bg1.real)
-    d2 = d*d
-    d = (bg1.imag - bg2.imag)
-    d2 = d2 + d*d
+        tmp = data  - 0.5 * sq * (1. + 1j)
+        
+        
+        real = (m1.real-m2.real)* (bg1.real- bg2.real)
+        real += (m1.imag-m2.imag)* (bg1.imag- bg2.imag)
+        
+        imag = (m1.imag + m2.real)* (bg1.imag + bg2.real)
+        imag += (m1.real-m2.imag)* (bg1.real- bg2.imag)
+        
+        
+        tmp = tmp + real + imag * 1j
+        
     
-    real = (0.5 * d2) - var
+        tmp = tmp/count
     
-    d = (bg1.imag + bg2.real)
-    d2 = d*d
-    d = (bg1.real - bg2.imag)
-    d2 = d2 + d*d    
-    
-    imag = (0.5 * d2) - var
-    
-    c = real + 1j* imag
-    
-    return tmp - c
+        
+        d = (bg2.real - bg1.real)
+        d2 = d*d
+        d = (bg1.imag - bg2.imag)
+        d2 = d2 + d*d
+        
+        real = (0.5 * d2) - var
+        
+        d = (bg1.imag + bg2.real)
+        d2 = d*d
+        d = (bg1.real - bg2.imag)
+        d2 = d2 + d*d    
+        
+        imag = (0.5 * d2) - var
+        
+        c = real + 1j* imag
+        
+        return tmp - c
 
 def normalize_struct_subtracted(data, count, bg1, bg2, var, m1,m2, sq, out = None):
     if np.iscomplexobj(data):
@@ -971,31 +1072,6 @@ def normalize_struct_subtracted(data, count, bg1, bg2, var, m1,m2, sq, out = Non
         return _normalize_struct_subtracted_real(data, count, bg1, bg2, var, m1, m2, sq, out)
 
 
-    
-@nb.vectorize([F(F,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _normalize_corr_compensated_real(data, count, m1, m2):
-    tmp = m1.real * m2.real + m1.imag * m2.imag
-    tmp = tmp/count
-    tmp = data - tmp
-    return tmp/count
-
-@nb.vectorize([C(C,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
-def _normalize_corr_compensated_complex(data, count, m1, m2):
-    tmp = m1 * np.conj(m2)
-    tmp = tmp/count
-    tmp = data - tmp
-    if count != 0:
-        return tmp/count
-    else:
-        return CINF
-
-def normalize_corr_compensated(data, count, m1,m2, out = None):
-    if np.iscomplexobj(data):
-        return _normalize_corr_compensated_complex(data, count,  m1, m2, out)
-    else:
-        return _normalize_corr_compensated_real(data, count,  m1, m2, out)
-        
-    
 @nb.vectorize([F(F,I64,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _normalize_ccorr_0(data, count, bg1, bg2):
     return data/count - (bg1.real * bg2.real + bg1.imag * bg2.imag)

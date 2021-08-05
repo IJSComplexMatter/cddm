@@ -1,11 +1,12 @@
 """
 For testing, inspects videos and performs live correlation calculation...
 """
-from cddm.viewer import MultitauViewer
+from cddm.viewer import MultitauViewer, CorrViewer
 from cddm.video import multiply, normalize_video, crop, show_video, play_threaded, asarrays, load, show_diff
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
 from cddm.multitau import iccorr_multi, normalize_multi, log_merge
+from cddm.core import iccorr
 import cddm.conf
 
 import numpy as np
@@ -46,13 +47,14 @@ fft = rfft2(video, kimax = KIMAX, kjmax = KJMAX)
 #: this it therefore equivalent to  normalize_video
 #fft = normalize_fft(fft)
 
-fft = play_threaded(fft)
+#fft = play_threaded(fft)
 
 if __name__ == "__main__":
     import os.path as p
 
     #we will show live calculation with the viewer
-    viewer = MultitauViewer(scale = True, semilogx = False)
+    #viewer = MultitauViewer(scale = True, semilogx = True)
+    viewer = CorrViewer(scale = True, semilogx = False)
     
     #initial mask parameters
     viewer.k = 15
@@ -60,7 +62,7 @@ if __name__ == "__main__":
     
     
     #: now perform auto correlation calculation with default parameters and show live
-    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer,complex = True)
-
+    #data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer,complex = True)
+    data, bg, var = iccorr(fft, t1, t2,n=256, viewer = viewer,complex = True)
 
     viewer.show()

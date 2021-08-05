@@ -54,7 +54,7 @@ from cddm._core_nb import _cross_corr_fft_regular, _cross_corr_fft, \
   
 #complex versions
 from cddm._core_nb import _cross_corr_complex_regular, _cross_corr_complex, _cross_corr_complex_vec, \
-  _auto_corr_complex_regular,_auto_corr_complex, _auto_corr_complex_vec, _cross_sum_complex, _cross_sum_complex_regular
+  _auto_corr_complex_regular,_auto_corr_complex, _auto_corr_complex_vec, _cross_sum_complex, _cross_sum_complex_regular,_cross_sum_complex_regular_inverted
 
 #imported for backward compatibility
 from cddm.norm import NORM_STANDARD, NORM_SUBTRACTED, NORM_STRUCTURED, NORM_WEIGHTED, NORM_COMPENSATED
@@ -809,7 +809,10 @@ def cross_sum(f, t = None, t_other = None, axis = 0, n = None, align = False, co
     
         
     if regular == True:
-        out = _cross_sum_complex_regular(f,out,out) if complex else _cross_sum_regular(f,out,out) 
+        if complex == True: 
+            out = _cross_sum_complex_regular_inverted(f,out,out) if time_inversion else _cross_sum_complex_regular(f,out,out)
+        else:
+            out = _cross_sum_regular(f,out,out) 
     else:
         if time_inversion == True:
             t, t_other = -t, -t_other
@@ -1253,7 +1256,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
     else:
         cor = cross_difference(f1,f2,t1,t2, axis = new_axis, n = n, aout = cor)
     if t1 is None:
-        t = np.arange(f1.shape[new_axis])
+        t = np.arange(f1.shape[new_axis]) 
         count = cross_count(t,t,n, complex = complex, aout = count)
     else:
         count = cross_count(t1,t2,n, complex = complex, aout = count)
@@ -1295,7 +1298,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
 
 def iccorr(data, t1 = None, t2 = None, n = None, norm = None, method = "corr", count = None,
                 chunk_size = None, thread_divisor = None,  
-                auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
+                auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True, complex = False):
     """Iterative version of :func:`ccorr`.
     
     Parameters
@@ -1343,6 +1346,9 @@ def iccorr(data, t1 = None, t2 = None, n = None, norm = None, method = "corr", c
         arrays.
     stats : bool
         Whether to return stats as well.
+    complex : bool, optional
+        If set to False (default), a real-valued correlation is calculated. If set 
+        to True, a complex-valued correlation is calculated.
         
     Returns
     -------
@@ -1365,7 +1371,7 @@ def iccorr(data, t1 = None, t2 = None, n = None, norm = None, method = "corr", c
 
     for i, mdata in enumerate(_compute_multi_iter(data, t1, t2, period = period , level_size = n , 
                         chunk_size = chunk_size,   method = method, count = count, auto_background = auto_background, nlevel = nlevel, 
-                        norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats, cross = True)):
+                        norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats, cross = True, complex = complex)):
         if stats == True:
             (data, dummy), bg, var = mdata
         else:
@@ -1388,7 +1394,7 @@ def iccorr(data, t1 = None, t2 = None, n = None, norm = None, method = "corr", c
 
 def iacorr(data, t = None, n = None, norm = 0, method = "corr", count = None,
                 chunk_size = None, thread_divisor = None,  
-                auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True):
+                auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True, complex = False):
     """Iterative version of :func:`ccorr`
         
     Parameters
@@ -1433,6 +1439,9 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr", count = None,
         arrays.
     stats : bool
         Whether to return stats as well.
+    complex : bool, optional
+        If set to False (default), a real-valued correlation is calculated. If set 
+        to True, a complex-valued correlation is calculated.
         
     Returns
     -------
@@ -1453,7 +1462,7 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr", count = None,
 
     for i, mdata in enumerate(_compute_multi_iter(data, t, period = period , level_size = n , 
                         chunk_size = chunk_size,   method = method,  count = count, auto_background = auto_background, nlevel = nlevel, 
-                        norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats, cross = False)):
+                        norm = norm,  thread_divisor = thread_divisor, mode = mode, mask = mask,stats = stats, cross = False, complex = complex)):
         if stats == True:
             (data, dummy), bg, var = mdata
         else:

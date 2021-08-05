@@ -557,11 +557,11 @@ def _full_size(n):
 def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True, complex = False):
     if OPTIMIZE_LAYOUT:
         fast_shape = shape[0:-1] + (n_fast,) + shape[-1:]  
-        if complex:
+        if complex and cross:
             fast_shape = shape[0:-1] + (_full_size(n_fast),) + shape[-1:] 
     else :
         fast_shape =  shape + (n_fast,)
-        if complex:
+        if complex and cross:
             fast_shape = shape + (_full_size(n_fast),)
             
     out_fast = np.zeros(fast_shape, CDTYPE) if complex else np.zeros(fast_shape, FDTYPE)
@@ -585,7 +585,7 @@ def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True, complex
     else:
         sq_fast = None
         
-    count_fast = np.zeros((_full_size(n_fast),),IDTYPE) if complex else np.zeros((n_fast,),IDTYPE)
+    count_fast = np.zeros((_full_size(n_fast),),IDTYPE) if complex and cross else np.zeros((n_fast,),IDTYPE)
     
     if correlate:
         data_fast = out_fast, count_fast, sq_fast, m1_fast, m2_fast
@@ -597,11 +597,11 @@ def _init_data_slow(n_level, n_slow, shape, norm, cross = True, correlate = True
      
     if OPTIMIZE_LAYOUT:
         slow_shape = (n_level,) + shape[0:-1] + (n_slow,) + shape[-1:] 
-        if complex:
+        if complex and cross:
             slow_shape = (n_level,) + shape[0:-1] + (_full_size(n_slow),) + shape[-1:] 
     else:
         slow_shape = (n_level,) + shape + (n_slow,)  
-        if complex:
+        if complex and cross:
             slow_shape = (n_level,) + shape + (_full_size(n_slow),)  
     
     out_slow = np.zeros(slow_shape, CDTYPE) if complex else np.zeros(slow_shape, FDTYPE) 
@@ -624,7 +624,7 @@ def _init_data_slow(n_level, n_slow, shape, norm, cross = True, correlate = True
     else:
         sq_slow = None
         
-    count_slow = np.zeros((n_level, _full_size(n_slow),),IDTYPE) if complex else np.zeros((n_level, n_slow,),IDTYPE) 
+    count_slow = np.zeros((n_level, _full_size(n_slow),),IDTYPE) if complex and cross else np.zeros((n_level, n_slow,),IDTYPE) 
         
     if correlate:
         data_slow = out_slow, count_slow, sq_slow, m1_slow, m2_slow
@@ -911,16 +911,36 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
 
                     f2s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
 
-                    if correlate:
-                        out = data_fast[0],data_fast[1], data_fast[2], None, None 
-                    else:
-                        out = data_fast[0],data_fast[1], None, None 
+                    # if correlate:
+                    #     out = data_fast[0],data_fast[1], data_fast[2], None, None 
+                    # else:
+                    #     out = data_fast[0],data_fast[1], None, None 
 
-                    out = ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata1,0,fstart2,fstop2),t1[istart1:istop1],t1[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex)
+                    # out = ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata1,0,fstart2,fstop2),t1[istart1:istop1],t1[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex)
 
+                    # if m1_fast is not None:
+                    #     m1_fast += out[3] /2
+                    #     m1_fast += out[4] /2
+                    
+
+                    # out = ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata1,0,fstart2,fstop2),t1[istart1:istop1],t1[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex)
+
+                    # if m1_fast is not None:
+                    #     m1_fast += out[3] /2
+                    #     m1_fast += out[4] /2          
+                        
+                    out = ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata1,0,fstart2,fstop2),t1[istart1:istop1],t1[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm, method = method, complex = complex)
+                        
+                    out_fast += out[0][...,0:n_fast]
+                    count_fast += out[1][...,0:n_fast]
+                    
+                    if sq_fast is not None:
+                        sq_fast += out[2][...,0:n_fast]
+  
                     if m1_fast is not None:
-                        m1_fast += out[3] /2
-                        m1_fast += out[4] /2
+                        m1_fast += out[3][...,0:n_fast] /2
+                        m1_fast += out[4][...,0:n_fast] /2   
+                    
                 if cross:
 
                     f1s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
@@ -971,17 +991,31 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
 
                             f2s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
 
-                            _out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
-                            if correlate:
-                                out = _out[0],_out[1], _out[2], None, None 
-                            else:
-                                out = _out[0],_out[1], None, None 
+                            # _out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
+                            # if correlate:
+                            #     out = _out[0],_out[1], _out[2], None, None 
+                            # else:
+                            #     out = _out[0],_out[1], None, None 
 
-                            out = ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata1,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex)
+                            # out = ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata1,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex)
 
+                            # if m1_slow is not None:
+                            #     m1_slow[j-1] += out[3] /2
+                            #     m1_slow[j-1] += out[4] /2
+                            
+                            out = ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata1,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s,  axis = axis, n = n_fast,norm = norm, method = method, complex = complex)
+
+
+                            out_slow[j-1] += out[0][...,0:n_slow]
+                            count_slow[j-1] += out[1][...,0:n_slow]
+                            
+                            if sq_slow is not None:
+                                sq_slow[j-1] += out[2][...,0:n_slow]
+          
                             if m1_slow is not None:
-                                m1_slow[j-1] += out[3] /2
-                                m1_slow[j-1] += out[4] /2
+                                m1_slow[j-1] += out[3][...,0:n_slow] /2
+                                m1_slow[j-1] += out[4][...,0:n_slow] /2                                   
+                                
                         if cross:
 
                             f1s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
@@ -1556,7 +1590,6 @@ def log_merge(lin,multi, binning = BINNING_MEAN, fold = None):
     """
     binning = _inspect_binning(binning)
     if np.iscomplexobj(lin):
-        1/0
         if fold is None:
             raise ValueError("You must specify whether to fold data or not. ")
         if bool(fold) == True:
@@ -1569,7 +1602,7 @@ def log_merge(lin,multi, binning = BINNING_MEAN, fold = None):
     period = _period_from_data(lin, multi)
     nslow = multi.shape[-1]
 
-    ldata = multilevel(lin, nslow, binning)
+    ldata = multilevel(lin, nslow, binning, fold = False)
     xfast, cfast = merge_multilevel(ldata, mode = "full")
     xslow, cslow = merge_multilevel(multi, mode = "half")
     t = np.concatenate((xfast, 2 * period * xslow), axis = -1)
@@ -1651,49 +1684,55 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
     level = disable_prints()
     
     
-    if ((norm & NORM_WEIGHTED == NORM_WEIGHTED)):
+    # if ((norm & NORM_WEIGHTED == NORM_WEIGHTED)):
     
-        norm_comp = (norm & (NORM_COMPENSATED | NORM_SUBTRACTED))|NORM_STRUCTURED
-        norm_base = (norm & (NORM_COMPENSATED | NORM_SUBTRACTED)) |NORM_STANDARD     
+    #     norm_comp = (norm & (NORM_COMPENSATED | NORM_SUBTRACTED))|NORM_STRUCTURED
+    #     norm_base = (norm & (NORM_COMPENSATED | NORM_SUBTRACTED)) |NORM_STANDARD     
         
-        lin_comp = normalize(lin, background = background, variance = variance, norm = norm_comp, mode = mode,
-                  scale = scale, mask = mask)
-        multi_comp = normalize(multi, background = background, variance = variance, norm = norm_comp, mode = mode,
-                  scale = scale, mask = mask) 
+    #     lin_comp = normalize(lin, background = background, variance = variance, norm = norm_comp, mode = mode,
+    #               scale = scale, mask = mask)
+    #     multi_comp = normalize(multi, background = background, variance = variance, norm = norm_comp, mode = mode,
+    #               scale = scale, mask = mask) 
         
-        lin_base = normalize(lin, background = background, variance = variance, norm = norm_base, mode = mode,
-                  scale = scale, mask = mask)
-        multi_base = normalize(multi, background = background, variance = variance, norm = norm_base, mode = mode,
-                  scale = scale, mask = mask)   
+    #     lin_base = normalize(lin, background = background, variance = variance, norm = norm_base, mode = mode,
+    #               scale = scale, mask = mask)
+    #     multi_base = normalize(multi, background = background, variance = variance, norm = norm_base, mode = mode,
+    #               scale = scale, mask = mask)   
   
-        _scale_factor = np.array(1.,FDTYPE) if scale == True else scale_factor(variance,mask)
+    #     _scale_factor = np.array(1.,FDTYPE) if scale == True else scale_factor(variance,mask)
 
-        weight = weight_from_data(lin_base, scale_factor = _scale_factor, mode = mode)
-        lin = weighted_sum(lin_comp,lin_base,weight)
+    #     weight = weight_from_data(lin_base, scale_factor = _scale_factor, mode = mode)
+    #     lin = weighted_sum(lin_comp,lin_base,weight)
         
-        weight = weight_from_data(multi_base, scale_factor = _scale_factor, mode = mode,)
-        multi = weighted_sum(multi_comp,multi_base, weight)  
+    #     weight = weight_from_data(multi_base, scale_factor = _scale_factor, mode = mode,)
+    #     multi = weighted_sum(multi_comp,multi_base, weight)  
 
 
-        # #get data estimator
-        # x, y = log_merge(lin_comp, multi_comp)
+    #     # #get data estimator
+    #     # x, y = log_merge(lin_comp, multi_comp)
         
-        # x_lin = np.arange(lin_comp.shape[-1])
-        # weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode)
-        # weight = log_interpolate(x_lin,x,weight)
-        # lin = weighted_sum(lin_comp,lin_base,weight)
+    #     # x_lin = np.arange(lin_comp.shape[-1])
+    #     # weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode)
+    #     # weight = log_interpolate(x_lin,x,weight)
+    #     # lin = weighted_sum(lin_comp,lin_base,weight)
         
-        # period = _period_from_data(lin_comp, multi_comp)
-        # x_multi = t_multilevel(multi_comp.shape, period = period)
-        # weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode,)
-        # weight = log_interpolate(x_multi,x,weight)
-        # multi = weighted_sum(multi_comp,multi_base, weight)        
+    #     # period = _period_from_data(lin_comp, multi_comp)
+    #     # x_multi = t_multilevel(multi_comp.shape, period = period)
+    #     # weight = weight_from_data(y, scale_factor = _scale_factor, mode = mode,)
+    #     # weight = log_interpolate(x_multi,x,weight)
+    #     # multi = weighted_sum(multi_comp,multi_base, weight)        
 
-    else:
-        lin = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,
-                  scale = scale, mask = mask)
-        multi = normalize(multi, background = background, variance = variance, norm = norm, mode = mode,
-                  scale = scale, mask = mask)  
+    # else:
+    #     lin = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,
+    #               scale = scale, mask = mask)
+    #     multi = normalize(multi, background = background, variance = variance, norm = norm, mode = mode,
+    #               scale = scale, mask = mask)  
+    
+    lin = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,
+              scale = scale, mask = mask)
+    multi = normalize(multi, background = background, variance = variance, norm = norm, mode = mode,
+              scale = scale, mask = mask)  
+
     enable_prints(level)        
     return lin, multi
 

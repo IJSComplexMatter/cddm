@@ -13,7 +13,9 @@ import numpy as np
 from cddm.conf import CDTYPE, FDTYPE
 from cddm.print_tools import print1,print2, enable_prints, disable_prints
 
-from cddm._core_nb import _normalize_cdiff_1,_normalize_cdiff_3,\
+from cddm._core_nb import normalize_struct_compensated, normalize_corr_compensated,\
+    normalize_corr_compensated_subtracted,\
+  _normalize_cdiff_1,_normalize_cdiff_3,\
   _normalize_ccorr_0,_normalize_ccorr_1,_normalize_ccorr_2,_normalize_ccorr_2b,_normalize_ccorr_3,_normalize_ccorr_3b
 
 
@@ -558,7 +560,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     
     bg1, bg2 = _inspect_background(background, norm, mask)
     
-    if (norm & NORM_WEIGHTED == NORM_WEIGHTED and False):
+    if (norm & NORM_WEIGHTED == NORM_WEIGHTED):
         level = disable_prints()
         norm_comp = (norm & (NORM_SUBTRACTED | NORM_COMPENSATED)) | NORM_STRUCTURED
         comp_data = normalize(data, background, variance, norm = norm_comp,  mode = mode, 
@@ -567,33 +569,50 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         base_data = normalize(data, background, variance, norm = norm_base,  mode = mode, 
               scale = scale, mask = mask)
         
-        _multilevel = True if len(data[1].shape) > 1 else False
-        
-        x_avg,y_avg = _data_estimator(comp_data, size = 8, n = 3, multilevel = _multilevel)
-        
         _scale_factor = 1. if scale == True else scale_factor(variance,mask)
         
-        if weight is None:
-            if _multilevel:
-                shape = np.array(comp_data.shape)
-                shape[1:-1] = 1
-                _x_interp = np.arange(comp_data.shape[-1])
-                x_interp = np.empty(shape = shape, dtype = int)
-                for x_level in x_interp:
-                    x_level[...] = _x_interp
-                    _x_interp *= 2
-            else:
-                x_interp = np.arange(data[1].shape[-1])
+        weighted_data = base_data
         
-            if norm & NORM_SUBTRACTED:
-                delta = noise_delta(variance, mask, scale = scale)
-                weight = weight_from_data(y_avg, delta, scale_factor = _scale_factor, mode = mode)
-            else:
-                bg1 = bg1 / (scale_factor(variance,mask))**0.5 if scale == True else bg1
-                bg2 = bg2 / (scale_factor(variance,mask))**0.5  if scale == True else bg2
-                delta = noise_delta(variance, mask, scale = scale)
-                weight = weight_prime_from_data(y_avg, bg1, bg2, delta, scale_factor = _scale_factor, mode = mode)
-            weight = _nb.log_interpolate(x_interp,x_avg, weight)
+        if norm & NORM_SUBTRACTED:
+            delta = noise_delta(variance, mask, scale = scale)
+        else:
+            bg1 = bg1 / (scale_factor(variance,mask))**0.5 if scale == True else bg1
+            bg2 = bg2 / (scale_factor(variance,mask))**0.5  if scale == True else bg2
+            delta = noise_delta(variance, mask, scale = scale)
+        weight = weight_from_data(weighted_data, delta, scale_factor = _scale_factor, mode = mode)
+        
+        for i in range(2):
+            weighted_data = weighted_sum(comp_data, base_data, weight)
+            weight = weight_from_data(weighted_data, delta, scale_factor = _scale_factor, mode = mode)
+    
+    
+        # _multilevel = True if len(data[1].shape) > 1 else False
+        
+        # x_avg,y_avg = _data_estimator(comp_data, size = 8, n = 3, multilevel = _multilevel)
+        
+        # _scale_factor = 1. if scale == True else scale_factor(variance,mask)
+        
+        # if weight is None:
+        #     if _multilevel:
+        #         shape = np.array(comp_data.shape)
+        #         shape[1:-1] = 1
+        #         _x_interp = np.arange(comp_data.shape[-1])
+        #         x_interp = np.empty(shape = shape, dtype = int)
+        #         for x_level in x_interp:
+        #             x_level[...] = _x_interp
+        #             _x_interp *= 2
+        #     else:
+        #         x_interp = np.arange(data[1].shape[-1])
+        
+        #     if norm & NORM_SUBTRACTED:
+        #         delta = noise_delta(variance, mask, scale = scale)
+        #         weight = weight_from_data(y_avg, delta, scale_factor = _scale_factor, mode = mode)
+        #     else:
+        #         bg1 = bg1 / (scale_factor(variance,mask))**0.5 if scale == True else bg1
+        #         bg2 = bg2 / (scale_factor(variance,mask))**0.5  if scale == True else bg2
+        #         delta = noise_delta(variance, mask, scale = scale)
+        #         weight = weight_prime_from_data(y_avg, bg1, bg2, delta, scale_factor = _scale_factor, mode = mode)
+        #     weight = _nb.log_interpolate(x_interp,x_avg, weight)
         
         enable_prints(level) 
         
@@ -648,11 +667,20 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         result = normalize_corr_subtracted(data[0], count, bg1, bg2,m1,m2, out = out)
         if mode == "diff":
             result = _corr2diff(result, variance, mask)
+
+    # elif (norm == NORM_SUBTRACTED|NORM_STANDARD|NORM_COMPENSATED) :
+    #     m1 = data[3]
+    #     m2 = data[4] if data[4] is not None else m1
+    #     #result = _normalize_ccorr_2(data[0], count, bg1, bg2, m1,m2, out = out)
+    #     result = normalize_corr_compensated_subtracted(data[0], count, bg1, bg2,m1,m2, out = out)
+
+    #     if mode == "diff":
+    #         result = _corr2diff(result, variance, mask)
             
     elif norm == NORM_STANDARD|NORM_COMPENSATED:
         m1 = data[3]
         m2 = data[4] if data[4] is not None else m1
-        result = _normalize_ccorr_2b(data[0], count, m1,m2, out = out)
+        result = normalize_corr_compensated(data[0], count, m1,m2, out = out)
 
         if mode == "diff":
             result = _corr2diff(result, variance, mask)        
@@ -674,12 +702,14 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
 
             if mode == "corr":
                 result = _diff2corr(result, variance, mask)
+    
+                
     elif norm == NORM_STRUCTURED|NORM_COMPENSATED:
         offset = _variance2offset(variance, mask)
         m1 = data[3]
         m2 = data[4] if data[4] is not None else m1
-        result = _normalize_ccorr_3b(data[0], count, data[2], m1, m2,  out = out)
-        result += offset
+        result = normalize_struct_compensated(data[0], count, offset, data[2], m1, m2,  out = out)
+
         if mode == "diff":
             result = _corr2diff(result, variance, mask)   
     else :

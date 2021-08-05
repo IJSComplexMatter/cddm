@@ -16,6 +16,7 @@ DELTA = 0.5
 #: particle velocity (vi, vj) in pixels per unit time
 VELOCITY = (0,0.04) 
 VELOCITY = (0,0.1) 
+VELOCITY = (0,0.5) 
 #computed parameters, do not change these
 #----------------------------------------
 

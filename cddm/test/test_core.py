@@ -559,11 +559,42 @@ class TestIcorr(unittest.TestCase):
             out2 = core.normalize(data2, bg, var, norm = 2)  
             self.assertTrue(allclose(out1, out2))    
 
+def wrap(data, conj = True):
+    n = (data.shape[-1]+1)//2
+
+    out = data[...,0:n].copy()
+    if conj == True:
+        out[...,1:] += np.conj(data[...,-1:-n:-1])
+    else:
+        out[...,1:] += data[...,-1:-n:-1]
+
+    return out
+
 
 class TestCorr(unittest.TestCase):
     
     def setUp(self):
         pass      
+    
+    def test_ccorr_complex_irregular(self):
+        t1 = np.arange(16)
+        t2 = np.arange(16)
+        d1 = core.ccorr(test_data1[0:16], test_data2[0:16], t1, t2, complex = True)
+        d2 = core.ccorr(test_data1[0:16], test_data2[0:16], t1, t2)
+        self.assertTrue(allclose(wrap(d1[0]).real,d2[0]))
+        self.assertTrue(allclose(wrap(d1[1]).real,d2[1]))
+        self.assertTrue(allclose(wrap(d1[2]).real,d2[2]))
+        self.assertTrue(allclose(wrap(d1[3], conj = False),d2[3]))
+        self.assertTrue(allclose(wrap(d1[4], conj = False),d2[4]))
+        
+    def test_ccorr_complex_regular(self):
+        d1 = core.ccorr(test_data1[0:16], test_data2[0:16], complex = True, method = "fft")
+        d2 = core.ccorr(test_data1[0:16], test_data2[0:16])
+        self.assertTrue(allclose(wrap(d1[0]).real,d2[0]))
+        self.assertTrue(allclose(wrap(d1[1]).real,d2[1]))
+        self.assertTrue(allclose(wrap(d1[2]),d2[2]))        
+        self.assertTrue(allclose(wrap(d1[3], conj = False),d2[3]))
+        self.assertTrue(allclose(wrap(d1[4], conj = False),d2[4]))
 
     def test_ccorr_regular_2(self):
         for scale in (True, False):

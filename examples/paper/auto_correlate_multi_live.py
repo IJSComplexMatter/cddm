@@ -5,7 +5,7 @@ from cddm.viewer import MultitauViewer
 from cddm.video import multiply, normalize_video, crop, show_video, play_threaded, asarrays, load, show_diff
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
-from cddm.multitau import iacorr_multi, normalize_multi, log_merge
+from cddm.multitau import iacorr_multi, normalize_multi, log_merge, iccorr_multi
 import cddm.conf
 
 import numpy as np
@@ -13,7 +13,7 @@ from examples.paper.conf import NFRAMES, PERIOD, SHAPE, KIMAX, KJMAX, DATA_PATH,
 
 #: see video_simulator for details, loads sample video
 #import examples.paper.simple_video.dual_video as dual_video_simulator
-import examples.paper.flow_video.standard_video as video_simulator
+import examples.paper.flow_video.fast_video as video_simulator
 import importlib
 importlib.reload(video_simulator) #recreates iterator
 
@@ -57,9 +57,11 @@ if __name__ == "__main__":
     viewer.k = 15
     viewer.sector = 30
     
+    fft = ((f,f) for (f,) in fft)
+    
     
     #: now perform auto correlation calculation with default parameters and show live
-    data, bg, var = iacorr_multi(fft, count = NFRAMES_STANDARD, viewer = viewer,complex = True,level_size = 64)
+    data, bg, var = iccorr_multi(fft, count = NFRAMES_STANDARD, viewer = viewer,complex = True)
 
 
     viewer.show()

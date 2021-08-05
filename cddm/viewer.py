@@ -603,9 +603,9 @@ class CorrViewer(DataViewer):
         if np.iscomplexobj(data) :
             if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
                 data = fold_data(data)
-            else:
+            elif self.background is None and self.variance is None:
                 raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
-        
+
         if self.size is not None:
             # folding has already been made, so set to False
             t, data = log_average(data, self.size, fold = False)
@@ -683,8 +683,8 @@ class MultitauViewer(CorrViewer):
         
         if np.iscomplexobj(data[0]) :
             if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
-                data = fold_data(data[0]), fold_data(data[1])
-            else:
+                data = fold_data(data[0],1), fold_data(data[1],1)
+            elif self.background is None and self.variance is None:
                 raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
 
         if self.semilogx == True:

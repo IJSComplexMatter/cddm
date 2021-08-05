@@ -35,7 +35,7 @@ SATURATION = 2**15
 #: enable or disable FFT windowing
 APPLY_WINDOW = True
 #: whether to apply dust particles or not
-APPLY_DUST = True
+APPLY_DUST = False
 #: whether to save plots, or show only.
 SAVE_FIGS = False
 #: number of simulation runs for statistical analysis.

@@ -4,11 +4,13 @@ Dual-camera random triggered simple brownian motion video.
 This script also creates sample frames from both cameras (Fig 1 in the paper).
 """
 
-from cddm.sim import simple_brownian_video, create_random_times1, adc
+from cddm.sim import simple_brownian_video, create_random_times1, adc, seed
 from cddm.viewer import VideoViewer 
 from cddm.video import multiply, load, crop
 import matplotlib.pyplot as plt
 import numpy as np
+
+seed(0)
 
 from examples.paper.flow_video.conf import SAVE_FIGS, NFRAMES_DUAL, N_PARAMETER, SIMSHAPE, BACKGROUND, DELTA, VMAX, DT_DUAL,\
     INTENSITY, SIGMA, SHAPE, DUST1_PATH, DUST2_PATH, SATURATION, BIT_DEPTH, NOISE_MODEL, READOUT_NOISE,  NUM_PARTICLES, VELOCITY, APPLY_DUST
