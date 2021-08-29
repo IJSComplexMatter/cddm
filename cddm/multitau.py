@@ -1135,8 +1135,8 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, met
         A positive integer, defines how frequently are plots updated 1 for most 
         frequent, higher numbers for less frequent updates. 
     mode : str
-        Either "full" or "partial". With mode = "full", output of this function 
-        is identical to the output of :func:`ccorr_multi`. With mode = "partial", 
+        Either "full" or "chunk". With mode = "full", output of this function 
+        is identical to the output of :func:`ccorr_multi`. With mode = "chunk", 
         cross correlation between neighbouring chunks is not computed.
     mask : ndarray, optional
         If specifed, computation is done only over elements specified by the mask.
@@ -1159,7 +1159,7 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, met
     
     for i, data in enumerate(_compute_multi_iter(data, t1, t2, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count, auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor, cross = True, complex = complex)):
+                        nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor, mode = mode, cross = True, complex = complex)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["ccorr_multi"] = viewer
@@ -1240,7 +1240,7 @@ def iacorr_multi(data, t = None, level_size = 2**4, norm = None, method = "corr"
     """
     for i, data in enumerate(_compute_multi_iter(data, t, None, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count,auto_background = auto_background,
-                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor, mask = mask, cross = False, complex = complex)):
+                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor, mode = mode, mask = mask, cross = False, complex = complex)):
         if viewer is not None:
             if i == 0:
                 _VIEWERS["acorr_multi"] = viewer

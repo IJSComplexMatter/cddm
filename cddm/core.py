@@ -1337,8 +1337,8 @@ def iccorr(data, t1 = None, t2 = None, n = None, norm = None, method = "corr", c
         A positive integer, defines how frequently are plots updated 1 for most 
         frequent, higher numbers for less frequent updates. 
     mode : str
-        Either "full" or "partial". With mode = "full", output of this function 
-        is identical to the output of :func:`ccorr_multi`. With mode = "partial", 
+        Either "full" or "chunk". With mode = "full", output of this function 
+        is identical to the output of :func:`ccorr_multi`. With mode = "chunk", 
         cross correlation between neigbouring chunks is not computed.
     mask : ndarray, optional
         If specifed, computation is done only over elements specified by the mask.
@@ -1430,8 +1430,8 @@ def iacorr(data, t = None, n = None, norm = 0, method = "corr", count = None,
         A positive integer, defines how frequently are plots updated 1 for most 
         frequent, higher numbers for less frequent updates. 
     mode : str
-        Either "full" or "partial". With mode = "full", output of this function 
-        is identical to the output of :func:`ccorr_multi`. With mode = "partial", 
+        Either "full" or "chunk". With mode = "full", output of this function 
+        is identical to the output of :func:`ccorr_multi`. With mode = "chunk", 
         cross correlation between neigbouring chunks is not computed.
     mask : ndarray, optional
         If specifed, computation is done only over elements specified by the mask.
