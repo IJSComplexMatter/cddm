@@ -28,7 +28,7 @@ def abs2(x):
 def _mean(a,b):
     """Man value"""
     return 0.5 * (a+b)
-
+        
 @nb.vectorize([F(F,F),C(C,C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def mean(a,b):
     """Man value"""

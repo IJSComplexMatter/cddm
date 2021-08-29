@@ -56,14 +56,34 @@ if __name__ == "__main__":
         plt.colorbar()
         plt.yticks([])
         plt.xticks([])
-        plt.title("Camera 1")
+        plt.title("Camera 1 (t = {})".format(t1[0]))
         plt.subplot(122)
         plt.imshow(video[0][1], cmap = "gray")
         plt.colorbar()
         plt.yticks([])
         plt.xticks([])
-        plt.title("Camera 2")
+        plt.title("Camera 2 (t = {})".format(t2[0]))
         plt.savefig("frames.pdf")
+        
+        plt.figure(figsize = (8,3))
+        plt.subplot(121)
+        fft1 = np.fft.fft2(video[0][0])
+        fft2 = np.fft.fft2(video[0][1])
+        fft1[0,0] = np.nan
+        fft2[0,0] = np.nan
+        plt.imshow(np.fft.fftshift(fft1.real), cmap = "gray")
+        plt.colorbar()
+        plt.yticks([])
+        plt.xticks([])
+        plt.title("$\Re I_{{q,1}} (t = {})$".format(t1[0]))
+        plt.subplot(122)
+
+        plt.imshow(np.fft.fftshift((fft2*np.conj(fft1)).real), cmap = "gray")
+        plt.colorbar()
+        plt.yticks([])
+        plt.xticks([])
+        plt.title("$\Re I^*_{{q,1}}(t = {}) I_{{q,2}} (t = {})$".format(t1[0],t2[0]))
+        plt.savefig("fft.pdf")
     
     
 

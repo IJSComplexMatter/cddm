@@ -53,8 +53,8 @@ if __name__ == "__main__":
     import os.path as p
 
     #we will show live calculation with the viewer
-    #viewer = MultitauViewer(scale = True, semilogx = True)
-    viewer = CorrViewer(scale = True, semilogx = False)
+    viewer = MultitauViewer(scale = True, semilogx = True)
+    #viewer = CorrViewer(scale = True, semilogx = False)
     
     #initial mask parameters
     viewer.k = 15
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     
     
     #: now perform auto correlation calculation with default parameters and show live
-    #data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer,complex = True)
-    data, bg, var = iccorr(fft, t1, t2,n=256, viewer = viewer,complex = True)
+    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer,complex = True, binning = 0)
+    #data, bg, var = iccorr(fft, t1, t2,n=256, viewer = viewer,complex = True)
 
     viewer.show()

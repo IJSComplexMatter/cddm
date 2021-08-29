@@ -12,10 +12,8 @@ SIGMA = 3
 #: how many particles are in the box
 NUM_PARTICLES = 100
 #: the delta parameter for the simulator
-DELTA = 0.5
+DELTA = 1
 #: particle velocity (vi, vj) in pixels per unit time
-VELOCITY = (0,0.04) 
-VELOCITY = (0,0.1) 
 VELOCITY = (0,0.5) 
 #computed parameters, do not change these
 #----------------------------------------

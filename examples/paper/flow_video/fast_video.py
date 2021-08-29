@@ -5,13 +5,13 @@ from cddm.sim import simple_brownian_video, adc
 from cddm.viewer import VideoViewer 
 from cddm.video import load, crop, multiply
 from examples.paper.flow_video.conf import NFRAMES_FAST, SIMSHAPE, BACKGROUND, DELTA, DT_FAST, \
-    INTENSITY, SIGMA, SHAPE,DUST1_PATH, BIT_DEPTH, VMAX, NOISE_MODEL, SATURATION, READOUT_NOISE, APPLY_DUST, VELOCITY
+    INTENSITY, SIGMA, SHAPE,DUST1_PATH, BIT_DEPTH, VMAX, NOISE_MODEL, SATURATION, READOUT_NOISE, APPLY_DUST, VELOCITY, NUM_PARTICLES
 import matplotlib.pyplot as plt
 
 
 #: this cretaes a brownian motion frame iterator. 
 #: each element of the iterator is a tuple holding a single numpy array (frame)
-video = simple_brownian_video(range(NFRAMES_FAST), shape = SIMSHAPE,background = BACKGROUND, dt = DT_FAST,
+video = simple_brownian_video(range(NFRAMES_FAST), shape = SIMSHAPE,background = BACKGROUND, dt = DT_FAST,num_particles = NUM_PARTICLES,
                               sigma = SIGMA, delta = DELTA, intensity = INTENSITY, dtype = "uint16", velocity = VELOCITY)
 
 #: crop video to selected region of interest 
