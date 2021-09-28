@@ -310,10 +310,8 @@ def _k_select_complex(data, k, indexmap, kmap, computed_mask, masked_data):
 def _k_select_real(data, k, indexmap, kmap, computed_mask, masked_data):
     mask = (indexmap == int(round(k)))
     ks = kmap[mask]
-    mask1,mask2 = as_rfft2_data(mask)
-    
-    mask = np.logical_or(mask1, mask2)
-    conj_mask = mask2
+    mask = as_rfft2_mask(mask)
+    conj_mask = as_rfft2_conj(mask)
     
     if computed_mask is not None:
         mask = mask & computed_mask
