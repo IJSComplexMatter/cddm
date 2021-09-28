@@ -7,10 +7,20 @@ V0.4.0 (Jul 2 2021)
 With this release we add new memory layout used in iccor_multi function. 
 Combined with some other tweaks, it improves the computation speed. 
 
+Changes
+///////
+
+* New indexmaping for k-averaging. Now, index mapping is performed in full space (fft2 representation)
+instead of the halfspace (rfft2 representation). 
+
 New features
 ////////////
 
-* added conf.set_num_threads.
+* Added support for complex correlation calculation. All correlation calculation funtions
+now take `complex` argument which specifies whether to calculate complex correlation function or
+only the real part of the correlation function (`complex = False`)
+* Added conf.set_num_threads.
+
 
 V0.3.0 (Mar 14 2021)
 ++++++++++++++++++++

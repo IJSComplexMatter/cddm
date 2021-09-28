@@ -36,7 +36,7 @@ from cddm.decorators import deprecated
 #                s[i,j] = r            
 #    return s         
 
-@deprecated("Use fft2_sector_indexmap instead")
+@deprecated("Use fft2_sector_indexmap instead.")
 def sector_indexmap(kmap, anglemap, angle = 0., sector = 30., kstep = 1.):
     """Builds indexmap array of integers ranging from -1 (invalid data)
     and positive integers. Each non-negative integer is a valid k-index computed
