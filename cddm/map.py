@@ -4,6 +4,7 @@ Data mapping and k-averaging functions.
 from __future__ import absolute_import, print_function, division
 
 import numpy as np
+from cddm.decorators import deprecated
 
 
 #from cddm.conf import F64,I64,U16, U16DTYPE, F, I, FDTYPE, I64DTYPE,F64DTYPE, NUMBA_CACHE
@@ -35,7 +36,7 @@ import numpy as np
 #                s[i,j] = r            
 #    return s         
 
- 
+@deprecated("Use fft2_sector_indexmap instead")
 def sector_indexmap(kmap, anglemap, angle = 0., sector = 30., kstep = 1.):
     """Builds indexmap array of integers ranging from -1 (invalid data)
     and positive integers. Each non-negative integer is a valid k-index computed
@@ -99,8 +100,68 @@ def sector_indexmap(kmap, anglemap, angle = 0., sector = 30., kstep = 1.):
     out[0,0] = 0
     return out
 
+def fft2_sector_indexmap(kmap, anglemap, angle = 0., sector = 30., kstep = 1.):
+    """Builds indexmap array of integers ranging from -1 (invalid data)
+    and positive integers. Each non-negative integer is a valid k-index computed
+    from sector parameters.
+    
+    Parameters
+    ----------
+    kmap : ndarray
+        Size of wavevector at each (i,j) indices in the rfft2 ouptut data.
+    anglemap : ndarray
+        Angle of the wavevector at each (i,j) indices in the rfft2 ouptut data.      
+    angle : float
+        Mean angle of the sector in degrees (-180 to 180).
+    sector : float
+        Width of the sector in degrees (between 0 and 180) 
+    kstep : float, optional
+        k resolution in units of minimum step size.
+        
+    Returns
+    -------
+    map : ndarray
+        Ouput array of non-zero valued k-indices where data is valid, -1 elsewhere.
+    """
+    if angle < -180 or angle > 180:
+        raise ValueError("Wrong angle value")
+    if sector <= 0 or sector > 180:
+        raise ValueError("Wrong sector value")
+    kmax = kmap.max()
+    ks = np.arange(0, kmax + kstep, kstep)
+    
+    out = np.empty(kmap.shape, int)
+    out[...] =-1
+    
+    high = np.pi/180*(angle + sector/2)
+    low  = np.pi/180*(angle - sector/2)
+    
+    m = np.pi
+    negate = False
+        
+    if high > m:
+        low, high = high%(-m), low
+        negate = True
+    elif low < -m:
+        high, low = low%m, high
+        negate = True
+        
+    if negate:
+        fmask = (anglemap <= high) & (anglemap > low)
+        fmask = np.logical_not(fmask)
+    else:
+        fmask = (anglemap < high) & (anglemap >= low)
+    
+    for i,k in enumerate(ks):
+        kmask = (kmap <= (k + kstep/2.)) &  (kmap > (k - kstep/2.))
+        mask = kmask & fmask
+        out[mask] = i
 
-def _get_steps_size(kisize,kjsize,shape):
+    #k = (0,0) is present regardless of angle, sector
+    out[0,0] = 0
+    return out
+
+def _get_steps_size_half(kisize,kjsize,shape):
     height, width = (1, 1) if shape is None else shape
     
     if kjsize is None:
@@ -122,8 +183,20 @@ def _get_steps_size(kisize,kjsize,shape):
         kistep = width/height
     return (kisize, kistep), (kjsize, kjstep)
 
+def _get_steps_size_full(kisize,kjsize,shape):
+    if kjsize is None:
+        if shape is None:
+            raise ValueError("Shape is a required argument")
+        kjsize = shape[1]
+    return _get_steps_size_half(kisize,kjsize,shape)
+
+def _kangle(ki,kj):
+    y,x = ki,kj
+    x2, y2  = x**2, y**2
+    return (x2 + y2)**0.5 , np.arctan2(-y,x)         
+
 def rfft2_kangle(kisize = None, kjsize = None, shape = None):
-    """Build k,angle arrays based on the size of the fft. 
+    """Build k,angle arrays based on the size of the rfft2 data. 
     
     Parameters
     ----------
@@ -137,17 +210,45 @@ def rfft2_kangle(kisize = None, kjsize = None, shape = None):
         
     Returns
     -------
+    k, angle :  ndarray, ndarray
+        k, angle arrays 
+    """
+    ki,kj = rfft2_grid(kisize = kisize, kjsize = kjsize, shape = shape)
+    return _kangle(ki,kj)
+            
+def fft2_kangle(kisize = None, kjsize = None, shape = None):
+    """Build k,angle arrays based on the size of the fft2 data. 
+    
+    Parameters
+    ----------
+    kisize : int
+        i-size of the cropped fft2 data. 
+    kjsize : int
+        j-size of the cropped fft2 data
+    shape : (int,int)
+        Shape of the original data. This is used to calculate step size. If not
+        given, rectangular data is assumed (equal steps).
+        
+    Returns
+    -------
     k, angle, ndarray, ndarray
         k, angle arrays 
     """
-    (kisize, kistep), (kjsize, kjstep) = _get_steps_size(kisize,kjsize,shape)
-            
-    y,x = np.meshgrid(np.fft.fftfreq(kisize)*kisize*kistep,np.arange(kjsize)*kjstep, indexing = "ij")  
-    x2, y2  = x**2, y**2
-    return (x2 + y2)**0.5 , np.arctan2(-y,x)  
+    ki,kj = fft2_grid(kisize = kisize, kjsize = kjsize, shape = shape)
+    return _kangle(ki,kj)
+
+def _grid_half(kisize_step, kjsize_step):
+    (kisize, kistep), (kjsize, kjstep) = kisize_step, kjsize_step
+    ki,kj = np.meshgrid(np.fft.fftfreq(kisize)*kisize*kistep,np.arange(kjsize)*kjstep, indexing = "ij")  
+    return ki,kj
+
+def _grid_full(kisize_step, kjsize_step):
+    (kisize, kistep), (kjsize, kjstep) = kisize_step, kjsize_step
+    ki,kj = np.meshgrid(np.fft.fftfreq(kisize)*kisize*kistep,np.fft.fftfreq(kjsize)*kjsize*kjstep, indexing = "ij")  
+    return ki,kj
 
 def rfft2_grid(kisize = None, kjsize = None, shape = None):
-    """Build ki,kj coordinate arrays based on the size of the fft. 
+    """Build ki,kj coordinate arrays based on the size of the rfft2. 
     
     Parameters
     ----------
@@ -165,13 +266,32 @@ def rfft2_grid(kisize = None, kjsize = None, shape = None):
         ki,kj coordinate arrays 
      
     """
-    (kisize, kistep), (kjsize, kjstep) = _get_steps_size(kisize,kjsize,shape)
-            
-    ki,kj = np.meshgrid(np.fft.fftfreq(kisize)*kisize*kistep,np.arange(kjsize)*kjstep, indexing = "ij")  
-    return ki,kj
+    kisize_step, kjsize_step = _get_steps_size_half(kisize,kjsize,shape)
+    return _grid_half(kisize_step, kjsize_step )
 
+def fft2_grid(kisize = None, kjsize = None, shape = None):
+    """Build ki,kj coordinate arrays based on the size of the fft2. 
+    
+    Parameters
+    ----------
+    kisize : int
+        i-size of the cropped fft2 data. 
+    kjsize : int
+        j-size of the cropped fft2 data
+    shape : (int,int)
+        Shape of the original data. This is used to calculate step size. If not
+        given, rectangular data is assumed (equal steps).
+        
+    Returns
+    -------
+    ki, kj, ndarray, ndarray
+        ki,kj coordinate arrays 
+     
+    """
+    kisize_step, kjsize_step = _get_steps_size_full(kisize,kjsize,shape)
+    return _grid_full(kisize_step, kjsize_step )
 
-def _k_select(data, k, indexmap, kmap, computed_mask, masked_data):
+def _k_select_complex(data, k, indexmap, kmap, computed_mask, masked_data):
     mask = (indexmap == int(round(k)))
     if computed_mask is not None:
         mask = mask & computed_mask
@@ -187,6 +307,44 @@ def _k_select(data, k, indexmap, kmap, computed_mask, masked_data):
         #no k values
         return None
     
+def _k_select_real(data, k, indexmap, kmap, computed_mask, masked_data):
+    mask = (indexmap == int(round(k)))
+    ks = kmap[mask]
+    mask1,mask2 = as_rfft2_data(mask)
+    
+    mask = np.logical_or(mask1, mask2)
+    conj_mask = mask2
+    
+    if computed_mask is not None:
+        mask = mask & computed_mask
+        conj_mask = conj_mask & computed_mask
+        
+    
+    if masked_data == True:
+        mask = mask[computed_mask]
+        conj_mask = conj_mask[computed_mask]
+    if len(ks) > 0:
+        #at least one k value exists
+        conj_mask = conj_mask[mask]
+        masked_data = data[...,mask,:]
+        masked_data[...,conj_mask,:] = np.conj(masked_data[...,conj_mask,:])
+        data_avg = np.nanmean(masked_data, axis = -2)
+        k_avg = ks.mean()
+        return k_avg, data_avg  
+    else:
+        #no k values
+        return None
+    
+def k_point_kernel(window, ki,kj):
+    height, width = window.shape
+    k_window = np.zeros((height,width))
+    k_window[ki,kj] = 1
+    #sine wave
+    real_window = np.fft.fft2(k_window)
+    real_window *= window
+    return real_window    
+
+@deprecated("Use fft2_k_indexmap instead.")    
 def k_indexmap(kisize,kjsize, angle = 0, sector = 5, kstep = 1., shape = None):
     """Builds indexmap array of integers ranging from -1 (invalid data)
     and positive integers. Each non-negative integer is a valid k-index computed
@@ -204,7 +362,7 @@ def k_indexmap(kisize,kjsize, angle = 0, sector = 5, kstep = 1., shape = None):
         Width of the sector in degrees (between 0 and 180) 
     kstep : float, optional
         k resolution in units of minimum step size.
-    shape : (int,int), opyional
+    shape : (int,int), optional
         Shape of the original data. This is used to calculate step size. If not
         given, rectangular data is assumed (equal steps).
         
@@ -213,18 +371,186 @@ def k_indexmap(kisize,kjsize, angle = 0, sector = 5, kstep = 1., shape = None):
     map : ndarray
         Ouput array of non-zero valued k-indices where data is valid, -1 elsewhere.
     """
-
     kmap, anglemap = rfft2_kangle(kisize, kjsize,shape)
     indexmap = sector_indexmap(kmap, anglemap, angle, sector, kstep) 
     return indexmap
 
-def plot_indexmap(graph):
-    """Plots indexmap array"""
-    import matplotlib.pyplot as plt
-    extent=[0,graph.shape[1],graph.shape[0]//2+1,-graph.shape[0]//2-1]
-    plt.imshow(np.fft.fftshift(graph,0), extent = extent)
+def as_fft2_shape(kisize = None, kjsize = None, shape = None):
+    if kjsize == None:
+        if shape is None:
+            raise ValueError("shape is a required argument")
+        _, kjsize = shape
+    else:
+        kjsize = kjsize * 2 - 1
+        if shape is not None:
+            _, width = shape 
+            if kjsize == width + 1:
+                #ok, thist must be original data shape - no cropping, so set to full width.
+                kjsize = width
+            elif kjsize > width:
+                raise ValueError("kjsize incompatible with input data shape")
+        
+    if kisize is None:
+        if shape is None:
+            raise ValueError("shape is a required argument")
+        kisize, _ = shape  
+    else:
+        if shape is not None:
+            height, _ = shape 
+            if kisize > height:
+                raise ValueError("kisize incompatible with input data shape")        
+    return kisize, kjsize
 
-def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask = None):
+def as_rfft2_mask(a):
+    """Converts fft2 (boolean) mask array into rfft2 (boolean) mask array.
+    """
+    m1 = as_rfft2_data(a)
+    m2 = as_rfft2_conj(a)
+    return np.logical_or(m1,m2)
+
+def as_rfft2_conj(a):
+    """Converts data from `fft2 space` to `rfft2 conjugate half space`.
+    
+    It stores the missing part in the rfft2 data from the full fft2 data.
+    The shape of the ouptut is the same as that of the as_rfft2_data. Note that
+    you should only access non-zero frequencies. First column does not hold any data.
+    
+    
+    Examples
+    --------
+    >>> a = np.random.randn(32,32)
+    >>> f = np.fft.fft2(a)
+    >>> rf = np.fft.rfft2(a)
+    >>> cf = as_rfft2_conj(f)
+    >>> np.allclose(cf[2,5], f[-2,-5])
+    True    
+    """
+    h,w = a.shape[-2:]
+    #width of the half-space data
+    whalf = w//2 + 1
+    
+    m2 = np.empty_like(a[...,0:whalf])
+    
+    #the negative values
+    if m2.dtype == bool:
+        #set False to indicate invalid data
+        m2[...] = False
+    else:
+        try:
+            #set np.nan to indicate invalid data
+            m2[...] = np.nan
+        except:
+            #non-float and non-bolean type, so it must be int type, set -1 to indicate ivalid data
+            m2[...] = -1
+            
+    # now set valid data       
+    #m2[...,-1:0:-1,-1:0:-1] = a[...,-1:0:-1,-1:-whalf:-1]
+    m2[...,1:,1:] = a[...,-1:0:-1,-1:-whalf:-1]
+    m2[...,0,1:] = a[...,0,-1:-whalf:-1]
+
+    return m2
+
+def as_rfft2_data(a):
+    """Converts data from `fft2 space` to `rfft2 half space`.
+    
+    Examples
+    --------
+    >>> a = np.random.randn(32,32)
+    >>> f = np.fft.fft2(a)
+    >>> rf = np.fft.rfft2(a)
+    >>> hf = as_rfft2_data(f)
+    >>> np.allclose(hf,rf)
+    True
+    """    
+    h,w = a.shape[-2:]
+    #width of the half-space data
+    whalf = w//2 + 1
+    
+    m1 = a[...,0:whalf]
+    return m1
+
+def from_rfft2_data(a, shape = None):
+    """Converts halfspace rfft2 data to fullspace fft2 data. 
+
+    Examples
+    --------
+    >>> a = np.random.randn(32,32)
+    >>> f = np.fft.fft2(a)
+    >>> rf = np.fft.rfft2(a)
+    >>> hf = as_rfft2_data(f)
+    >>> np.allclose(hf,rf)
+    True
+    >>> np.allclose(from_rfft2_data(hf, shape = (32,32)), f)
+    True
+    """
+    kisize, kjsize = a.shape
+    shape = as_fft2_shape(kisize = kisize, kjsize = kjsize, shape = shape)
+    out = np.empty(shape = shape, dtype = a.dtype)
+    whalf = shape[1]//2 + 1
+    out[...,:,0:whalf] = a
+    
+    #in case shape[1] is odd this is same as shape[1]//2 + 1, else it is lower by one
+    whalf2 = (shape[1] + 1)//2
+    
+    if np.iscomplexobj(a):
+        out[...,1:,whalf2:] = np.conj(a[...,-1:0:-1,-1:-whalf:-1])
+        out[...,0,whalf2:] = np.conj(a[...,0,-1:-whalf:-1])
+    else:
+        out[...,1:,whalf2:] = a[...,-1:0:-1,-1:-whalf:-1]
+        out[...,0,whalf2:] = a[...,0,-1:-whalf:-1]
+    
+    return out
+    
+
+def fft2_k_indexmap(kisize,kjsize, angle = 0, sector = 5, kstep = 1., shape = None, mode = "rfft2"):
+    """Builds indexmap array of integers ranging from -1 (invalid data)
+    and positive integers. Each non-negative integer is a valid k-index computed
+    from the sector parameters.
+    
+    Parameters
+    ----------
+    kisize : int
+        Height of the fft2 or rfft2 data
+    kjsize : int
+        Width of the fft2 or rfft2 data
+    angle : float
+        Mean angle of the sector in degrees (-90 to 90).
+    sector : float
+        Width of the sector in degrees (between 0 and 180) 
+    kstep : float, optional
+        k resolution in units of minimum step size.
+    shape : (int,int), optional
+        Shape of the original data. This is used to calculate step size. If not
+        given, rectangular data is assumed (equal steps).
+    mode : str, optional
+        Describes inpud data mode. Either 'rfft2' or 'fft2'.
+        
+    Returns
+    -------
+    map : ndarray
+        A fullsize ouput array of non-zero valued k-indices where data is valid, -1 elsewhere.
+    """
+    if mode == "rfft2":
+        kisize, kjsize = as_fft2_shape(kisize, kjsize, shape)
+        
+    kmap, anglemap = fft2_kangle(kisize, kjsize, shape)
+    indexmap = fft2_sector_indexmap(kmap, anglemap, angle, sector, kstep) 
+    return indexmap
+
+def plot_indexmap(graph, mode = "rfft2"):
+    """Plots indexmap array. If mode == "rfft2" it plots half-space data,
+    If mode =="fft2" it performs plotting of full-spaced data."""
+    import matplotlib.pyplot as plt
+    if mode == "rfft2":
+        extent=[0,graph.shape[1],graph.shape[0]//2+1,-graph.shape[0]//2-1]
+        plt.imshow(np.fft.fftshift(graph,0), extent = extent)
+    elif mode == "fft2":
+        extent=[-graph.shape[1]//2-1,graph.shape[1]//2+1,graph.shape[0]//2+1,-graph.shape[0]//2-1]
+        plt.imshow(np.fft.fftshift(graph), extent = extent)        
+    else:
+        raise ValueError("Invalid mode")
+        
+def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask = None, mode = "rfft2"):
     """k-selection and k-averaging of normalized (and merged) correlation data.
     
     This function takes (...,i,j,n) correlation data and performs k-based selection
@@ -271,9 +597,15 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask =
         #else assume, data was not masked
     else:
         kisize, kjsize = data.shape[-3:-1]
+        
+    if mode == "rfft2":
+        kisize, kjsize = as_fft2_shape(kisize, kjsize, shape)
+        _k_select = _k_select_real
+    else:
+        _k_select = _k_select_complex
     
-    kmap, anglemap = rfft2_kangle(kisize, kjsize, shape)
-    indexmap = sector_indexmap(kmap, anglemap, angle, sector, kstep)
+    kmap, anglemap = fft2_kangle(kisize, kjsize, shape)
+    indexmap = fft2_sector_indexmap(kmap, anglemap, angle, sector, kstep)
 
     if k is None:
         kdim = indexmap.max() + 1

@@ -27,7 +27,7 @@ from examples.paper.form_factor import g1, bg1,bg2
 from cddm.norm import weight_from_g, weight_prime_from_g
 
 bg1 = bg1(KIMAX,0)
-bg2 = bg2(KIMAX,0)
+bg2 = bg1 #autocorrelation both backgrounds are the same
 delta = 0.
 
 g1 = g1(np.arange(NFRAMES), KIMAX, 0, cross = False)

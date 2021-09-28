@@ -4,7 +4,7 @@ from __future__ import absolute_import, print_function, division
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons, AxesWidget
-from cddm.map import rfft2_kangle,  sector_indexmap
+from cddm.map import fft2_kangle, fft2_sector_indexmap, as_fft2_shape, from_rfft2_data, as_rfft2_mask, as_rfft2_conj
 from cddm.multitau import normalize_multi, log_merge, log_average
 from cddm.norm import normalize, _default_norm_from_data, _method_from_data, NORM_STRUCTURED, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_STANDARD, NORM_COMPENSATED, fold_data
 from cddm.print_tools import disable_prints, enable_prints
@@ -272,7 +272,7 @@ def data_repr(data, mode = "real"):
         return np.abs(data)
     elif mode == "phase":
         return np.arctan2(data.imag, data.real)
-
+    
 class DataViewer(object):
     """Plots normalized correlation data. You need to hold reference to this object, 
     otherwise it will not work in interactive mode.
@@ -308,11 +308,13 @@ class DataViewer(object):
         self.computed_mask = mask
         if mask is not None:
             self.kisize, self.kjsize = mask.shape
-            
-        
+        else:
+            self.kisize, self.kjsize = None,None
+               
     def _init_map(self):
-        self.kmap, self.anglemap = rfft2_kangle(self.kisize, self.kjsize, self.shape)
-        self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
+        kisize, kjsize =  as_fft2_shape(self.kisize, self.kjsize, shape = self.shape)
+        self.kmap, self.anglemap = fft2_kangle(kisize, kjsize, self.shape)
+        self.indexmap = fft2_sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
 
     def _init_graph(self):   
         self.graph = np.zeros(self.indexmap.shape)
@@ -335,7 +337,7 @@ class DataViewer(object):
         plt.subplots_adjust(bottom=0.25)
 
 
-        self.im = self.ax2.imshow(np.fft.fftshift(self.graph,0), 
+        self.im = self.ax2.imshow(np.fft.fftshift(self.graph), 
             extent=[0,self.graph.shape[1],self.graph.shape[0]//2+1,-self.graph.shape[0]//2-1])
 
         self.selectorax = plt.axes([0.1, 0.95, 0.65, 0.03])
@@ -385,10 +387,13 @@ class DataViewer(object):
             self.t = t
             
     def _get_avg_data(self):
-        avg = np.nanmean(self.data[...,self.mask,:], axis = -2)
+        data = self.data[...,self.half_mask,:]
+        m = self.conj_mask[self.half_mask]
+        data[...,m,:] = np.conj(data[...,m,:])
+        
+        avg = np.nanmean(data, axis = -2)
         return self.t, data_repr(avg, self.mode)
-        
-        
+          
     def get_data(self):
         """Returns computed k-averaged data and time
         
@@ -436,16 +441,24 @@ class DataViewer(object):
         self.sector = sector
         if self.kmap is None:
             self._init_map()
-        self.indexmap = sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
+        self.indexmap = fft2_sector_indexmap(self.kmap, self.anglemap, self.angle, self.sector, self.kstep)
         self.mask = (self.indexmap == int(self.k)) 
         self.graph_mask = self.mask
+        self.half_mask = as_rfft2_mask(self.mask)
+        self.conj_mask = as_rfft2_conj(self.mask)
+        
         if self.computed_mask is not None:
             if self.kshape == (self.kisize, self.kjsize):
-                self.mask = self.mask & self.computed_mask
-                self.graph_mask = self.mask
+                self.half_mask = self.half_mask & self.computed_mask
+                self.graph_mask = self.mask & from_rfft2_data(self.computed_mask, self.shape)
+                self.mask = self.graph_mask
+                self.conj_mask = self.conj_mask & self.computed_mask
             else:
-                self.graph_mask = self.mask & self.computed_mask
-                self.mask = self.mask[self.computed_mask]
+                self.graph_mask = self.mask & from_rfft2_data(self.computed_mask, self.shape)
+                self.half_mask = self.half_mask[self.computed_mask]
+                self.conj_mask = self.conj_mask[self.computed_mask]
+                self.mask = self.mask[from_rfft2_data(self.computed_mask, self.shape)]
+        
         return self.mask.any()
         
     def plot(self):
@@ -460,7 +473,7 @@ class DataViewer(object):
         self.graph[self.graph_mask] = self._max_graph_value +1
         self.graph[nans] = np.nan
         
-        self.im.set_data(np.fft.fftshift(self.graph,0))
+        self.im.set_data(np.fft.fftshift(self.graph))
                     
         with np.errstate(divide='ignore', invalid='ignore'):
             state = disable_prints()
@@ -598,7 +611,7 @@ class CorrViewer(DataViewer):
             self.kisize, self.kjsize = self.kshape
         
     def _get_avg_data(self):
-        data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
+        data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.half_mask)
 
         if np.iscomplexobj(data) :
             if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
@@ -611,6 +624,9 @@ class CorrViewer(DataViewer):
             t, data = log_average(data, self.size, fold = False)
         else:
             t = np.arange(data.shape[-1])
+
+        m = self.conj_mask[self.half_mask]
+        data[...,m,:] = np.conj(data[...,m,:])
         
         avg = np.nanmean(data, axis = -2)
         
@@ -679,7 +695,7 @@ class MultitauViewer(CorrViewer):
         
     def _get_avg_data(self):
         
-        data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
+        data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.half_mask)
         
         if np.iscomplexobj(data[0]) :
             if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
@@ -693,6 +709,10 @@ class MultitauViewer(CorrViewer):
             fast, slow = data
             t = np.arange(fast.shape[-1])
             data = fast
+            
+        m = self.conj_mask[self.half_mask]
+        data[...,m,:] = np.conj(data[...,m,:])
+        
         avg = np.nanmean(data, axis = -2)
         
         return t, data_repr(avg, self.mode)

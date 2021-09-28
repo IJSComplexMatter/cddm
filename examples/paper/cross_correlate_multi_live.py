@@ -47,7 +47,7 @@ fft = rfft2(video, kimax = KIMAX, kjmax = KJMAX)
 #: this it therefore equivalent to  normalize_video
 #fft = normalize_fft(fft)
 
-#fft = play_threaded(fft)
+fft = play_threaded(fft)
 
 if __name__ == "__main__":
     import os.path as p

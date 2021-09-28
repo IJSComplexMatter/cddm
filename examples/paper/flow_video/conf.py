@@ -14,7 +14,7 @@ NUM_PARTICLES = 100
 #: the delta parameter for the simulator
 DELTA = 1
 #: particle velocity (vi, vj) in pixels per unit time
-VELOCITY = (0,0.5) 
+VELOCITY = (0.5,0.) 
 #computed parameters, do not change these
 #----------------------------------------
 

@@ -44,16 +44,27 @@ def _ifft(a, overwrite_x = False):
     elif libname == "numpy":
         return np.fft.ifft(a) 
 
-#def _fft2(a, overwrite_x = False):
-#    libname = CDDMConfig["fftlib"]
-#    if libname == "mkl_fft":
-#        return mkl_fft.fft2(a, overwrite_x = overwrite_x)
-#    elif libname == "scipy":
-#        return spfft.fft2(a, overwrite_x = overwrite_x)
-#    elif libname == "numpy":
-#        return np.fft.fft2(a) 
-#    elif libname == "pyfftw":
-#        return fftw.scipy_fftpack.fft2(a, overwrite_x = overwrite_x)
+def _fft2(a, overwrite_x = False, extra = {}):
+    libname = CDDMConfig["fftlib"]
+    if libname == "mkl_fft":
+        return mkl_fft.fft2(a, overwrite_x = overwrite_x, **extra)
+    elif libname == "scipy":
+        return spfft.fft2(a, overwrite_x = overwrite_x, **extra)
+    elif libname == "numpy":
+        return np.fft.fft2(a, **extra) 
+    elif libname == "pyfftw":
+        return fftw.scipy_fftpack.fft2(a, overwrite_x = overwrite_x, **extra)
+
+def _ifft2(a, overwrite_x = False, extra = {}):
+    libname = CDDMConfig["fftlib"]
+    if libname == "mkl_fft":
+        return mkl_fft.ifft2(a, overwrite_x = overwrite_x, **extra)
+    elif libname == "scipy":
+        return spfft.ifft2(a, overwrite_x = overwrite_x,**extra)
+    elif libname == "numpy":
+        return np.fft.ifft2(a, **extra) 
+    elif libname == "pyfftw":
+        return fftw.scipy_fftpack.ifft2(a, overwrite_x = overwrite_x, **extra)
     
 def _rfft2(a, overwrite_x = False, extra = {}):
     libname = CDDMConfig["rfft2lib"]
@@ -71,25 +82,44 @@ def _rfft2(a, overwrite_x = False, extra = {}):
     # depending on how the libraries are compiled, the output may not be of same dtype as requested
     # float32 may be converted to complex128... so we make sure it is of specified type.
     return np.asarray(out, CDTYPE)
-    
-def _determine_cutoff_indices(shape, kimax = None, kjmax= None):
+
+def _determine_kimax(kisize, kimax):
     if kimax is None:
-        kisize = shape[0]
         kimax = kisize//2 
+        return kimax, kisize
     else:    
-        kisize = kimax*2+1
-        if kisize > (shape[0]//2)*2+1:
-            raise ValueError("kimax too large for a given frame")
+        n = kimax*2+1
+        if n > (kisize//2)*2+1:
+            return None, None
+        return kimax, kimax*2+1
+
+def _determine_kjmax(kjsize, kjmax):
     if kjmax is None:
-        kjmax = shape[1]-1 
+        kjmax = kjsize-1 
+        return kjmax, kjsize
     else:
-        if kjmax > shape[1]-1:
-            raise ValueError("kjmax too large for a given frame")
+        if kjmax > kjsize-1:
+            return None, None
+        return kjmax, kjmax + 1
+
+def _determine_cutoff_indices(shape, kimax = None, kjmax= None, mode = "rfft2"):
+    kimax, kisize = _determine_kimax(shape[0],kimax)
+    if mode == "rfft2":
+        kjmax, kjsize = _determine_kjmax(shape[1],kjmax)
+    elif mode == "fft2":
+        kjmax, kjsize = _determine_kimax(shape[1],kjmax)
+    else:
+        raise ValueError("Invalid mode.")
+    
+    if kimax is None:
+        raise ValueError("kimax too large for a given frame")
+    if kjmax is None:
+        raise ValueError("kjmax too large for a given frame")
     
     istop = kimax+1
     jstop = kjmax+1
     
-    shape = kisize, jstop
+    shape = kisize, kjsize
     return shape, istop, jstop
 
 def rfft2_crop(x, kimax = None, kjmax = None):
@@ -115,13 +145,45 @@ def rfft2_crop(x, kimax = None, kjmax = None):
     else:
         x = np.asarray(x)
         shape = x.shape[-2:]
-        shape, istop, jstop = _determine_cutoff_indices(shape, kimax, kjmax)
+        shape, istop, jstop = _determine_cutoff_indices(shape, kimax, kjmax, mode = "rfft2")
         
         out = np.empty(shape = x.shape[:-2] + shape, dtype = x.dtype)
         out[...,:istop,:] = x[...,:istop,:jstop] 
         out[...,-istop+1:,:] = x[...,-istop+1:,:jstop] 
         return out
-
+    
+def fft2_crop(x, kimax = None, kjmax = None):
+    """Crops fft2 data.
+    
+    Parameters
+    ----------
+    x : ndarray
+        FFT2 data (as returned by np.fft2 for instance). FFT2 must be over the
+        last two axes.
+    kimax : int, optional
+        Max k value over the first (-2) axis of the FFT.
+    kjmax : int, optional
+        Max k value over the second (-1) axis of the FFT.   
+        
+    Returns
+    -------
+    out : ndarray
+        Cropped fft array.
+    """
+    if kimax is None and kjmax is None:
+        return x
+    else:
+        x = np.asarray(x)
+        shape = x.shape[-2:]
+        shape, istop, jstop = _determine_cutoff_indices(shape, kimax, kjmax, mode = "fft2")
+        
+        out = np.empty(shape = x.shape[:-2] + shape, dtype = x.dtype)
+        out[...,:istop,:jstop] = x[...,:istop,:jstop] 
+        out[...,-istop+1:,:jstop] = x[...,-istop+1:,:jstop] 
+        out[...,:istop,-jstop+1:] = x[...,:istop,-jstop+1:] 
+        out[...,-istop+1:,-jstop+1:] = x[...,-istop+1:,-jstop+1:] 
+        return out
+       
 def rfft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     """A generator that performs rfft2 on a sequence of multi-frame data.
     
@@ -151,28 +213,60 @@ def rfft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     """
     for frames in video:
         yield tuple((rfft2_crop(_rfft2(frame, overwrite_x = overwrite_x, extra = extra),kimax, kjmax) for frame in frames))
+
+def fft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
+    """A generator that performs fft2 on a sequence of multi-frame data.
     
-#    def f(frame, shape, istop, jstop):
-#        data = _rfft2(frame, overwrite_x = overwrite_x)
-#        vid = np.empty(shape,data.dtype)
-#        vid[:istop,:] = data[:istop,:jstop] 
-#        vid[-istop+1:,:] = data[-istop+1:,:jstop] 
-#        return vid
-#
-#    if kimax is None and kjmax is None:
-#        #just do fft, no cropping
-#        for frames in video:
-#            #yield _rfft2_sequence(frames, overwrite_x = overwrite_x)
-#            yield tuple((_rfft2(frame, overwrite_x = overwrite_x) for frame in frames))
-#    else:
-#        #do fft with cropping
-#        out = None
-#        for frames in video:
-#            if out is None:
-#                shape = frames[0].shape
-#                shape, istop, jstop = _determine_cutoff_indices(shape, kimax, kjmax)
-#            out = tuple((f(frame,shape,istop,jstop) for frame in frames))
-#            yield out
+    Shape of the output depends on kimax and kjmax. It is (2*kimax+1, kjmax +1), 
+    or same as the result of rfft2 if kimax and kjmax are not defined.
+    
+    Parameters
+    ----------
+    video : iterable
+        An iterable of multi-frame data
+    kimax : int, optional
+        Max value of the wavenumber in vertical axis (i)
+    kjmax : int, optional
+        Max value of the wavenumber in horizontal axis (j)
+    overwrite_x : bool, optional
+        If input type is complex and fft library used is not numpy, fft can 
+        be performed inplace to speed up computation.
+    extra : dict
+        Extra arguments passed to the underlying fft2 cfunction. These arguments
+        are library dependent. For pyffyw see the documentation on 
+        additional arguments for finer FFT control.
+        
+    Returns
+    -------
+    video : iterator
+        An iterator over FFT of the video.
+    """
+    for frames in video:
+        yield tuple((fft2_crop(_fft2(frame, overwrite_x = overwrite_x, extra = extra),kimax, kjmax) for frame in frames))
+
+def windowed_fft_select(frame, window, ki, kj, kimax = None, kjmax = None):
+    kf = np.zeros(frame.shape, CDTYPE)
+    kf[ki,kj] = 1.
+    kf = _fft2(kf, overwrite_x = True)
+    kernel = (window*kf)
+    fkernel = _fft2(kernel, overwrite_x = True)
+    fout = _fft2(frame)
+    fout *= fkernel
+    fout = fft2_crop(fout, kimax,kjmax)
+    out = _ifft2(fout, overwrite_x = True)
+    #out *= kf
+    return out
+
+def _fft_convolve(frame, fkernel = None, kimax = None, kjmax = None):
+    f = _fft2(frame)
+    f = np.multiply(f, fkernel, out = f)
+    return _ifft2(fft2_crop(f, kimax, kjmax),overwrite_x = True)
+
+def fft_convolve(video, kernel, kimax = None, kjmax = None):
+    fkernel = np.fft.fft2(kernel)
+    for frames in video:
+        yield tuple((_fft_convolve(frame, fkernel, kimax, kjmax) for frame in frames))
+        
 
 def normalize_fft(video, inplace = False, dtype = None):
     """Normalizes each frame in fft video to the mean value (intensity) of
@@ -199,16 +293,16 @@ def normalize_fft(video, inplace = False, dtype = None):
         else:
             yield tuple((np.asarray(frame / frame[0,0], dtype = dtype) for frame in frames))   
         
-#if __name__ == "__main__":
-#    import cddm.conf
-#
-#    from cddm.video import random_video, show_diff, show_video, show_fft, play
-#    video = random_video(dual = True, shape = (512,256))
-#    #video = show_video(video,0)
-#    #video = show_diff(video)
-#    video = show_fft(video,0)
-#    #video = rfft2(video,63,63)
-#    
-#    
-#    for frames in play(video, fps = 20):
-#        pass
+# if __name__ == "__main__":
+#     import cddm.conf
+
+#     from cddm.video import random_video, show_diff, show_video, show_fft, play
+#     video = random_video(dual = True, shape = (512,256))
+#     #video = show_video(video,0)
+#     #video = show_diff(video)
+#     video = show_fft(video,0)
+#     #video = rfft2(video,63,63)
+    
+    
+#     for frames in play(video, fps = 20):
+#         pass

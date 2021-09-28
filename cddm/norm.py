@@ -579,12 +579,14 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
             bg1 = bg1 / (scale_factor(variance,mask))**0.5 if scale == True else bg1
             bg2 = bg2 / (scale_factor(variance,mask))**0.5  if scale == True else bg2
             delta = noise_delta(variance, mask, scale = scale)
-        weight = weight_from_data(weighted_data, delta, scale_factor = _scale_factor, mode = mode)
         
-        for i in range(2):
-            weighted_data = weighted_sum(comp_data, base_data, weight)
+        if weight is None:
             weight = weight_from_data(weighted_data, delta, scale_factor = _scale_factor, mode = mode)
-    
+            
+            for i in range(2):
+                weighted_data = weighted_sum(comp_data, base_data, weight)
+                weight = weight_from_data(weighted_data, delta, scale_factor = _scale_factor, mode = mode)
+        
     
         # _multilevel = True if len(data[1].shape) > 1 else False
         

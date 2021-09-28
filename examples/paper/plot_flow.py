@@ -42,17 +42,17 @@ for j,norm in enumerate(NORM):
     
     
     ax.plot(x[:TMAX],y[:TMAX].real,"-", label = NORM_LABEL[j], fillstyle = "none")
-    ax.set_ylabel("Re(C)")
+    ax.set_ylabel("$\Re(C)$")
     ax = axs[1]
     
     
     ax.plot(x[:TMAX],y[:TMAX].imag,"-", label = NORM_LABEL[j], fillstyle = "none")
-    ax.set_ylabel("Im(C)")
+    ax.set_ylabel("$\Im(C)$")
     ax = axs[2]
     
     
     ax.plot(x[:TMAX],np.abs(y[:TMAX]),"-", label = NORM_LABEL[j], fillstyle = "none")
-    ax.set_ylabel("Abs(C)")
+    ax.set_ylabel("$|C|$")
     
 
     

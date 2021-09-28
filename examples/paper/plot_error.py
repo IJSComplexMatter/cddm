@@ -26,7 +26,7 @@ import os
 from examples.paper.form_factor import g1, bg1, bg2
 
 #: whether toplot cross-correlationor auto-correlation data
-CROSS = True
+CROSS = False
 
 #: whether to plot binned data
 BINNING_DATA = 1
