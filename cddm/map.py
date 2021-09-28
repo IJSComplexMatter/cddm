@@ -423,7 +423,7 @@ def as_rfft2_conj(a, axes = (-2,-1)):
     >>> rf = np.fft.rfft2(a)
     >>> cf = as_rfft2_conj(f)
     >>> np.allclose(cf[2,5], f[-2,-5])
-    True 
+    True
     """
     ax1,ax2 = tuple(sorted(axes))
     
