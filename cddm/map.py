@@ -401,14 +401,14 @@ def as_fft2_shape(kisize = None, kjsize = None, shape = None):
                 raise ValueError("kisize incompatible with input data shape")        
     return kisize, kjsize
 
-def as_rfft2_mask(a):
+def as_rfft2_mask(a, axes = (-2,-1)):
     """Converts fft2 (boolean) mask array into rfft2 (boolean) mask array.
     """
-    m1 = as_rfft2_data(a)
-    m2 = as_rfft2_conj(a)
+    m1 = as_rfft2_data(a, axes)
+    m2 = as_rfft2_conj(a, axes)
     return np.logical_or(m1,m2)
 
-def as_rfft2_conj(a):
+def as_rfft2_conj(a, axes = (-2,-1)):
     """Converts data from `fft2 space` to `rfft2 conjugate half space`.
     
     It stores the missing part in the rfft2 data from the full fft2 data.
@@ -423,13 +423,20 @@ def as_rfft2_conj(a):
     >>> rf = np.fft.rfft2(a)
     >>> cf = as_rfft2_conj(f)
     >>> np.allclose(cf[2,5], f[-2,-5])
-    True    
+    True 
     """
-    h,w = a.shape[-2:]
+    ax1,ax2 = tuple(sorted(axes))
+    
+    slices_in = [slice(None)]*a.ndim
+    slices_out = [slice(None)]*a.ndim
+    
+    w = a.shape[ax2]
     #width of the half-space data
     whalf = w//2 + 1
     
-    m2 = np.empty_like(a[...,0:whalf])
+    slices_in[ax2] = slice(0,whalf) 
+    
+    m2 = np.empty_like(a[tuple(slices_in)])
     
     #the negative values
     if m2.dtype == bool:
@@ -444,13 +451,25 @@ def as_rfft2_conj(a):
             m2[...] = -1
             
     # now set valid data       
-    #m2[...,-1:0:-1,-1:0:-1] = a[...,-1:0:-1,-1:-whalf:-1]
-    m2[...,1:,1:] = a[...,-1:0:-1,-1:-whalf:-1]
-    m2[...,0,1:] = a[...,0,-1:-whalf:-1]
+    #m2[...,1:,1:] = a[...,-1:0:-1,-1:-whalf:-1]
+    slices_in[ax1] = slice(-1,0,-1)
+    slices_in[ax2] = slice(-1,-whalf,-1) 
+    slices_out[ax1] = slice(1,None)
+    slices_out[ax2] = slice(1,None)
+
+    m2[tuple(slices_out)] = a[tuple(slices_in)]
+    
+    #m2[...,0,1:] = a[...,0,-1:-whalf:-1]
+    slices_in[ax1] = 0
+    slices_in[ax2] = slice(-1,-whalf,-1) 
+    slices_out[ax1] = 0
+    slices_out[ax2] = slice(1,None)
+    
+    m2[tuple(slices_out)] = a[tuple(slices_in)]
 
     return m2
 
-def as_rfft2_data(a):
+def as_rfft2_data(a, axes = (-2,-1)):
     """Converts data from `fft2 space` to `rfft2 half space`.
     
     Examples
@@ -461,15 +480,21 @@ def as_rfft2_data(a):
     >>> hf = as_rfft2_data(f)
     >>> np.allclose(hf,rf)
     True
-    """    
-    h,w = a.shape[-2:]
+    """
+    ax1,ax2 = tuple(sorted(axes))
+    
+    slices_in = [slice(None)]*a.ndim
+    
+    w = a.shape[ax2]
     #width of the half-space data
     whalf = w//2 + 1
     
-    m1 = a[...,0:whalf]
+    slices_in[ax2] = slice(0,whalf)
+    
+    m1 = a[tuple(slices_in)]
     return m1
 
-def from_rfft2_data(a, shape = None):
+def from_rfft2_data(a, shape = None, axes = (-2,-1)):
     """Converts halfspace rfft2 data to fullspace fft2 data. 
 
     Examples
@@ -483,22 +508,52 @@ def from_rfft2_data(a, shape = None):
     >>> np.allclose(from_rfft2_data(hf, shape = (32,32)), f)
     True
     """
-    kisize, kjsize = a.shape
-    shape = as_fft2_shape(kisize = kisize, kjsize = kjsize, shape = shape)
-    out = np.empty(shape = shape, dtype = a.dtype)
-    whalf = shape[1]//2 + 1
-    out[...,:,0:whalf] = a
+    ax1,ax2 = tuple(sorted(axes))
+    
+    slices_in = [slice(None)]*a.ndim
+    slices_out = [slice(None)]*a.ndim
+    
+    kisize, kjsize = a.shape[ax1], a.shape[ax2]
+    
+    newh, neww = as_fft2_shape(kisize = kisize, kjsize = kjsize, shape = shape)
+    new_shape = list(a.shape)
+    new_shape[ax1] = newh
+    new_shape[ax2] = neww
+    
+    
+    out = np.empty(shape = new_shape, dtype = a.dtype)
+    whalf = neww//2 + 1
+    
+    #out[...,:,0:whalf] = a
+    slices_out[ax2] = slice(0,whalf)
+    out[tuple(slices_out)] = a
     
     #in case shape[1] is odd this is same as shape[1]//2 + 1, else it is lower by one
-    whalf2 = (shape[1] + 1)//2
+    whalf2 = (neww + 1)//2
+    
+    
+    #out[...,1:,whalf2:] = np.conj(a[...,-1:0:-1,-1:-whalf:-1])
+    slices_in[ax1] = slice(-1,0,-1)
+    slices_in[ax2] = slice(-1,-whalf,-1)
+    slices_out[ax1] = slice(1,None)
+    slices_out[ax2] = slice(whalf2,None)
     
     if np.iscomplexobj(a):
-        out[...,1:,whalf2:] = np.conj(a[...,-1:0:-1,-1:-whalf:-1])
-        out[...,0,whalf2:] = np.conj(a[...,0,-1:-whalf:-1])
+        out[tuple(slices_out)] = np.conj(a[tuple(slices_in)])
     else:
-        out[...,1:,whalf2:] = a[...,-1:0:-1,-1:-whalf:-1]
-        out[...,0,whalf2:] = a[...,0,-1:-whalf:-1]
+        out[tuple(slices_out)] = a[tuple(slices_in)]
     
+    #out[...,0,whalf2:] = np.conj(a[...,0,-1:-whalf:-1])
+    slices_in[ax1] = 0
+    slices_in[ax2] = slice(-1,-whalf,-1)
+    slices_out[ax1] = 0
+    slices_out[ax2] = slice(whalf2,None)
+    
+    if np.iscomplexobj(a):
+        out[tuple(slices_out)] = np.conj(a[tuple(slices_in)])
+    else:
+        out[tuple(slices_out)] = a[tuple(slices_in)]
+        
     return out
     
 

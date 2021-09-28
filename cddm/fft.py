@@ -217,8 +217,8 @@ def rfft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
 def fft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     """A generator that performs fft2 on a sequence of multi-frame data.
     
-    Shape of the output depends on kimax and kjmax. It is (2*kimax+1, kjmax +1), 
-    or same as the result of rfft2 if kimax and kjmax are not defined.
+    Shape of the output depends on kimax and kjmax. It is (2*kimax+1, 2*kjmax+1,), 
+    or same as the result of fft2 if kimax and kjmax are not defined.
     
     Parameters
     ----------
