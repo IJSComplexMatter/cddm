@@ -244,30 +244,54 @@ def fft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     for frames in video:
         yield tuple((fft2_crop(_fft2(frame, overwrite_x = overwrite_x, extra = extra),kimax, kjmax) for frame in frames))
 
-def windowed_fft_select(frame, window, ki, kj, kimax = None, kjmax = None):
-    kf = np.zeros(frame.shape, CDTYPE)
-    kf[ki,kj] = 1.
-    kf = _fft2(kf, overwrite_x = True)
+def _build_kf(window, kvec):
+    window = np.asarray(window)
+    kvec = np.asarray(kvec)
+    if kvec.ndim not in (1,2) and kvec.shape[-1] != 2:
+        raise ValueError("Invalid kvec")
+    is_multi_kvec = True if kvec.ndim == 2 else False
+    if is_multi_kvec:
+        if window.ndim == 2:
+            #add axis for broadcasting
+            window = window[None,...]
+    
+    
+    kfshape = kvec.shape[0:-1] + window.shape
+    kf = np.zeros(kfshape, CDTYPE)
+    if is_multi_kvec:
+        for i,k in enumerate(kvec):
+            ki,kj = k
+            kf[i,ki,kj] = 1.
+    else:
+        ki,kj = kvec
+        kf[ki,kj] = 1.   
+    kf = _fft2(kf, overwrite_x = True)  
+    return kf
+
+def _build_kernel(window, kf):
     kernel = (window*kf)
-    fkernel = _fft2(kernel, overwrite_x = True)
+    return _fft2(kernel, overwrite_x = True)
+
+def _convolve_fft(frame, kernel, kimax = None, kjmax = None):
     fout = _fft2(frame)
-    fout *= fkernel
+    fout = fout*kernel
     fout = fft2_crop(fout, kimax,kjmax)
     out = _ifft2(fout, overwrite_x = True)
-    #out *= kf
     return out
 
-def _fft_convolve(frame, fkernel = None, kimax = None, kjmax = None):
-    f = _fft2(frame)
-    f = np.multiply(f, fkernel, out = f)
-    return _ifft2(fft2_crop(f, kimax, kjmax),overwrite_x = True)
-
-def fft_convolve(video, kernel, kimax = None, kjmax = None):
-    fkernel = np.fft.fft2(kernel)
+def dls(frame, window, kvec, kimax = None, kjmax = None):
+    kf = _build_kf(window, kvec)
+    kernel = _build_kernel(window, kf)
+    out = _convolve_fft(frame, kernel, kimax = kimax, kjmax = kjmax)
+    #out *= kf
+    return out
+          
+def dls_video(video, window, kvec, kimax = None, kjmax = None):
+    kf = _build_kf(window, kvec)
+    kernel = _build_kernel(window, kf)
     for frames in video:
-        yield tuple((_fft_convolve(frame, fkernel, kimax, kjmax) for frame in frames))
-        
-
+        yield tuple((_convolve_fft(frame, kernel, kimax = kimax, kjmax = kjmax) for frame in frames))
+          
 def normalize_fft(video, inplace = False, dtype = None):
     """Normalizes each frame in fft video to the mean value (intensity) of
     the [0,0] component of fft.

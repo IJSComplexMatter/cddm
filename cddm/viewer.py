@@ -13,7 +13,6 @@ from cddm.decorators import doc_inherit, skip_runtime_error
 
 _matplotlib_3_4_or_greater = False
 
-
 try:
     import matplotlib
     major, minor = matplotlib.__version__.split(".")[0:2]
@@ -21,7 +20,6 @@ try:
         _matplotlib_3_4_or_greater = True
 except:
     print("Could not determine matplotlib version you are using, assuming < 3.4")
-
 
 class VideoViewer(object):
     """
@@ -272,6 +270,309 @@ def data_repr(data, mode = "real"):
         return np.abs(data)
     elif mode == "phase":
         return np.arctan2(data.imag, data.real)
+    
+class DataArrayViewer(object):
+    fig = None
+    data = None
+    mode = "real"
+    
+    def __init__(self, semilogx = True, axes = (0,)):
+        self.semilogx = semilogx
+        self.axes = tuple(axes)
+        self._default_indices = (0,) * len(axes)
+        self.set_indices(*self._default_indices)
+   
+    def _init_fig(self):
+        if self.data is None:
+            raise ValueError("You must first set data to plot!")
+
+        self.fig, self.ax = plt.subplots(1,1)
+        self.fig.show()
+        plt.subplots_adjust(bottom=0.25)
+
+        self.selectorax = plt.axes([0.1, 0.95, 0.65, 0.03])
+        self.selectorindex = CustomRadioButtons(self.selectorax, ["real", "imag", "abs", "phase"], active = "real")
+        
+        self.slider_axes = {}
+        self.sliders = {}
+        
+        def update_slider(val):
+            self.set_indices(*tuple((int(self.sliders[ax].val) for ax in self.axes)))
+            self.plot()      
+        
+        for i,ax in enumerate(self.axes):
+            self.slider_axes[ax] = plt.axes([0.1, 0.05 + i*0.1, 0.65, 0.03])
+            self.sliders[ax] = Slider(self.slider_axes[ax], "axis {}".format(ax) ,0, self.shape[ax]-1,valinit = self._default_indices[i], valfmt='%i')
+            self.sliders[ax].on_changed(update_slider)
+
+        def update_mode(val):
+            self.mode = val
+            update_slider(val)
+
+        self.selectorindex.on_clicked(update_mode)
+
+    def set_indices(self,*vals):
+        indices = [slice(None)] * len(self.axes)
+        for i,ax in enumerate(self.axes):
+            indices[ax] = vals[i]
+        self.indices = tuple(indices)
+              
+    def set_data(self, data, t = None):
+        """Sets correlation data.
+        
+        Parameters
+        ----------
+        data : ndarray
+            Normalized data.
+        """
+        #first try to see if data compatible with the defined axes
+        axes = range(data.ndim)
+        try:
+            for ax in self.axes:
+                axes[ax]
+        except IndexError:
+            raise ValueError("Input data not compatible with defined axes.")
+        
+        self.data = data
+        self.shape = self.data.shape
+
+        t =  np.asarray(t) if t is not None else np.arange(data.shape[-1])
+        if len(t) != data.shape[-1]:
+            raise ValueError("Wrong time array length")
+        else:
+            self.t = t
+            
+    def _get_avg_data(self):
+        data = self.data[self.indices]
+        return self.t, data_repr(data, self.mode)
+          
+    def get_data(self):
+        """Returns computed k-averaged data and time
+        
+        Returns
+        -------
+        x, y : ndarray, ndarray
+            Time, data ndarrays.
+        """
+        
+        if self.data is None:
+            raise ValueError("No data, you must first set data.")
+
+        return self._get_avg_data()
+            
+
+    def plot(self):
+        """Plots data. You must first call :meth:`.set_data` to set input data"""
+        
+        if self.fig is None:
+            self._init_fig()
+              
+        with np.errstate(divide='ignore', invalid='ignore'):
+            state = disable_prints()
+            t, avg_data = self.get_data()
+            enable_prints(state)            
+        try:
+            self.l.set_ydata(avg_data)
+            self.l.set_xdata(t)
+            self.ax.relim()
+            self.ax.autoscale_view()
+        except AttributeError:
+            if self.semilogx == True:
+                self.l, = self.ax.semilogx(t,avg_data)
+            else:
+                self.l, = self.ax.plot(t,avg_data)
+
+        self.fig.canvas.draw() 
+        self.fig.canvas.flush_events()
+        plt.pause(0.01)
+
+    def show(self):
+        """Shows plot."""
+        plt.show()
+        
+class CorrArrayViewer(DataArrayViewer):
+    """Plots raw correlation data. You need to hold reference to this object, 
+    otherwise it will not work in interactive mode.
+
+    Parameters
+    ----------
+    semilogx : bool
+        Whether plot data with semilogx or not.
+    shape : tuple of ints, optional
+        Original frame shape. For non-rectangular you must provide this so
+        to define k step.
+    size : int, optional
+        If specified, perform log_averaging of data with provided size parameter.
+        If not given, no averaging is performed.
+    norm : int, optional
+        Normalization constant used in normalization
+    scale : bool, optional
+        Scale constant used in normalization.
+    mask : ndarray, optional
+        A boolean array indicating which data elements were computed.
+    fold : bool
+        For complex data this is a required parameter. I specifies whether to 
+        fold data or not.
+    """
+    background = None
+    variance = None
+    
+    def __init__(self, semilogx = True,  axes = (0,), size = None, norm = None, scale = False, fold = None):
+        self.axes = axes
+        self._default_indices = (0,) * len(axes)
+        self.set_indices(*self._default_indices)
+        self.norm  = norm
+        self.scale = scale
+        self.semilogx = semilogx
+        self.size = size
+        self.fold = fold
+        
+    @property   
+    def mask(self):
+        mask = np.zeros(self.shape[:-1], bool)
+        mask[self.indices] = True
+        return mask
+        
+    def set_norm(self, value):
+        """Sets norm parameter"""
+        method = _method_from_data(self.data)
+        self.norm = _default_norm_from_data(self.data,method,value)     
+        
+    def _init_fig(self):
+        super()._init_fig()
+        
+        self.set_norm(self.norm)
+        
+        #self.rax = plt.axes([0.48, 0.55, 0.15, 0.3])
+        self.cax = plt.axes([0.44, 0.72, 0.2, 0.15])
+        
+        self.active = [bool(self.norm & NORM_STRUCTURED),bool(self.norm & NORM_SUBTRACTED), bool((self.norm & NORM_WEIGHTED == NORM_WEIGHTED)) , bool((self.norm & NORM_COMPENSATED) == NORM_COMPENSATED)  ]
+        
+        self.check = CheckButtons(self.cax, ("structured", "subtracted", "weighted", "compensated"), self.active)
+        
+        #self.radio = RadioButtons(self.rax,("norm 0","norm 1","norm 2","norm 3","norm 4", "norm 5", "norm 6", "norm 7"), active = self.norm, activecolor = "gray")
+ 
+        def update(label):
+            index = ["structured", "subtracted", "weighted", "compensated"].index(label)
+            status = self.check.get_status()
+
+            norm = NORM_STRUCTURED if status[0] == True else NORM_STANDARD    
+            
+            if status[1]:
+                norm = norm | NORM_SUBTRACTED
+            if status[2]:
+                norm = norm | NORM_WEIGHTED
+            if status[3]:
+                norm = norm | NORM_COMPENSATED
+            try:
+                self.set_norm(norm)
+            except ValueError:
+                self.check.set_active(index)
+            self.plot()
+
+                
+        self.check.on_clicked(update)
+
+    def set_data(self, data, background = None, variance = None):
+        """Sets correlation data.
+        
+        Parameters
+        ----------
+        data : tuple
+            A data tuple (as computed by ccorr, cdiff, adiff, acorr functions)
+        background : tuple or ndarray
+            Background data for normalization. For adiff, acorr functions this
+            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        variance : tuple or ndarray
+            Variance data for normalization. For adiff, acorr functions this
+            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        """
+        self.data = data
+        self.background = background
+        self.variance = variance
+        self.shape = self.data[0].shape
+        
+    def _get_avg_data(self):
+        
+        data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
+
+        if np.iscomplexobj(data) :
+            if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
+                data = fold_data(data)
+            elif self.background is None and self.variance is None:
+                raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
+
+        if self.size is not None:
+            # folding has already been made, so set to False
+            t, data = log_average(data, self.size, fold = False)
+        else:
+            t = np.arange(data.shape[-1])
+
+        return t, data_repr(data.mean(axis = -2), self.mode)
+
+class MultitauArrayViewer(CorrArrayViewer):
+    """Shows multitau data in plot. You need to hold reference to this object, 
+    otherwise it will not work in interactive mode.
+    
+    Parameters
+    ----------
+    semilogx : bool
+        Whether plot data with semilogx or not.
+    shape : tuple of ints, optional
+        Original frame shape. For non-rectangular you must provide this so
+        to define k step.
+    norm : int, optional
+        Normalization constant used in normalization
+    scale : bool, optional
+        Scale constant used in normalization.
+    mask : ndarray, optional
+        A boolean array indicating which data elements were computed.
+    fold : bool
+        For complex data this is a required parameter. I specifies whether to 
+        fold data or not.
+    """
+        
+    def set_norm(self, value):
+        """Sets norm parameter"""
+        method = _method_from_data(self.data[0])
+        self.norm = _default_norm_from_data(self.data[0],method,value)  
+        
+    def set_data(self, data, background = None, variance = None):
+        """Sets correlation data.
+        
+        Parameters
+        ----------
+        data : tuple
+            A data tuple (as computed by ccorr, cdiff, adiff, acorr functions)
+        background : tuple or ndarray
+            Background data for normalization. For adiff, acorr functions this
+            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        variance : tuple or ndarray
+            Variance data for normalization. For adiff, acorr functions this
+            is ndarray, for cdiff,ccorr, it is a tuple of ndarrays.
+        """
+        self.data = data
+        self.background = background
+        self.variance = variance
+        self.shape = data[0][0].shape
+        
+    def _get_avg_data(self):
+        data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
+        
+        if np.iscomplexobj(data[0]) :
+            if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
+                data = fold_data(data[0],1), fold_data(data[1],1)
+            elif self.background is None and self.variance is None:
+                raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
+
+        if self.semilogx == True:
+            t, data = log_merge(*data, fold = False)
+        else:
+            fast, slow = data
+            t = np.arange(fast.shape[-1])
+            data = fast
+                    
+        return t, data_repr(data.mean(axis = -2), self.mode)
     
 class DataViewer(object):
     """Plots normalized correlation data. You need to hold reference to this object, 

@@ -1,7 +1,7 @@
 """
 For testing, inspects videos and performs live correlation calculation...
 """
-from cddm.viewer import MultitauViewer, CorrViewer
+from cddm.viewer import MultitauViewer, CorrViewer, MultitauArrayViewer
 from cddm.video import multiply, normalize_video, crop, show_video, play_threaded, asarrays, load, show_diff
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
@@ -53,12 +53,12 @@ if __name__ == "__main__":
     import os.path as p
 
     #we will show live calculation with the viewer
-    viewer = MultitauViewer(scale = True, semilogx = True)
+    viewer = MultitauArrayViewer(scale = True, semilogx = True, axes = (0,1))
     #viewer = CorrViewer(scale = True, semilogx = False)
     
     #initial mask parameters
-    viewer.k = 15
-    viewer.sector = 30
+    #viewer.k = 15
+    #viewer.sector = 30
     
     
     #: now perform auto correlation calculation with default parameters and show live
