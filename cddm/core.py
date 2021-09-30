@@ -364,7 +364,7 @@ def reshape_output(data, shape = None, mask = None):
         if i != 1 and x is not None: 
             x = x.reshape(shape)
             if mask is not None:
-                out = np.empty(x.shape[0:-2] + mask.shape + (x.shape[-1],), x.dtype)
+                out = np.empty(x.shape[0:-mask.ndim] + mask.shape + (x.shape[-1],), x.dtype)
                 out[...,mask,:] = x
                 out[...,np.logical_not(mask),:] = np.nan
                 return out
@@ -377,9 +377,9 @@ def reshape_output(data, shape = None, mask = None):
             raise ValueError("Either `mask` or `shape` must be defined")
         shape = mask.shape
     if mask is None:
-        shape = data[0].shape[0:-3] + tuple(shape) + (data[0].shape[-1],) 
+        shape = data[0].shape[0:-(len(shape)+1)] + tuple(shape) + (data[0].shape[-1],) 
     else:
-        shape = data[0].shape[0:-2] + tuple(shape) + (data[0].shape[-1],) 
+        shape = data[0].shape[0:-mask.ndim] + tuple(shape) + (data[0].shape[-1],) 
     #normalized data 
     if isinstance(data, np.ndarray):
         return _reshape(0,data) 

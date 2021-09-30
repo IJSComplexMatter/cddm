@@ -7,6 +7,7 @@ from __future__ import absolute_import, print_function, division
 
 import numpy as np
 from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED, PYFFTW_INSTALLED,  detect_number_of_cores, CDTYPE
+from cddm.decorators import deprecated
 
 #from multiprocessing.pool import ThreadPool
 
@@ -184,7 +185,7 @@ def fft2_crop(x, kimax = None, kjmax = None):
         out[...,-istop+1:,-jstop+1:] = x[...,-istop+1:,-jstop+1:] 
         return out
        
-def rfft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
+def rfft2_video(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     """A generator that performs rfft2 on a sequence of multi-frame data.
     
     Shape of the output depends on kimax and kjmax. It is (2*kimax+1, kjmax +1), 
@@ -214,7 +215,7 @@ def rfft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     for frames in video:
         yield tuple((rfft2_crop(_rfft2(frame, overwrite_x = overwrite_x, extra = extra),kimax, kjmax) for frame in frames))
 
-def fft2(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
+def fft2_video(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     """A generator that performs fft2 on a sequence of multi-frame data.
     
     Shape of the output depends on kimax and kjmax. It is (2*kimax+1, 2*kjmax+1,), 
@@ -256,7 +257,7 @@ def _build_kf(window, kvec):
             window = window[None,...]
     
     
-    kfshape = kvec.shape[0:-1] + window.shape
+    kfshape = kvec.shape[0:-1] + window.shape[-2:]
     kf = np.zeros(kfshape, CDTYPE)
     if is_multi_kvec:
         for i,k in enumerate(kvec):
@@ -280,6 +281,13 @@ def _convolve_fft(frame, kernel, kimax = None, kjmax = None):
     return out
 
 def dls(frame, window, kvec, kimax = None, kjmax = None):
+    """Performs DLS-like imaging. You define the desired k-vector and the desired
+    illumination shape (the window function). This function computes the Fourier 
+    transform, performs phase/amplitude modulation in the Fourier space and 
+    recontructs the image in real space. The phase/amplitude modulation is 
+    such that it filters only the defined frequency components with a spatial
+    resolution determined by the window function.
+    """
     kf = _build_kf(window, kvec)
     kernel = _build_kernel(window, kf)
     out = _convolve_fft(frame, kernel, kimax = kimax, kjmax = kjmax)
@@ -287,6 +295,7 @@ def dls(frame, window, kvec, kimax = None, kjmax = None):
     return out
           
 def dls_video(video, window, kvec, kimax = None, kjmax = None):
+    """Same as dls, but for video objects"""
     kf = _build_kf(window, kvec)
     kernel = _build_kernel(window, kf)
     for frames in video:
@@ -315,7 +324,15 @@ def normalize_fft(video, inplace = False, dtype = None):
         if inplace == True:
             yield tuple((np.divide(frame, frame[0,0], frame) for frame in frames))
         else:
-            yield tuple((np.asarray(frame / frame[0,0], dtype = dtype) for frame in frames))   
+            yield tuple((np.asarray(frame / frame[0,0], dtype = dtype) for frame in frames))  
+            
+@deprecated("This function was renamed to rfft2_crop and it will be removed in the future")
+def rfft2(*args,**kwargs):
+    return rfft2_video(*args,**kwargs)
+
+@deprecated("This function was renamed to fft2_crop and it will be removed in the future")
+def fft2(*args,**kwargs):
+    return fft2_video(*args,**kwargs)
         
 # if __name__ == "__main__":
 #     import cddm.conf

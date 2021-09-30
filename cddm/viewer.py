@@ -186,7 +186,7 @@ class VideoViewer(object):
         
 class CustomRadioButtons(RadioButtons):
 
-    def __init__(self, ax, labels, active=0, activecolor='blue', size=49,
+    def __init__(self, ax, labels, active=0, activecolor='C0', size=49,
                  orientation="horizontal", **kwargs):
         """
         Add radio buttons to an `~.axes.Axes`.
@@ -276,7 +276,7 @@ class DataArrayViewer(object):
     data = None
     mode = "real"
     
-    def __init__(self, semilogx = True, axes = (0,)):
+    def __init__(self, semilogx = True, axes = (),):
         self.semilogx = semilogx
         self.axes = tuple(axes)
         self._default_indices = (0,) * len(axes)
@@ -290,8 +290,8 @@ class DataArrayViewer(object):
         self.fig.show()
         plt.subplots_adjust(bottom=0.25)
 
-        self.selectorax = plt.axes([0.1, 0.95, 0.65, 0.03])
-        self.selectorindex = CustomRadioButtons(self.selectorax, ["real", "imag", "abs", "phase"], active = "real")
+        self.selectorax = plt.axes([0.1, 0.95, 0.8, 0.03])
+        self.selectorindex = CustomRadioButtons(self.selectorax, ["real", "imag", "abs", "phase"], active = 0)
         
         self.slider_axes = {}
         self.sliders = {}
@@ -301,8 +301,9 @@ class DataArrayViewer(object):
             self.plot()      
         
         for i,ax in enumerate(self.axes):
-            self.slider_axes[ax] = plt.axes([0.1, 0.05 + i*0.1, 0.65, 0.03])
-            self.sliders[ax] = Slider(self.slider_axes[ax], "axis {}".format(ax) ,0, self.shape[ax]-1,valinit = self._default_indices[i], valfmt='%i')
+            self.slider_axes[ax] = plt.axes([0.1, 0.05 + i*0.15/len(self.axes), 0.8, 0.03])
+            size = self.shape[ax]-1
+            self.sliders[ax] = Slider(self.slider_axes[ax], "axis {}".format(ax) ,-size, size,valinit = self._default_indices[i], valfmt='%i')
             self.sliders[ax].on_changed(update_slider)
 
         def update_mode(val):
@@ -344,7 +345,8 @@ class DataArrayViewer(object):
             
     def _get_avg_data(self):
         data = self.data[self.indices]
-        return self.t, data_repr(data, self.mode)
+        avg = data.mean(axis = tuple(range(data.ndim-1)))
+        return self.t, data_repr(avg, self.mode)
           
     def get_data(self):
         """Returns computed k-averaged data and time
@@ -642,7 +644,7 @@ class DataViewer(object):
             extent=[0,self.graph.shape[1],self.graph.shape[0]//2+1,-self.graph.shape[0]//2-1])
 
         self.selectorax = plt.axes([0.1, 0.95, 0.65, 0.03])
-        self.selectorindex = CustomRadioButtons(self.selectorax, ["real", "imag", "abs", "phase"], active = "real")
+        self.selectorindex = CustomRadioButtons(self.selectorax, ["real", "imag", "abs", "phase"], active = 0)
         
         
         self.kax = plt.axes([0.1, 0.15, 0.65, 0.03])
