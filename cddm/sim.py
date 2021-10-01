@@ -112,10 +112,14 @@ def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, veloci
         particles, xy = x.shape
     except:
         raise ValueError("Wrong shape of input coordinats.")
-    #step size
-    scale=delta*np.sqrt(dt)
-    velocity = np.asarray(velocity, FDTYPE)*dt
-    scale = np.asarray(scale, FDTYPE)
+
+    if not callable(velocity):
+        _velocity = np.asarray(velocity, FDTYPE)*dt
+        
+    if not callable(delta):
+        #step size
+        _scale = delta*np.sqrt(dt)
+        _scale = np.asarray(_scale, FDTYPE)
     
     if len(shape) != 2:
         raise ValueError("Wrong `shape`, must be 2D.")
@@ -124,10 +128,18 @@ def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, veloci
     
     x = mirror(x,x1,x2) #make sure we start in the box
     
-    
     for i in range(count):
         yield x
-        x = make_step(x,scale, velocity) 
+
+        if callable(velocity):
+            _velocity = velocity(x)
+            _velocity = np.asarray(_velocity, FDTYPE)
+        if callable(delta):
+            _delta = delta(x)
+            _scale = _delta*np.sqrt(dt)
+            _scale = np.asarray(_scale, FDTYPE)
+            
+        x = make_step(x,_scale, _velocity) 
         x = mirror(x,x1,x2)
         
 def brownian_particles(count = 500, shape = (256,256),num_particles = 100, delta = 1, dt = 1,velocity = 0., x0 = None):
@@ -165,9 +177,14 @@ def brownian_particles(count = 500, shape = (256,256),num_particles = 100, delta
         x0 = np.asarray(x0,FDTYPE)
         if len(x0) != num_particles:
             raise ValueError("Wrong length of initial coordinates x0")
- 
-    v0 = np.zeros_like(x0)
-    v0[:,:] = velocity
+    
+    if not callable(velocity):
+        # velocity it has to ba a 2D matrix. So we are making sure it is by copying
+        v0 = np.zeros_like(x0)
+        v0[:,:] = velocity
+    else:
+        #it can be a callable, so just pass in this case
+        v0 = velocity
     for data in brownian_walk(x0,count,shape,delta,dt,v0):
         yield data
              
