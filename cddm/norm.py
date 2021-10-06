@@ -761,6 +761,57 @@ def take_data(data, mask):
         
     return tuple((_mask(i,d) for (i,d) in enumerate(data)))
 
+def shift_data(data):
+    """Phase shifts input complex correlation data so that out[...,0] is real,
+    and that phase of out[...,i] equals the phase of out[...,-i].conj(),
+    which removes the phase shift caused by the translational missalignment 
+    in cross-correlation data.
+    """
+    data = np.asarray(data)
+    if not np.iscomplexobj(data):
+        raise ValueError("Input data must be complex correlation data.")
+    n = (data.shape[-1]+1)//2
+    
+    out = np.empty_like(data)
+    
+    pos = data[...,1:n]
+    neg = np.conj(data[...,-1:-n:-1])
+    
+    pos_phase = np.arctan2(pos.imag, pos.real)
+    neg_phase = np.arctan2(neg.imag, neg.real)
+    
+    phase = (pos_phase - neg_phase)/2.
+    exp_phase = np.exp(1j*phase)
+
+    out[...,1:n] = np.abs(pos) * exp_phase
+    out[...,-1:-n:-1] = np.abs(neg) * np.conj(exp_phase)
+    out[...,0] = np.abs(data[...,0])
+    return out
+
+def equalize_data(data):
+    """Equalizes input complex correlation data so that out[...,0] is real,
+    and that out[...,i] equals out[...,-i].conj(),
+    which removes the phase shift caused by the translational missalignment 
+    in cross-correlation data.
+    """
+    data = np.asarray(data)
+    if not np.iscomplexobj(data):
+        raise ValueError("Input data must be complex correlation data.")
+    n = (data.shape[-1]+1)//2
+    
+    out = np.empty_like(data)
+    
+    pos = data[...,1:n]
+    neg = np.conj(data[...,-1:-n:-1])
+    
+    tmp = np.sqrt(pos * neg)
+    
+    out[...,1:n] = tmp
+    out[...,-1:-n:-1] = np.conj(tmp)
+    out[...,0] = np.abs(data[...,0])
+    return out
+    
+
 def fold_data(data, mode = 0):
     """Folds or crops time axis of input complex cross correlation data. 
     
@@ -787,6 +838,9 @@ def fold_data(data, mode = 0):
         With mode = 1: out[i] = data[i] 
         With mode = 2: out[i] = data[-i]
     """
+    data = np.asarray(data)
+    if not np.iscomplexobj(data):
+        raise ValueError("Input data must be complex correlation data.")
     n = (data.shape[-1]+1)//2
     if mode not in (0,1,-1):
         raise ValueError("Invalid mode `{}`".format(mode))

@@ -93,13 +93,18 @@ def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, veloci
         Number of simulation steps.
     shape : (int,int)
         Shape of the simulation region in pixels.
-    delta : float
-        Defines an average step in pixel coordinates (when dt = 1).
+    delta : float or callable
+        Defines an average step in pixel coordinates (when dt = 1). If delta is
+        a callable, it must take a single argument (a current array x)
+        and return an array of delta parameters for each of the particles.
+        The shape of the returnes array must be (len(x0),)
     dt : float, optional
         Simulation time step (1 by default).
-    velocity : (float,float), optional
+    velocity : (float,float) or callable, optional
         Defines an average velocity (vi,vj) in pixel coordinates per unit time step
-        (when dt = 1).
+        (when dt = 1). If velocity a is callable, it must take a single argument 
+        (a coordinate array) and return an array of velocities vectors for each 
+        of the particles. The shape of the returnes array must be (len(x0),2)
         
     Yields
     ------
