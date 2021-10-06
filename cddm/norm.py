@@ -766,6 +766,8 @@ def shift_data(data):
     and that phase of out[...,i] equals the phase of out[...,-i].conj(),
     which removes the phase shift caused by the translational missalignment 
     in cross-correlation data.
+    
+    See also :func:`equalize_data`
     """
     data = np.asarray(data)
     if not np.iscomplexobj(data):
@@ -793,6 +795,8 @@ def equalize_data(data):
     and that out[...,i] equals out[...,-i].conj(),
     which removes the phase shift caused by the translational missalignment 
     in cross-correlation data.
+    
+    See also :func:`shift_data`
     """
     data = np.asarray(data)
     if not np.iscomplexobj(data):
