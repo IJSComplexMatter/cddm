@@ -11,26 +11,18 @@ from __future__ import absolute_import, print_function, division
 import numpy as np
 import matplotlib.pyplot as plt
 import time   
-from cddm.conf import CDDMConfig, CV2_INSTALLED,  FDTYPE, PYQTGRAPH_INSTALLED
+from cddm.conf import CDDMConfig, FDTYPE
 from cddm.print_tools import print_progress, print1, print_frame_rate
 
 from cddm.fft import _rfft2
+from cddm.buffer import buffered
+from cddm.run import asrunning
+from cddm.viewer import FramesViewer, figure_title
+from cddm.decorators import deprecated
 
-try:
-    from queue import Queue
-except ImportError:
-    #python 2.7
-    from Queue import Queue
-
-import threading
-
-if CV2_INSTALLED:
-    import cv2
-    
-if PYQTGRAPH_INSTALLED:
-    import pyqtgraph as pg
-    from pyqtgraph.Qt import QtGui
-    pg.setConfigOptions(imageAxisOrder = "row-major")
+def user_warning(message):
+    import warnings
+    warnings.warn(message, UserWarning, stacklevel=2)
 
 def fromarrays(arrays):
     """Creates a multi-frame iterator from given list of arrays.
@@ -77,17 +69,33 @@ def asarrays(video, count = None):
             count = len(video)
         except TypeError:
             raise ValueError("You must provide count")
+    elif not count > 0:
+        raise ValueError("Count must be greater than 0")
 
     print_progress(0, count)
     
+    video = asrunning(video)
+    
     video = iter(video)
     
+    # read first element to determine shape and type
     frames = next(video)
     out = tuple((np.empty(shape = (count,) + frame.shape, dtype = frame.dtype) for frame in frames))
+    
+    # now load data
     [_load(out[i][0],frame) for i,frame in enumerate(frames)]
+    #in case video is empty, we have n defined
+    n = 0
     for j,frames in enumerate(video):
-        print_progress(j+1, count)
-        [_load(out[i][j+1],frame) for i,frame in enumerate(frames)]
+        n = j+1
+        if n == count:
+            # in case we load less than full video, just stop.
+            break
+        print_progress(n, count)
+        [_load(out[i][n],frame) for i,frame in enumerate(frames)]
+        
+    if n < count - 1:
+        raise ValueError("Input video too short for a given count")
         
     print_progress(count, count)
     print_frame_rate(count,t0)
@@ -276,7 +284,6 @@ def add(x, y, inplace = False, dtype = None):
         else:
             yield tuple((np.asarray(frame + w, dtype = dtype) for w, frame in zip(arrays,frames)))            
 
-
 def normalize_video(video, inplace = False, dtype = None):
     """Normalizes each frame in the video to the mean value (intensity).
     
@@ -326,100 +333,112 @@ def multiply(x,y, inplace = False, dtype = None):
             yield tuple((np.multiply(frame, w, frame) for w, frame in zip(arrays,frames)))
         else:
             yield tuple((np.asarray(frame*w, dtype = dtype) for w, frame in zip(arrays,frames)))
-            
-class ImageShow():
-    """A simple interface for video visualization using matplotlib, opencv, or
-    pyqtgraph.
+           
+class SourceIterable():
+    """Source data holder for iterables. This object is used in conjunction 
+    with :class:`StreamingIterable`. See also :func:`split`.
+    """
+    
+    def __init__(self, iterable, n = 2):
+        self.source = iter(iterable)
+        self.stream_index = [0] * n
+        self.stream_data = [{} for i in range(n)] #each dict must be unique cannot use [{}]*n!
+        self.source_index = 0
+        self.count = None
+        
+    def next_data(self,stream):
+        index = self.stream_index[stream]
+        if index == self.source_index:
+            try:
+                out = next(self.source)
+                for data in self.stream_data:
+                    data[self.source_index] = out
+                self.source_index += 1
+            except StopIteration:
+                self.count = index
+        
+        if index == self.count:
+            raise StopIteration
+        else:
+            out = self.stream_data[stream].pop(index)     
+            self.stream_index[stream] = index + 1
+            return out
+
+class StreamingIterable():
+    """An iterable video that works with :class:`SourceIterable` input data types."""
+    def __init__(self, iterable, stream = 0):
+        if not hasattr(iterable,"next_data"):
+            raise ValueError("Invalid iterable data. You must provide a :class:`SourceIterable`-like object.")
+        self.iterable = iterable
+        self.stream = stream
+        
+    def __next__(self):
+        return self.iterable.next_data(self.stream)
+           
+    def __iter__(self):
+        return self
+
+def split(iterable, n = 2):
+    """Splits an iterable into two or more iterables.
     
     Parameters
     ----------
-    title : str
-       Title of the video
-    norm_func : callable
-        Normalization function that takes a single argument (array) and returns
-        a single element (array). Can be used to apply custom normalization 
-        function to the image before it is shown.
+    iterable : iterator
+        Input iterator, or any iterable object.
+    n : int
+        Number of streams that you wish to split input data to.
+    
+    Returns
+    -------
+    out : tuple of iterables
+        A tuple of iterable objects.
+        
+    Examples
+    --------
+    
+    Works on any iterable object, so create one
+    
+    >>> v = range(10)
+    
+    Now we can split and create two identical iterators
+    >>> v1, v2 = split(v, n = 2)
+    >>> list(v1)
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    >>> list(v2)
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    
+    Now that we have read the data, the iterables are empty
+    
+    >>> list(v1)
+    []
+    >>> list(v2)
+    []
+    
     """
-    
-    fig = None
-    
-    def __init__(self, title = "video", norm_func = lambda x : x):
-        self.title = title
-        self._prepare_image = norm_func
-    
-    def _pg_imshow(self,im):
-        im = self._prepare_image(im)
-        if self.fig is None:
-            self.im = pg.image(im, title = self.title)
-            self.fig = self.im.window()
-        else:
-            self.im.setImage(im)
- 
-    def _mpl_imshow(self,im):
-        if self.fig is None:
-            self.fig = plt.figure()
-            self.fig.show()
-            ax = self.fig.add_subplot(111)
-            ax.set_title(self.title)
-            im = self._prepare_image(im)
-            self.l = ax.imshow(im)
-        else:
-            im = self._prepare_image(im)
-            self.l.set_data(im)      
-           
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events() 
+    source = SourceIterable(iterable, n)
+    return tuple((StreamingIterable(source,i) for i in range(n)))
 
-    def _cv_imshow(self, im):
-        if self.fig is None:
-            self.fig = self.title
-        im = self._prepare_image(im)
-        if im.max() > 1:
-            im = im / im.max()
-        
-        cv2.imshow(self.fig,im)
-        
-    def show(self, im):
-        """Shows image
-        
-        Parameters
-        ----------
-        im : ndarray
-            A 2D array 
-        """
-        if CDDMConfig.showlib == "cv2":
-            self._cv_imshow(im)
-        elif CDDMConfig.showlib == "pyqtgraph":
-            self._pg_imshow(im)
-        else:
-            self._mpl_imshow(im)
-            
-    def __del__(self):
-        if self.fig is not None:
-            if CDDMConfig.showlib == "cv2":
-                cv2.destroyWindow(self.fig)
-            elif CDDMConfig.showlib == "pyqtgraph":
-                self.fig.destroy()
-            else:
-                plt.close(self.fig)       
-    
-def pause(i = 1):
-    """Pause in milliseconds needed to update matplotlib or opencv figures
-    For pyqtgraph, it performs app.processEvents()"""
-    if CDDMConfig.showlib == "cv2":
-        cv2.waitKey(int(i))
-    elif CDDMConfig.showlib == "matplotlib":
-        plt.pause(i/1000.)
-    else: 
-        app = QtGui.QApplication.instance()
-        if app is None:
-            app = QtGui.QApplication([])
-        app.processEvents()
-        
-#placehold for imshow figures        
-_FIGURES = {}
-             
-def play(video, fps = 100., max_delay = 0.1):
+def apply(video, func):
+    """Apply a custom function to frames
+
+    Parameters
+    ----------
+    video : iterable
+        A multi-frame iterable object. 
+    func : callable
+        A callable that takes two arguments, an integer describing the current index
+        and a multi-frame data. The function must return a processed -multi-frame data
+    Returns
+    -------
+    video : iterator
+        A multi-frame iterator   
+    """    
+    for i, frames in enumerate(video):
+        yield func(i,frames)
+
+
+@deprecated("Use `running` instead.")   
+def play(video, fps = None, max_delay = None):
     """Plays video for real-time visualization. 
     
     You must first call show functions (e.g. :func:`show_video`) to specify 
@@ -460,24 +479,12 @@ def play(video, fps = 100., max_delay = 0.1):
     :func:`.video.play_threaded`
     
     """
-    t0 = None
-    for i, frames in enumerate(video):   
-        if t0 is None:
-            t0 = time.time()
-            
-        if time.time()-t0 < i/fps + max_delay:
-            for key in list(_FIGURES.keys()):
-                (viewer, queue) = _FIGURES.get(key)
-                if not queue.empty():
-                    viewer.show(queue.get())
-                    queue.task_done()
-            pause()
-            
-        yield frames
-        
-    _FIGURES.clear()
+    from cddm.run import run_buffered
+    from cddm.viewer import pause
     
+    return run_buffered(video, fps = fps, spawn = False, finalize = pause)
 
+@deprecated("Use `running` instead.")  
 def play_threaded(video, fps = None):
     """Plays video for real-time visualization. 
     
@@ -516,191 +523,13 @@ def play_threaded(video, fps = None):
     :func:`.video.play`
     
     """
-    q = Queue()
+    from cddm.run import run_buffered
+    from cddm.viewer import pause
     
-    def worker(video):
-        try:
-            for frames in video: 
-                q.put(frames)
-        finally:
-            q.put(None)
-    
-    threading.Thread(target=worker,args = (video,) ,daemon=True).start()
-    out = False #dummy  
-    t0 = None   
-    i = 0
-    while True:
-        if fps is None:
-            while not q.empty():
-                out = q.get()
-                q.task_done()
-                if out is None:
-                    break
-                else:
-                    yield out
-        else:
-            while True:
-                out = q.get()
-                q.task_done()
-                if t0 is None:
-                    t0 = time.time()
-                if out is None:
-                    break
-                else:
-                    yield out
-                if time.time()-t0 >= i/fps:
-                    break            
-                
-        if out is None:
-            break
+    return run_buffered(video, fps = fps, spawn = True, finalize = pause)
 
-        for key in list(_FIGURES.keys()):
-            (viewer, queue) = _FIGURES.get(key)
-            if not queue.empty():
-                viewer.show(queue.get())
-                queue.task_done()
-        i+=1
-        pause()
-            
-    _FIGURES.clear()
-    
-def threaded(video, queue_size = 0):
+def show_frames(video, title = None, viewer = None, selected = None, **kwargs):
     """
-    Returns a new iterator that runs the process in a background thread. 
-    
-    Parameters
-    ----------
-    video : iterator
-        A multi-frame iterator
-    queue_size : int
-        Size of Queue object. If queue_size is <= 0, the queue size is infinite.
-    
-    Returns
-    -------
-    video : iterator
-        A multi-frame iterator
-    """
-    q = Queue(queue_size)
-    
-    def worker(video):
-        try:
-            for frames in video: 
-                q.put(frames)
-        finally:
-            q.put(None)
-    
-    threading.Thread(target=worker,args = (video,) ,daemon=True).start()
-
-    while True:
-        out = q.get()
-        q.task_done()
-        yield out
-                
-        if out is None:
-            break
-        
-def figure_title(name):
-    """Generate a unique figure title"""
-    i = len(_FIGURES)+1
-    return "Fig.{}: {}".format(i, name)
-
-def norm_rfft2(clip = None, mode = "real"):
-    """Returns a frame normalizing function for :func:`show_video`"""
-    if mode not in ("real", "imag", "abs"):
-        raise ValueError("Wrong mode")
-        
-    def _clip_fft(im):
-        im = _rfft2(im)
-        if mode == "real":
-            im = im.real
-        elif mode == "imag":
-            im = im.imag
-        else:
-            im = np.abs(im)
-        
-        if clip is None:
-            im[0,0] = 0
-            clip_factor = im.max()
-        else:
-            im[0,0] = 0
-            clip_factor = clip
-        
-        if mode == "abs":
-            im = im/(clip_factor)
-        else:
-            im = im/(clip_factor*2) + 0.5
-        im = im.clip(0,1)  
-        return np.fft.fftshift(im,0)  
-    return _clip_fft
-
-def show_fft(video, id = 0, title = None, clip = None, mode = "abs"):
-    """Show fft of the video.
-    
-    Parameters
-    ----------
-    video : iterator
-        A multi-frame iterator
-    id : int
-        Frame index
-    title : str, optional
-        Unique title of the video. You can use :func:`.video.figure_title`
-        to create a unique name.
-    clip : float, optional
-        Clipping value. If not given, it is determined automatically.
-    mode : str, optional
-        What to display, "real", "imag" or "abs"
-    
-    Returns
-    -------
-    video : iterator
-        A multi-frame iterator
-    
-    """
-    if title is None:
-        title = figure_title("fft - camera {}".format(id))
-    norm_func = norm_rfft2(clip, mode)
-    return show_video(video, id = id, title = title, norm_func = norm_func)
-               
-
-def show_video(video, id = 0, title = None, norm_func = lambda x : x.real):
-    """Returns a video and performs image live video show.
-    This works in connection with :func:`play` that does the actual display.
-    
-    Parameters
-    ----------
-    video : iterator
-        A multi-frame iterator
-    id : int
-        Frame index
-    title : str
-        Unique title of the video. You can use :func:`figure_title`
-        a to produce unique name.
-    norm_func : callable
-        Normalization function that takes a single argument (array) and returns
-        a single element (array). Can be used to apply custom normalization 
-        function to the image before it is shown.
-    
-    Returns
-    -------
-    video : iterator
-        A multi-frame iterator
-    """
-    if title is None:
-        title = figure_title("video - camera {}".format(id))
-
-    viewer = ImageShow(title, norm_func)
-    queue = Queue(1)
-    _FIGURES[title] = (viewer, queue)
-    
-    for frames in video:
-        if queue.empty():
-            queue.put(frames[id],block = False)
-        yield frames  
-     
-def show_diff(video, title = None, normalize = False, dt = None, t1 = None, t2 = None):
-    """Returns a video and performs image difference live video show.
-    This works in connection with :func:`play` that does the actual display.
-    
     Parameters
     ----------
     video : iterator
@@ -708,71 +537,96 @@ def show_diff(video, title = None, normalize = False, dt = None, t1 = None, t2 =
     title : str
         Unique title of the video. You can use :func:`figure_title`
         a to produce unique name.
+    viewer: callable
+        Here you can provide your own callable viewer object that is 
+        responsible for the visualization and data conversion.
+    selected : callable
+        A callable that can be set to define which frames to process.
+        
+    The rest of the parameters are passed directly to the FramesViewer.
+        
+    in_space : str
+        One of "image", "rfft2", "fft2", describing input image space.
+    out_space : str
+        One of "image", "rfft2", "fft2", describing output image space.
+    repr_mode : str
+        One of "real", "imag", "abs2" or "phase" describing the representation
+        mode of the (complex) data.  
+    typ : str
+        Frames converter type, one of "cam1", "cam2", "diff" or "corr"
     normalize : bool
-        Whether to normalize frames to its mean value before subtracting. Note
-        that this does not normalize the output video, only the displayed video
-        is normalized.
+        Whether to normalize each frame with mean intensity or not.
+    auto_background : bool
+        Whether to perform automatic background subtraction.
+    navg : int
+        How many frames to process in the averaging of the background. If set
+        to zero, it take all acquired frames.
+    """
+  
+    if title is None:
+        typ = kwargs.get("typ", "cam1")
+        title = figure_title(f"frames - {typ}")
+    if viewer is None:
+        viewer = FramesViewer(title, **kwargs)
+    return buffered(video, maxsize=1, callback = viewer, selected = selected)
+        
+            
+def show_data(iterable, viewer, selected = None):
+    """Show iterable data. You must provide a valid viewer. 
+    
+    This function is not only for video, but for any kind of data. You must
+    define a viewer, which implements a self.show(data) method, which is responsible
+    for the actual data show.
+    
+    Parameters
+    ----------
+    iterable : iterator
+        Any kinf of data iterable.
+    viewer : any
+        Any viewer-like object with a show() method.
         
     Returns
     -------
-    video : iterator
-        A multi-frame iterator
+    iterable : iterator
+        A data iterable.
     """
-    def _process_frames(frames, queue):
-        if queue.empty():
-            x,y = frames
-            x,y = x.real, y.real
-            if normalize == True:
-                x = x/x.mean()
-                y = y/y.mean()
-            m = 2* max(x.max(),y.max())
-            im = x/m - y/m + 0.5
-            queue.put(im,block = False)        
-    
-    if title is None:
-        title = figure_title("difference video")
 
-    viewer = ImageShow(title)
-    queue = Queue(1)
-    _FIGURES[title] = (viewer, queue)
-    
-    if dt is None:
-        for frames in video:
-            _process_frames(frames, queue)
-            yield frames 
-    else:
-        for frames,_t1,_t2 in zip(video,t1,t2):
-            if abs(_t2-_t1) in dt:
-                _process_frames(frames, queue)
-            yield frames         
+    if not callable(viewer):
+        raise ValueError("Invalid viewer.")
         
+    return buffered(iterable, maxsize=1, callback = viewer, selected = selected)
 
 def random_video(shape = (512,512), count = 256, dtype = FDTYPE, max_value = 1., dual = False):
     """Random multi-frame video generator, useful for testing."""
     nframes = 2 if dual == True else 1 
     for i in range(count):
-        time.sleep(0.02)
+        time.sleep(0.01)
         yield tuple((np.asarray(np.random.rand(*shape)*max_value,dtype) for i in range(nframes)))
 
-        
+
 if __name__ == '__main__':
     
-    
+    from cddm.run import running   
     import cddm.conf
     cddm.conf.set_verbose(2)
 
 
     cddm.conf.set_showlib("pyqtgraph")    
     #example how to use show_video and play
-    video = random_video(count = 1256, dual = True)
-    #video = load(video, 1256)
-    video = show_video(video)
-    video = show_diff(video)
+    video = random_video(count = 16*16, dual = True)
 
+    #video = load(video, 1256)
+    video = show_frames(video, typ = "cam1", )
+    
+
+    video = show_frames(video, typ = "diff")
+    
     #p = play_threaded(video)
-    #v1,v2 = asarrays(video,count = 1256)
-    #v1,v2 = asarrays(play(video,fps = 50),count = 1256)
-    v1,v2 = asarrays(play_threaded(video),count = 1256)
+    #v1,v2 = asarrays(video,count = 16*16)
+    #v1,v2 = asarrays(play(video),count = 16*16)
+    with running(video) as video:
+        v1,v2 = asarrays(video,count = 16*16)
+        
 ##    #example how to use ImageShow
 ##    video = random_video(count = 256)
 ##    viewer = ImageShow()

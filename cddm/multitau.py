@@ -712,11 +712,15 @@ def _add_sq2(i,x1,x2,sq1,sq2,binning, r = None):
 
 def _add_sq1(i,x1,sq1,binning, r = None):
     return _add_data1(i,_abs2(x1), sq1, binning,r)  
+
+        
                        
 def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16, 
                         chunk_size = None,  binning = None, method = "corr", count = None,
                         auto_background = False, nlevel = None,  norm = None,
                         stats = False, thread_divisor = None, mode = "full", mask = None, cross = True, complex = False):
+    
+    
     t0 = time.time()
     
     if mode not in ("full", "chunk"):
@@ -1086,9 +1090,11 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
     else:
         yield tuple((reshape_output(o, original_shape,mask) for o in out))
 
+
 def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
                  auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True, complex = False):
+   
     """Iterative version of :func:`.ccorr_multi`
         
     Parameters
@@ -1160,6 +1166,7 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, met
     for i, data in enumerate(_compute_multi_iter(data, t1, t2, period = period, level_size = level_size , 
                         chunk_size = chunk_size,  binning = binning,  method = method, count = count, auto_background = auto_background,
                         nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor, mode = mode, cross = True, complex = complex)):
+        
         if viewer is not None:
             if i == 0:
                 _VIEWERS["ccorr_multi"] = viewer
@@ -1173,6 +1180,79 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, met
     return data
 
 
+def iccorr_multi_iter(data, t1 = None, t2 = None, level_size = 2**4, norm = None, method = "corr", count = None, period = 1,
+                 binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
+                 auto_background = False,  mode = "full", mask = None, stats = True, complex = False):
+   
+    """Iterative version of :func:`.iccorr_multi`
+        
+    Parameters
+    ----------
+    data : iterable
+        An iterable object, iterating over dual-frame ndarray data.
+    t1 : array-like, optional
+        Array of integers defining frame times of the first data.  If not defined, 
+        regular-spaced data is assumed.
+    t2 : array-like, optional
+        Array of integers defining frame times of the second data. If t1 is defined,
+        you must define t2 as well.
+    level_size : int, optional
+        If provided, determines the length of the multi_level data.
+    norm : int, optional
+        Specifies normalization procedure 0,1,2, or 3 (default).
+    method : str, optional
+        Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on 
+        the rest of the input parameters.
+    count : int, optional
+        If given, it defines how many elements of the data to process. If not given,
+        count is set to len(t1) if that is not specified, it is set to len(data).  
+    period : int, optional
+        Period of the irregular-spaced random triggering sequence. For regular
+        spaced data, this should be set to 1 (deefault).
+    binning : int, optional
+        Binning mode (0 - no binning, 1 : average, 2 : random select)
+    nlevel : int, optional
+        If specified, defines how many levels are used in multitau algorithm.
+        If not provided, all available levels are used.
+    chunk_size : int
+        Length of data chunk. 
+    thread_divisor : int, optional
+        If specified, input frame is reshaped to 2D with first axis of length
+        specified with the argument. It defines how many treads are run. This
+        must be a divisor of the total size of the frame. Using this may speed 
+        up computation in some cases because of better memory alignment and
+        cache sizing.
+    auto_background : bool
+        Whether to use data from first chunk to calculate and subtract background.
+    mode : str
+        Either "full" or "chunk". With mode = "full", output of this function 
+        is identical to the output of :func:`ccorr_multi`. With mode = "chunk", 
+        cross correlation between neighbouring chunks is not computed.
+    mask : ndarray, optional
+        If specifed, computation is done only over elements specified by the mask.
+        The rest of elements are not computed, np.nan values are written to output
+        arrays.
+    stats : bool
+        Whether to return stats as well.
+        
+    Yields
+    ------
+    (lin, multi), bg, var : (ccorr_type, ccorr_type), ndarray, ndarray
+        A tuple of linear (short delay) data and multilevel (large delay) data,
+        background and variance data. See :func:`.core.ccorr` for definition 
+        of ccorr_type
+    lin, multi : ccorr_type, ccorr_type
+        If `stats` == False
+    """
+    if (t1 is None and t2 is not None) or (t2 is None and t1 is not None):
+        raise ValueError("Both `t1` and `t2` arguments must be provided")
+    
+    for i,out in enumerate(_compute_multi_iter(data, t1, t2, period = period, level_size = level_size , 
+                        chunk_size = chunk_size,  binning = binning,  method = method, count = count, auto_background = auto_background,
+                        nlevel = nlevel, norm = norm, stats = stats,mask = mask, thread_divisor = thread_divisor, mode = mode, cross = True, complex = complex)):
+        yield out
+
+        
 def iacorr_multi(data, t = None, level_size = 2**4, norm = None, method = "corr", count = None, period = 1,
                  binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
                  auto_background = False,  viewer = None, viewer_interval = 1, mode = "full", mask = None, stats = True, complex = False):

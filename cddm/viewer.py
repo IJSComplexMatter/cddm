@@ -4,12 +4,15 @@ from __future__ import absolute_import, print_function, division
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons, AxesWidget
+
+
 from cddm.map import fft2_kangle, fft2_sector_indexmap, as_fft2_shape, from_rfft2_data, as_rfft2_mask, as_rfft2_conj
 from cddm.multitau import normalize_multi, log_merge, log_average
 from cddm.norm import normalize, _default_norm_from_data, _method_from_data, NORM_STRUCTURED, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_STANDARD, NORM_COMPENSATED, fold_data
 from cddm.print_tools import disable_prints, enable_prints
-from cddm.decorators import doc_inherit, skip_runtime_error
-
+from cddm.decorators import skip_runtime_error
+from cddm.conf import CDDMConfig, CV2_INSTALLED, PYQTGRAPH_INSTALLED
+from cddm.frames import FramesConverter
 
 _matplotlib_3_4_or_greater = False
 
@@ -21,6 +24,145 @@ try:
 except:
     print("Could not determine matplotlib version you are using, assuming < 3.4")
 
+
+if CV2_INSTALLED:
+    import cv2
+    
+if PYQTGRAPH_INSTALLED:
+    import pyqtgraph as pg
+    from pyqtgraph.Qt import QtGui
+    pg.setConfigOptions(imageAxisOrder = "row-major")
+
+_FIGURES = set()
+
+def figure_title(name):
+    """Generate a unique figure title"""
+    i = len(_FIGURES)+1
+    title = "Fig.{}: {}".format(i, name)
+    return title
+
+class FramesViewer():
+    """A simple interface for video visualization using matplotlib, opencv, or
+    pyqtgraph.
+    
+    Parameters
+    ----------
+    title : str
+       Title of the video
+    norm_func : callable
+        Normalization function that takes a single argument (array) and returns
+        a single element (array). Can be used to apply custom normalization 
+        function to the image before it is shown.
+    """
+    
+    fig = None
+    
+    def __init__(self, title = "video", **kwargs):
+        self.convert = FramesConverter(**kwargs)
+        self.title = str(title)
+        if self.title in _FIGURES:
+            raise ValueError(f"Figure {title} already exists!")
+        _FIGURES.add(self.title)
+        
+    def _prepare_image(self,frames):
+        return self.convert(frames)
+ 
+    def _pg_imshow(self,im):
+        im = self._prepare_image(im)
+        if self.fig is None:
+            self.im = pg.image(im, title = self.title)
+            self.fig = self.im.window()
+        else:
+            self.im.setImage(im)
+ 
+    def _mpl_imshow(self,im):
+        if self.fig is None:
+            self.fig = plt.figure()
+            self.fig.show()
+            ax = self.fig.add_subplot(111)
+            ax.set_title(self.title)
+            im = self._prepare_image(im)
+            self.l = ax.imshow(im)
+        else:
+            im = self._prepare_image(im)
+            self.l.set_data(im)      
+           
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events() 
+        #self.fig.canvas.draw_idle()
+        #self.fig.canvas.start_event_loop(0.001)
+
+    def _cv_imshow(self, im):
+        if self.fig is None:
+            self.fig = self.title
+        im = self._prepare_image(im)
+        if im.max() > 1:
+            im = im / im.max()
+        
+        cv2.imshow(self.fig,im)
+        
+    def show(self, im):
+        """Shows image
+        
+        Parameters
+        ----------
+        im : ndarray,ndarray 
+            A 2D array 
+        """
+        if CDDMConfig.showlib == "cv2":
+            self._cv_imshow(im)
+        elif CDDMConfig.showlib == "pyqtgraph":
+            self._pg_imshow(im)
+        elif CDDMConfig.showlib == "matplotlib":
+            self._mpl_imshow(im)
+        else:
+            raise NotImplementedError("ImageShow cannot work with custom showlib. You must create your own ImageShow object and pass it as a `viewer` argument to the `show_*` function.")
+    
+    def close(self):        
+        if self.fig is not None:
+            if CDDMConfig.showlib == "cv2":
+                cv2.destroyWindow(self.fig)
+            elif CDDMConfig.showlib == "pyqtgraph":
+                self.fig.destroy()
+            else:
+                plt.close(self.fig) 
+            _FIGURES.remove(self.title)
+            
+        self.fig = None
+                     
+    def __del__(self):
+        self.close()
+        
+    def __call__(self, index, value):
+        self.show(value) 
+                
+def _pause_mpl(value):
+    """Alternative to plt.pause, which plots the figure always on top.
+    With this function, window does not appear on top.
+    """
+    if len(plt.get_fignums()) > 0:
+        fig = plt.gcf()
+        fig.canvas.draw_idle()
+        fig.canvas.start_event_loop(value)
+    
+def pause(i = 1):
+    """Pause in milliseconds needed to update matplotlib or opencv figures
+    For pyqtgraph, it performs app.processEvents()"""
+    if CDDMConfig.showlib == "cv2":
+        cv2.waitKey(int(i))
+    elif CDDMConfig.showlib == "matplotlib":
+        #will do this at the end.... Force redrawing
+        pass
+    elif CDDMConfig.showlib == "pyqtgraph": 
+        app = QtGui.QApplication.instance()
+        if app is None:
+            app = QtGui.QApplication([])
+        app.processEvents()
+    elif CDDMConfig.showlib == "custom":
+        pass
+    # pauses only if it finds at least one active matplotlib figures
+    _pause_mpl(i/1000)
+         
 class VideoViewer(object):
     """
     A matplotlib-based video viewer.
@@ -183,6 +325,7 @@ class VideoViewer(object):
     def show(self):
         """Shows video."""
         plt.show()
+        
         
 class CustomRadioButtons(RadioButtons):
 
@@ -388,9 +531,17 @@ class DataArrayViewer(object):
         self.fig.canvas.flush_events()
         plt.pause(0.01)
 
-    def show(self):
-        """Shows plot."""
-        plt.show()
+    def show(self,data = None):
+        """Sets data and plots."""
+        if data is not None:
+            self.set_data(data)
+        self.plot()
+        
+    def close(self):
+        pass
+    
+    def __call__(self, i, data):
+        return self.show(data = data)
         
 class CorrArrayViewer(DataArrayViewer):
     """Plots raw correlation data. You need to hold reference to this object, 
@@ -512,6 +663,17 @@ class CorrArrayViewer(DataArrayViewer):
 
         return t, data_repr(data.mean(axis = -2), self.mode)
 
+    def show(self,data = None):
+        """Sets data and plots."""
+        if data is not None:
+            if len(data) == 3:
+                data, bg, var = data
+                self.set_data(data, bg, var )
+            else:
+                self.set_data(data)
+        self.plot()
+        
+
 class MultitauArrayViewer(CorrArrayViewer):
     """Shows multitau data in plot. You need to hold reference to this object, 
     otherwise it will not work in interactive mode.
@@ -557,6 +719,7 @@ class MultitauArrayViewer(CorrArrayViewer):
         self.background = background
         self.variance = variance
         self.shape = data[0][0].shape
+        
         
     def _get_avg_data(self):
         data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.mask)
@@ -696,6 +859,9 @@ class DataViewer(object):
         
         avg = np.nanmean(data, axis = -2)
         return self.t, data_repr(avg, self.mode)
+    
+    def get_normalized_data(self):
+        return self.t, self.data
           
     def get_data(self):
         """Returns computed k-averaged data and time
@@ -712,6 +878,7 @@ class DataViewer(object):
             raise ValueError("Mask not specified, you must first set mask.")
         
         return self._get_avg_data()
+    
     
     def get_k(self):
         """Returns average k value of current data."""
@@ -797,10 +964,17 @@ class DataViewer(object):
         self.fig.canvas.flush_events()
         plt.pause(0.01)
 
-    def show(self):
-        """Shows plot."""
-        plt.show()
-        #self.fig.show()
+    def show(self,data = None):
+        """Sets data and plots."""
+        if data is not None:
+            self.set_data(data)
+        self.plot()
+        
+    def close(self):
+        pass
+        
+    def __call__(self, i, data):
+        return self.show(data = data)
 
 class CorrViewer(DataViewer):
     """Plots raw correlation data. You need to hold reference to this object, 
@@ -912,28 +1086,43 @@ class CorrViewer(DataViewer):
         self.kshape = data[0].shape[:-1]
         if self.computed_mask is None:
             self.kisize, self.kjsize = self.kshape
+        self._normalized_data = None
+            
+    def get_normalized_data(self):
+        if self._normalized_data is None:
+            data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.half_mask)
+    
+            if np.iscomplexobj(data) :
+                if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
+                    data = fold_data(data)
+                elif self.background is None and self.variance is None:
+                    raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
+    
+            if self.size is not None:
+                # folding has already been made, so set to False
+                t, data = log_average(data, self.size, fold = False)
+            else:
+                t = np.arange(data.shape[-1])   
+            self._normalized_data = t, data
+        return self._normalized_data
+    
         
     def _get_avg_data(self):
-        data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.half_mask)
-
-        if np.iscomplexobj(data) :
-            if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
-                data = fold_data(data)
-            elif self.background is None and self.variance is None:
-                raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
-
-        if self.size is not None:
-            # folding has already been made, so set to False
-            t, data = log_average(data, self.size, fold = False)
-        else:
-            t = np.arange(data.shape[-1])
+        t, data = self.get_normalized_data()
 
         m = self.conj_mask[self.half_mask]
         data[...,m,:] = np.conj(data[...,m,:])
         
         avg = np.nanmean(data, axis = -2)
         
-        return t, data_repr(avg, self.mode)
+        return t, data_repr(avg, self.mode)    
+ 
+    def __call__(self, i, data):
+        if len(data) == 3:
+            self.set_data(*data)
+        else:
+            self.set_data(data)
+        return self.show()
     
             
 class MultitauViewer(CorrViewer):
@@ -995,23 +1184,29 @@ class MultitauViewer(CorrViewer):
         self.kshape = data[0][0].shape[:-1]
         if self.computed_mask is None:
             self.kisize, self.kjsize = self.kshape
+        self._normalized_data = None
+            
+    def get_normalized_data(self):
+        if self._normalized_data is None:
+            data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.half_mask)
+            
+            if np.iscomplexobj(data[0]) :
+                if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
+                    data = fold_data(data[0],1), fold_data(data[1],1)
+                elif self.background is None and self.variance is None:
+                    raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
+    
+            if self.semilogx == True:
+                t, data = log_merge(*data, fold = False)
+            else:
+                fast, slow = data
+                t = np.arange(fast.shape[-1])
+                data = fast
+            self._normalized_data = t, data
+        return self._normalized_data
         
     def _get_avg_data(self):
-        
-        data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.half_mask)
-        
-        if np.iscomplexobj(data[0]) :
-            if isinstance(self.background, tuple) or isinstance(self.variance, tuple) or self.fold is not None:
-                data = fold_data(data[0],1), fold_data(data[1],1)
-            elif self.background is None and self.variance is None:
-                raise ValueError("Cannot determine whether data folding is needed. You must explicitly define whether to fold correlation data or not.")
-
-        if self.semilogx == True:
-            t, data = log_merge(*data, fold = False)
-        else:
-            fast, slow = data
-            t = np.arange(fast.shape[-1])
-            data = fast
+        t, data = self.get_normalized_data()
             
         m = self.conj_mask[self.half_mask]
         data[...,m,:] = np.conj(data[...,m,:])

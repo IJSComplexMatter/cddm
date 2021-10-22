@@ -2,10 +2,11 @@
 For testing, inspects videos and performs live correlation calculation...
 """
 from cddm.viewer import MultitauViewer, CorrViewer, MultitauArrayViewer
-from cddm.video import multiply, normalize_video, crop, show_video, play_threaded, asarrays, load, show_diff
+from cddm.video import multiply, normalize_video, crop, show_video, play_threaded, asarrays, load, show_diff, show_data
+from cddm.run import run
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
-from cddm.multitau import iccorr_multi, normalize_multi, log_merge
+from cddm.multitau import iccorr_multi, normalize_multi, log_merge, iccorr_multi_iter
 from cddm.core import iccorr
 import cddm.conf
 
@@ -18,7 +19,7 @@ import examples.paper.flow_video.dual_video as dual_video_simulator
 import importlib
 importlib.reload(dual_video_simulator) #recreates iterator
 
-cddm.conf.set_showlib("pyqtgraph")
+cddm.conf.set_showlib("cv2")
 
 t1, t2 = dual_video_simulator.t1, dual_video_simulator.t2 
 
@@ -47,7 +48,11 @@ fft = rfft2(video, kimax = KIMAX, kjmax = KJMAX)
 #: this it therefore equivalent to  normalize_video
 #fft = normalize_fft(fft)
 
-fft = play_threaded(fft)
+
+#fft =  PlayingVideo(fft)
+#fft =  play_threaded(fft)
+
+#fft = threaded(fft)
 
 if __name__ == "__main__":
     import os.path as p
@@ -62,7 +67,10 @@ if __name__ == "__main__":
     
     
     #: now perform auto correlation calculation with default parameters and show live
-    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer,complex = True, binning = 0)
+    data_iter = iccorr_multi_iter(fft, t1, t2, period = PERIOD, complex = True, binning = 0)
+    data_iter = show_data(data_iter, viewer)
+    data, bg, var = run(data_iter, fps = 10, spawn = True)
+    
     #data, bg, var = iccorr(fft, t1, t2,n=256, viewer = viewer,complex = True)
 
     viewer.show()

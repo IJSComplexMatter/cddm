@@ -2,17 +2,55 @@
 Low level numba functions
 """
 from __future__ import absolute_import, print_function, division
-
+import logging
 import numpy as np
 import numba as nb
 from cddm.conf import C,F, I64, NUMBA_TARGET, NUMBA_FASTMATH, NUMBA_CACHE
 from cddm.fft import _fft, _ifft
 from cddm.decorators import doc_inherit
 
-
-
-
+logging.info("Compiling cddm library.")
 #Some useful functions
+
+@nb.vectorize([C(C,C), F(F,F)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _subtract(x,y):
+    """Subtracts two arrays"""
+    return x - y
+
+@nb.vectorize([C(C,C), F(F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def subtract(x,y):
+    """Subtracts two arrays"""
+    return x - y
+
+@nb.vectorize([C(C,C), F(F,F)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _add(x,y):
+    """Adds two arrays"""
+    return x + y
+
+@nb.vectorize([C(C,C), F(F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def add(x,y):
+    """Adds two arrays"""
+    return x + y
+
+@nb.vectorize([C(C,C), F(F,F)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _multiply(x,y):
+    """Multiplies two arrays"""
+    return x * y
+
+@nb.vectorize([C(C,C), F(F,F)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def multiply(x,y):
+    """Multiplies two arrays"""
+    return x * y
+
+@nb.vectorize([F(C)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def _phase(x):
+    """phase of the complex data"""
+    return np.arctan2(x.imag, x.real)
+
+@nb.vectorize([F(C)], target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
+def phase(x):
+    """phase of the complex data"""
+    return np.arctan2(x.imag, x.real)
 
 @nb.vectorize([F(C)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
 def _abs2(x):

@@ -6,7 +6,7 @@ This module defines several functions for fft processing of multi-frame data.
 from __future__ import absolute_import, print_function, division
 
 import numpy as np
-from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED, PYFFTW_INSTALLED,  detect_number_of_cores, CDTYPE
+from cddm.conf import CDDMConfig, MKL_FFT_INSTALLED, SCIPY_INSTALLED, PYFFTW_INSTALLED,  detect_number_of_cores, CDTYPE,FDTYPE
 from cddm.decorators import deprecated
 
 #from multiprocessing.pool import ThreadPool
@@ -15,7 +15,7 @@ if MKL_FFT_INSTALLED == True:
     import mkl_fft
     
 if SCIPY_INSTALLED == True:
-    import scipy.fftpack as spfft
+    import scipy.fft as spfft
     
 if PYFFTW_INSTALLED :
    import pyfftw.interfaces as fftw
@@ -26,55 +26,66 @@ if PYFFTW_INSTALLED :
 def _fft(a, overwrite_x = False):
     libname = CDDMConfig["fftlib"]
     if libname == "mkl_fft":
-        return mkl_fft.fft(a, overwrite_x = overwrite_x)
+        out =  mkl_fft.fft(a, overwrite_x = overwrite_x)
     elif libname == "scipy":
-        return spfft.fft(a, overwrite_x = overwrite_x)
+        out = spfft.fft(a, overwrite_x = overwrite_x)
     elif libname == "numpy":
-        return np.fft.fft(a) 
+        out = np.fft.fft(a) 
     elif libname == "pyfftw":
-        return fftw.scipy_fftpack.fft(a, overwrite_x = overwrite_x)
+        out =fftw.scipy_fftpack.fft(a, overwrite_x = overwrite_x)
+    # depending on how the libraries are compiled, the output may not be of same dtype as requested
+    # float32 may be converted to complex128... so we make sure it is of specified type.
+    return np.asarray(out, CDTYPE)
 
 def _ifft(a, overwrite_x = False):
     libname = CDDMConfig["fftlib"]
     if libname == "mkl_fft":
-        return mkl_fft.ifft(a, overwrite_x = overwrite_x)
+        out = mkl_fft.ifft(a, overwrite_x = overwrite_x)
     elif libname == "scipy":
-        return spfft.ifft(a, overwrite_x = overwrite_x)
+        out = spfft.ifft(a, overwrite_x = overwrite_x)
     elif libname == "pyfftw":
-        return fftw.scipy_fftpack.ifft(a, overwrite_x = overwrite_x)
+        out = fftw.scipy_fftpack.ifft(a, overwrite_x = overwrite_x)
     elif libname == "numpy":
-        return np.fft.ifft(a) 
+        out =np.fft.ifft(a) 
+        
+    # depending on how the libraries are compiled, the output may not be of same dtype as requested
+    # float32 may be converted to complex128... so we make sure it is of specified type.
+    return np.asarray(out, CDTYPE)
 
 def _fft2(a, overwrite_x = False, extra = {}):
     libname = CDDMConfig["fftlib"]
     if libname == "mkl_fft":
-        return mkl_fft.fft2(a, overwrite_x = overwrite_x, **extra)
+        out = mkl_fft.fft2(a, overwrite_x = overwrite_x, **extra)
     elif libname == "scipy":
-        return spfft.fft2(a, overwrite_x = overwrite_x, **extra)
+        out =spfft.fft2(a, overwrite_x = overwrite_x, **extra)
     elif libname == "numpy":
-        return np.fft.fft2(a, **extra) 
+        out =np.fft.fft2(a, **extra) 
     elif libname == "pyfftw":
-        return fftw.scipy_fftpack.fft2(a, overwrite_x = overwrite_x, **extra)
+        out = fftw.scipy_fftpack.fft2(a, overwrite_x = overwrite_x, **extra)
+    # depending on how the libraries are compiled, the output may not be of same dtype as requested
+    # float32 may be converted to complex128... so we make sure it is of specified type.
+    return np.asarray(out, CDTYPE)
 
 def _ifft2(a, overwrite_x = False, extra = {}):
     libname = CDDMConfig["fftlib"]
     if libname == "mkl_fft":
-        return mkl_fft.ifft2(a, overwrite_x = overwrite_x, **extra)
+        out = mkl_fft.ifft2(a, overwrite_x = overwrite_x, **extra)
     elif libname == "scipy":
-        return spfft.ifft2(a, overwrite_x = overwrite_x,**extra)
+        out = spfft.ifft2(a, overwrite_x = overwrite_x,**extra)
     elif libname == "numpy":
-        return np.fft.ifft2(a, **extra) 
+        out = np.fft.ifft2(a, **extra) 
     elif libname == "pyfftw":
-        return fftw.scipy_fftpack.ifft2(a, overwrite_x = overwrite_x, **extra)
+        out = fftw.scipy_fftpack.ifft2(a, overwrite_x = overwrite_x, **extra)
+    # depending on how the libraries are compiled, the output may not be of same dtype as requested
+    # float32 may be converted to complex128... so we make sure it is of specified type.
+    return np.asarray(out, CDTYPE)
     
-def _rfft2(a, overwrite_x = False, extra = {}):
+def _rfft2(a, extra = {}):
     libname = CDDMConfig["rfft2lib"]
-    cutoff = a.shape[-1]//2 + 1
     if libname == "mkl_fft":
         out = mkl_fft.rfftn_numpy(a.real,axes =(-2, -1), **extra)
-        #return mkl_fft.fft2(a, overwrite_x = overwrite_x)[...,0:cutoff]
     elif libname == "scipy":
-        out = spfft.fft2(a, overwrite_x = overwrite_x, **extra)[...,0:cutoff]
+        out = spfft.rfft2(a, **extra)
     elif libname == "numpy":
         out = np.fft.rfft2(a.real, **extra) #force real in case input is complex
     elif libname == "pyfftw":
@@ -83,6 +94,23 @@ def _rfft2(a, overwrite_x = False, extra = {}):
     # depending on how the libraries are compiled, the output may not be of same dtype as requested
     # float32 may be converted to complex128... so we make sure it is of specified type.
     return np.asarray(out, CDTYPE)
+
+def _irfft2(a, extra = {}):
+    libname = CDDMConfig["rfft2lib"]
+    if libname == "mkl_fft":
+        out = mkl_fft.irfftn_numpy(a,axes =(-2, -1), **extra)
+    elif libname == "scipy":
+        out = spfft.irfft2(a, **extra)
+    elif libname == "numpy":
+        out = np.fft.irfft2(a, **extra) 
+    elif libname == "pyfftw":
+        out = fftw.numpy_fft.irfft2(a, **extra) 
+    
+    # depending on how the libraries are compiled, the output may not be of same dtype as requested
+    # float32 may be converted to complex128... so we make sure it is of specified type.
+    return np.asarray(out, FDTYPE)
+
+
 
 def _determine_kimax(kisize, kimax):
     if kimax is None:
@@ -213,7 +241,7 @@ def rfft2_video(video, kimax = None, kjmax = None, overwrite_x = False, extra = 
         An iterator over FFT of the video.
     """
     for frames in video:
-        yield tuple((rfft2_crop(_rfft2(frame, overwrite_x = overwrite_x, extra = extra),kimax, kjmax) for frame in frames))
+        yield tuple((rfft2_crop(_rfft2(frame,  extra = extra),kimax, kjmax) for frame in frames))
 
 def fft2_video(video, kimax = None, kjmax = None, overwrite_x = False, extra = {}):
     """A generator that performs fft2 on a sequence of multi-frame data.

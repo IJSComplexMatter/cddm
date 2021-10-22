@@ -257,7 +257,7 @@ def set_showlib(name):
     """Set library for live video view"""
     out = CDDMConfig.showlib
 
-    if name not in ("matplotlib", "cv2", "pyqtgraph"):
+    if name not in ("matplotlib", "cv2", "pyqtgraph", "custom"):
         raise ValueError("Unsupported library")    
 
     if name == "cv2" and not CV2_INSTALLED:

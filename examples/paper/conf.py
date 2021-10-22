@@ -23,7 +23,6 @@ BACKGROUND = 2**14
 MARGIN = 32
 #: period of the random triggering
 PERIOD = 64
-#PERIOD = 16
 #: bit depth of ADC converter
 BIT_DEPTH = "12bit"
 #: noise model for shot noise (either 'poisson' or 'gaussian' or 'none' if you want to disable photon noise)

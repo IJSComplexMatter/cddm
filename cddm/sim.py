@@ -486,12 +486,12 @@ def coordinate_transform(data, shape, offset = None, rotation = None):
     if offset is None:
         offset = rotation_offset
     else:
-        offset = np.asarray(offset) +rotation_offset
+        offset = np.asarray(offset, FDTYPE) +rotation_offset
 
 
     data = _coordinate_rotate(data, rotation = rotation) + offset
         
-    x1, x2 = 0, np.asarray(shape,FDTYPE)
+    x1, x2 = np.asarray((0.,0.),FDTYPE), np.asarray(shape,FDTYPE)
     return mirror(data,x1,x2) #make sure we start in the box
         
 def _coordinate_rotate(data, rotation = None):
