@@ -291,7 +291,7 @@ class FramesConverter():
               
         if self.typ in ("cam1" or 0):
             return image_repr(frames[0], bg = self.bg[0], repr_mode  = self.repr_mode )
-        elif self.typ == ("cam1" or 1):
+        elif self.typ == ("cam2" or 1):
             return image_repr(frames[1], bg = self.bg[1], repr_mode  = self.repr_mode )          
         elif self.typ == ("diff" or 2):
             return frames_diff(frames, bg = self.bg, repr_mode  = self.repr_mode )
