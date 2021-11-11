@@ -220,7 +220,7 @@ def calculate_bg(im, bg = None, count = 1, overwrite_x = False):
     return bg
 
 def asframes(frames, dtype = None):
-    """Convert frames tu tuple of numpy arrays (frames)"""
+    """Convert frames to tuple of numpy arrays (frames)"""
     return tuple((np.asarray(frame, dtype) for frame in frames))
 
 CONVERTER_PARAMETERS = ("in_space", "out_space", "repr_mode", "typ", "normalize", "auto_background", "navg")

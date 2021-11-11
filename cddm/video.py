@@ -9,7 +9,7 @@ There are also function for real-time display of videos for real-time analysis.
 import numpy as np
 import matplotlib.pyplot as plt
 import time, os
-from cddm.conf import CDDMConfig, FDTYPE
+from cddm.conf import CDDMConfig, FDTYPE, ZARR_INSTALLED
 from cddm.print_tools import print_progress, print1, print_frame_rate
 
 from cddm.fft import _rfft2
@@ -17,6 +17,9 @@ from cddm.buffer import buffered
 from cddm.run import asrunning
 from cddm.viewer import FramesViewer, figure_title
 from cddm.decorators import deprecated
+
+if ZARR_INSTALLED:
+    import zarr
 
 def user_warning(message):
     import warnings
@@ -99,8 +102,22 @@ def asarrays(video, count = None):
     print_frame_rate(count,t0)
     return out
 
-def asmemmaps(basename, video, count = None):
-    """Loads multi-frame video into numpy memmaps. 
+def _empty_arrays(frames, basename, count, fmt, compressor = "default"):
+    if fmt == "npy":
+        out = tuple( (np.lib.format.open_memmap(basename + "_{}.npy".format(i), "w+", shape = (count,) + frame.shape, dtype = frame.dtype) 
+                      for i,frame in enumerate(frames)))
+    elif fmt == "zarr" and ZARR_INSTALLED:
+        out = tuple( (zarr.open(basename + "_{}.zarr".format(i), "w", compressor = compressor, shape = (count,) + frame.shape, dtype = frame.dtype, chunks = (1,)+frame.shape ) 
+                      for i,frame in enumerate(frames)))   
+    else:
+        raise ValueError(f"Unsupported data format `{fmt}`.")         
+    return out
+
+def _load_at_index(array,i, frame):
+    array[i,...] = frame
+
+def asmemmaps(path, video, count = None, name = "video", fmt = "npy", compressor = "default"):
+    """Loads multi-frame video into numpy memmaps or zarr arrays. 
     
     Actual data is written to numpy files with the provided basename and
     subscripted by source identifier (index), e.g. "{basename}_0.npy" and "{basename}_1.npy"
@@ -108,19 +125,31 @@ def asmemmaps(basename, video, count = None):
      
     Parameters
     ----------
-    basename: str
-       Base name for the filenames of the videos. 
+    path: str
+        Path to directory structure where multi-frame videos will be storred.
     video : iterable
-       A multi-frame iterator object.
+        A multi-frame iterator object.
     count : int, optional
-       Defines how many multi-frames are in the video. If not provided it is determined
-       by len().
+        Defines how many multi-frames are in the video. If not provided it is determined
+        by len().
+    name : str
+        Base name (without the extension and frame identifier) for the array 
+        storage files.
+    fmt : str
+        Either 'npy' (default) or 'zarr'. 
+    compressor : any
+        Compressor used for zarr arrays
        
     Returns
     -------
     out : tuple of arrays
-        A tuple of memmapped array(s) representing video(s)
+        A tuple of memmapped or zarr array(s) representing video(s)
     """
+
+    basename = os.path.join(path, name)
+    
+    if not os.path.exists(path):
+        os.mkdir(path)
     
     if count is None:
         try:
@@ -128,81 +157,113 @@ def asmemmaps(basename, video, count = None):
         except TypeError:
             raise ValueError("You must provide count")
         
-    def _load(array, frame):
-        array[...] = frame
-        
-    def _empty_arrays(frames):
-        out = tuple( (np.lib.format.open_memmap(basename + "_{}.npy".format(i), "w+", shape = (count,) + frame.shape, dtype = frame.dtype) 
-                      for i,frame in enumerate(frames)))
-        return out
-
-    print1("Writing to memmap...")
+    print1(f"Writing to {fmt} array...")
     print_progress(0, count)
     
     frames = next(video)
-    out = _empty_arrays(frames)
-    [_load(out[i][0],frame) for i,frame in enumerate(frames)]
+    out = _empty_arrays(frames, basename, count, fmt, compressor)
+    [_load_at_index(out[i],0,frame) for i,frame in enumerate(frames)]
     for j,frames in enumerate(video):
         print_progress(j+1, count)
-        [_load(out[i][j+1],frame) for i,frame in enumerate(frames)]
+        [_load_at_index(out[i],j+1,frame) for i,frame in enumerate(frames)]
     
     print_progress(count, count)   
     return out
 
-def open_memmaps(basename):
+def open_arrays(path, name = "video",fmt = "npy"):
     """Opens video stored as numpy a arrays into memmaps.
+    
+    Parameters
+    ----------
+    path: str
+        Path to directory structure where multi-frame videos will be storred.
+    name : str
+        Base name (without the extension and frame identifier) for the array 
+        storage files.
+    fmt : str
+        Either 'npy' (default) or 'zarr'. 
     
     Returns
     -------
     out : tuple of arrays
         A tuple of memmapped array(s) representing video(s)
     """
-    files = (basename+"_0.npy", basename+"_0.npy")
-    arrays = tuple((np.lib.format.open_memmap(fname) for fname in files if os.path.exists(fname)))
+    basename = os.path.join(path, name) 
+    files = (basename+f"_1.{fmt}", basename+f"_2.{fmt}")
+    if fmt == "npy": 
+        arrays = tuple((np.lib.format.open_memmap(fname) for fname in files if os.path.exists(fname)))
+    elif fmt == "zarr" and ZARR_INSTALLED:
+        arrays = tuple((zarr.open(fname) for fname in files if os.path.exists(fname)))
+    else:
+        raise ValueError(f"Unsupported data format `{fmt}`.")
     return arrays
 
-def frommemmaps(basename):
-    """Opens video stored as numpy arrays and returns a video iterator.
+def open_video(path, name = "video", fmt = "npy"):
+    """Opens video stored as numpy (or zarr) arrays and returns a video iterator.
+
+    Parameters
+    ----------
+    path: str
+        Path to directory structure where multi-frame videos will be storred.
+    name : str
+        Base name (without the extension and frame identifier) for the array 
+        storage files.
+    fmt : str
+        Either 'npy' (default) or 'zarr'. 
     
     Returns
     -------
     out : tuple
         A video iterable. A tuple of multi-frame data (arrays) 
     """
-    arrays = open_memmaps(basename)
+    arrays = open_arrays(path, name = name, fmt = fmt)
     for frames in zip(*arrays):
         yield frames
 
-def recorded(basename,video, count = None):
+def recorded(path,video, count = None, name = "video", fmt = "npy", compressor = "default"):
     """Creates a recording video. Video is saved to disk as numpy files during
     iteration over frames.
+    
+    Parameters
+    ----------
+    path: str
+        Path to directory structure where multi-frame videos will be storred.
+    video : iterable
+        A multi-frame iterator object.
+    count : int, optional
+        Defines how many multi-frames are in the video. If not provided it is determined
+        by len().
+    name : str
+        Base name (without the extension and frame identifier) for the array 
+        storage files.
+    fmt : str
+        Either 'npy' (default) or 'zarr'. 
+    compressor : any
+        Compressor used for zarr arrays
     
     Returns
     -------
     out : tuple
         A video iterable. A tuple of multi-frame data (arrays) 
     """
+    if path and not os.path.exists(path):
+        os.mkdir(path)
+        
+    basename = os.path.join(path,name)
+    
     if count is None:
         try:
             count = len(video)
         except TypeError:
             raise ValueError("You must provide count")
         
-    def _load(array, frame):
-        array[...] = frame
-        
-    def _empty_arrays(frames):
-        out = tuple( (np.lib.format.open_memmap(basename + "_{}.npy".format(i), "w+", shape = (count,) + frame.shape, dtype = frame.dtype) 
-                      for i,frame in enumerate(frames)))
-        return out
-    
     frames = next(video)
-    out = _empty_arrays(frames)
-    [_load(out[i][0],frame) for i,frame in enumerate(frames)]
+    out = _empty_arrays(frames, basename, count, fmt, compressor)
+    [_load_at_index(out[i],0,frame) for i,frame in enumerate(frames)]
     yield frames
     
     for j,frames in enumerate(video):
-        [_load(out[i][j+1],frame) for i,frame in enumerate(frames)]
+        [_load_at_index(out[i],j+1,frame) for i,frame in enumerate(frames)]
         yield frames
     
 def load(video, count = None):
@@ -684,8 +745,11 @@ if __name__ == '__main__':
     #p = play_threaded(video)
     #v1,v2 = asarrays(video,count = 16*16)
     #v1,v2 = asarrays(play(video),count = 16*16)
+    
+    #video = recorded("deleteme",video,count = 16*16, fmt = "zarr")
+    
     with running(video) as video:
-        v1,v2 = asarrays(video,count = 16*16)
+        v1,v2 = asmemmaps("deleteme", video,count = 16*16)
         
 ##    #example how to use ImageShow
 ##    video = random_video(count = 256)

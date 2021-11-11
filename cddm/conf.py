@@ -142,6 +142,7 @@ SCIPY_INSTALLED = is_module_installed("scipy")
 CV2_INSTALLED = is_module_installed("cv2")
 PYQTGRAPH_INSTALLED = is_module_installed("pyqtgraph")
 PYFFTW_INSTALLED = is_module_installed("pyfftw")
+ZARR_INSTALLED = is_module_installed("zarr")
 
 def detect_number_of_cores():
     """
