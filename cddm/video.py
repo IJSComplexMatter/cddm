@@ -6,11 +6,9 @@ and windowing on multi-frame data.
 
 There are also function for real-time display of videos for real-time analysis.
 """
-from __future__ import absolute_import, print_function, division
-
 import numpy as np
 import matplotlib.pyplot as plt
-import time   
+import time, os
 from cddm.conf import CDDMConfig, FDTYPE
 from cddm.print_tools import print_progress, print1, print_frame_rate
 
@@ -104,8 +102,8 @@ def asarrays(video, count = None):
 def asmemmaps(basename, video, count = None):
     """Loads multi-frame video into numpy memmaps. 
     
-    Actual data is written to numpy files with the provide basename and
-    subscripted by source identifier (index), e.g. "basename_0.npy" and "basename_1.npy"
+    Actual data is written to numpy files with the provided basename and
+    subscripted by source identifier (index), e.g. "{basename}_0.npy" and "{basename}_1.npy"
     in case of dual-frame video source.
      
     Parameters
@@ -151,6 +149,62 @@ def asmemmaps(basename, video, count = None):
     print_progress(count, count)   
     return out
 
+def open_memmaps(basename):
+    """Opens video stored as numpy a arrays into memmaps.
+    
+    Returns
+    -------
+    out : tuple of arrays
+        A tuple of memmapped array(s) representing video(s)
+    """
+    files = (basename+"_0.npy", basename+"_0.npy")
+    arrays = tuple((np.lib.format.open_memmap(fname) for fname in files if os.path.exists(fname)))
+    return arrays
+
+def frommemmaps(basename):
+    """Opens video stored as numpy arrays and returns a video iterator.
+    
+    Returns
+    -------
+    out : tuple
+        A video iterable. A tuple of multi-frame data (arrays) 
+    """
+    arrays = open_memmaps(basename)
+    for frames in zip(*arrays):
+        yield frames
+
+def recorded(basename,video, count = None):
+    """Creates a recording video. Video is saved to disk as numpy files during
+    iteration over frames.
+    
+    Returns
+    -------
+    out : tuple
+        A video iterable. A tuple of multi-frame data (arrays) 
+    """
+    if count is None:
+        try:
+            count = len(video)
+        except TypeError:
+            raise ValueError("You must provide count")
+        
+    def _load(array, frame):
+        array[...] = frame
+        
+    def _empty_arrays(frames):
+        out = tuple( (np.lib.format.open_memmap(basename + "_{}.npy".format(i), "w+", shape = (count,) + frame.shape, dtype = frame.dtype) 
+                      for i,frame in enumerate(frames)))
+        return out
+    
+    frames = next(video)
+    out = _empty_arrays(frames)
+    [_load(out[i][0],frame) for i,frame in enumerate(frames)]
+    yield frames
+    
+    for j,frames in enumerate(video):
+        [_load(out[i][j+1],frame) for i,frame in enumerate(frames)]
+        yield frames
+    
 def load(video, count = None):
     """Loads video into memory. 
      
@@ -530,6 +584,12 @@ def play_threaded(video, fps = None):
 
 def show_frames(video, title = None, viewer = None, selected = None, **kwargs):
     """
+    Creates a showing video. Note that the returned video is unchanged. 
+    With the optional parameters you can tune the visualization parameters.
+    Note that this function only creates a visualizer for display.
+    
+    To perform the actual display, you have to create a running video instance.
+    
     Parameters
     ----------
     video : iterator
@@ -614,7 +674,7 @@ if __name__ == '__main__':
     cddm.conf.set_showlib("pyqtgraph")    
     #example how to use show_video and play
     video = random_video(count = 16*16, dual = True)
-
+    video = recorded("deleteme",video, count = 16*16)
     #video = load(video, 1256)
     video = show_frames(video, typ = "cam1", )
     

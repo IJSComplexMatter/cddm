@@ -10,7 +10,7 @@ from __future__ import absolute_import, print_function, division
 
 
 import numpy as np
-from cddm.conf import CDTYPE, FDTYPE
+from cddm.conf import CDTYPE, FDTYPE, I64DTYPE
 from cddm.print_tools import print1,print2, enable_prints, disable_prints
 
 from cddm._core_nb import normalize_struct_compensated, normalize_corr_compensated,\
@@ -28,34 +28,73 @@ from cddm._core_nb import weighted_sum, weight_from_g, weight_from_d, sigma_weig
 import cddm._core_nb as _nb 
 import cddm.avg as _avg
 
-#NORM_BASELINE = 0
-#"""baseline normalization flag"""
+
+NORM_CORRELATED = 1
+"""standard normalization flag"""
+
+NORM_STANDARD = NORM_CORRELATED
+
+NORM_STRUCTURED = 2
+"""structured normalization flag"""
+
+NORM_BASELINE = 8
+"""baseline normalization flag"""
+
+NORM_COMPENSATED = 4 
+"""compensated normalization flag"""
 
 NORM_NONE = 0
 """none normalization flag"""
 
-NORM_BASELINE = 0
-"""baseline normalization flag"""
-
-NORM_STANDARD = 1
-"""standard normalization flag"""
-
-NORM_STRUCTURED= 2
-"""structured normalization flag"""
+NORM_SUBTRACTED = NORM_COMPENSATED | NORM_BASELINE
+"""background subtraction flag"""
 
 NORM_WEIGHTED = NORM_STANDARD | NORM_STRUCTURED
 """weighted normalization flag"""
 
-NORM_SUBTRACTED = 4
-"""background subtraction flag"""
+AVAILABLE_CORR_NORMS = (1,2,3,5,6,7,9,10,11,13,14,15)
+AVAILABLE_DIFF_NORMS = (2,6,10,14)
 
-NORM_COMPENSATED =8 # NORM_SUBTRACTED | 8
-"""compensated normalization flag"""
 
+AVAILABLE_NORM_MODES = ("none", "baseline", "compensated", "subtracted")
+AVAILABLE_CORR_MODES = ("correlated", "structured", "weighted")
+AVAILABLE_FOLD_MODES = (-1,0,1)
+
+#alias flag ,whether to calc mean or not
+CALC_MEAN = NORM_COMPENSATED
+
+#alias flag, whether to calc square or not
+CALC_SQUARE = NORM_STRUCTURED
 
 import sys
 _thismodule = sys.modules[__name__]
 
+def available_raw_corr_modes(raw, have_variance = False ):
+    if len(raw) == 2:
+        #multitau data, take first data to inspect
+        raw,_ = raw
+    d,count,sq,m1,m2 = raw
+    if sq is not None and have_variance:
+        return ("correlated","structured","weighted")
+    else:
+        return ("correlated",)
+    
+def available_raw_norm_modes(raw, have_background = False):
+    if len(raw) == 2:
+        #multitau data, take first data to inspect
+        raw,_ = raw
+    d,count,sq,m1,m2 = raw
+    if m1 is not None:
+        if have_background:
+            return ("baseline","compensated","subtracted","none")
+        else:
+            return ("compensated","none")
+    else:
+        if have_background:
+            return ("baseline","none")
+        else:
+            return ("none",)
+    
 def norm_from_string(value):
     """Converts norm string to flags integer.
     
@@ -91,7 +130,7 @@ def norm_from_string(value):
         norm  = norm | NORM_STANDARD
     return norm
 
-def norm_flags(structured = False, subtracted = False, weighted = False, compensated = False):
+def norm_flags(correlated = None, structured = None, weighted = None, baseline = None, compensated = None, subtracted = None):
     """Return normalization flags from the parameters.
     
     Parameters
@@ -117,18 +156,15 @@ def norm_flags(structured = False, subtracted = False, weighted = False, compens
     >>> norm_flags(compensated = True)
     9
     """
-    standard = True if structured == False and weighted == False else False
-    norm = NORM_NONE
-    if standard == True :
-        norm = norm | NORM_STANDARD
-    if structured == True:
+    norm = NORM_NONE if correlated is not None else NORM_STANDARD
+    if correlated == True or weighted == True:
+        norm = norm | NORM_CORRELATED
+    if structured == True or weighted == True:
         norm = norm | NORM_STRUCTURED
-    if compensated == True:
+    if compensated == True or subtracted == True:
         norm = norm | NORM_COMPENSATED
-    if subtracted == True:
-        norm = norm | NORM_SUBTRACTED
-    if weighted == True:
-        norm = norm | NORM_WEIGHTED
+    if baseline == True or subtracted == True:
+        norm = norm | NORM_BASELINE
     return norm
 
 def scale_factor(variance, mask = None):
@@ -154,9 +190,9 @@ def scale_factor(variance, mask = None):
         raise ValueError("You must provide variance data for normalization")
     try:
         v1, v2 = variance
-        scale = (np.asarray(v1) + np.asarray(v2))/2
+        scale = (np.asarray(v1,FDTYPE) + np.asarray(v2,FDTYPE))/2
     except:
-        scale = np.asarray(variance)  
+        scale = np.asarray(variance,FDTYPE)  
     if mask is None:
         return scale
     else:
@@ -249,12 +285,14 @@ def noise_delta(variance, mask = None, scale = True):
     """
     try:
         v1, v2 = variance
-        delta = (np.asarray(v2) - np.asarray(v1))
-        scale = (np.asarray(v1) + np.asarray(v2)) if scale == True else 2.
+        v1 = np.asarray(v1, FDTYPE)
+        v2 = np.asarray(v2,FDTYPE)
+        delta = (v2-v1)
+        scale = (v1+v2) if scale == True else 2.
         delta /= scale
     except:
         #single data has delta = 0.
-        scale = np.asarray(variance) 
+        scale = np.asarray(variance,FDTYPE) 
         delta = np.zeros_like(scale)
     if mask is None:
         return delta
@@ -287,12 +325,8 @@ def weight_from_data(corr, delta = 0., scale_factor = 1., mode = "corr", pre_fil
     scale_factor = np.asarray(scale_factor, FDTYPE)
     delta = np.asarray(delta, FDTYPE)
     if mode == "corr":
-        #make sure it is decreasing and clipped between 0 and 1
         if pre_filter == True:
             corr = _avg.denoise(corr)
-            #corr = _avg.decreasing(corr)
-            #corr = np.clip(corr,0.,scale_factor[...,None])
-            #corr = _avg.denoise(corr)
             
         g = np.divide(corr,scale_factor[...,None])
         
@@ -301,10 +335,7 @@ def weight_from_data(corr, delta = 0., scale_factor = 1., mode = "corr", pre_fil
     elif mode == "diff":
         if pre_filter == True:
             corr = _avg.denoise(corr)
-            #corr = _avg.increasing(corr)
-            #corr = np.clip(corr,0.,scale_factor[...,None]*2)
-            #corr = _avg.denoise(corr)
-        
+
         d = np.divide(corr,scale_factor[...,None])
 
         return weight_from_d(d, delta[...,None])
@@ -388,8 +419,8 @@ def _norm_from_ccorr_data(data, norm = None):
     else:
         if isinstance(norm, str):
             norm = norm_from_string(norm)
-        if norm not in (1,2,3,5,6,7,9,10,11,13,14,15):
-            raise ValueError("Normalization mode must be one of (1,2,3,5,6,7,9,10,11,13,14,15)")
+        if norm not in AVAILABLE_CORR_NORMS:
+            raise ValueError(f"Normalization mode must be one of {AVAILABLE_CORR_NORMS}")
         if  (norm & available_norm) == norm:
             return norm
         else:
@@ -397,7 +428,7 @@ def _norm_from_ccorr_data(data, norm = None):
 
 def _norm_from_cdiff_data(data, norm = None):
     """Determines normalization type from ccorr data"""
-    available_norms = NORM_STRUCTURED, NORM_STRUCTURED | NORM_SUBTRACTED
+    available_norms = AVAILABLE_DIFF_NORMS
     try:
         d, c, s1, s2 = data
     except:
@@ -405,7 +436,7 @@ def _norm_from_cdiff_data(data, norm = None):
     if (s1 is None or s2 is None):
         default_norm = available_norms[0]
     else:
-        default_norm = available_norms[1]
+        default_norm = available_norms[-1]
     if norm is None:
         return default_norm
     else:
@@ -443,7 +474,7 @@ def _variance2offset(variance, mask):
     return scale_factor(variance, mask)[..., None]
     
 
-def _inspect_background(background, norm, mask):
+def _inspect_background(background, norm, mask, conj_mask = None):
     if background is not None:
         try:
             bg1, bg2 = background
@@ -455,11 +486,16 @@ def _inspect_background(background, norm, mask):
         if mask is not None:
             bg1 = bg1[mask]
             bg2 = bg2[mask]
+            if conj_mask is not None:
+                m = conj_mask[mask]
+                bg1[m] = np.conj(bg1[m])
+                bg2[m] = np.conj(bg2[m])
             
-    elif norm > 0:
+            
+    elif norm & NORM_BASELINE:
         raise ValueError("You must provide background data for normalization.")
     else:
-        bg1, bg2 = 0j,0j
+        bg1, bg2 = np.asarray(0j,CDTYPE),np.asarray(0j,CDTYPE)
     return bg1, bg2
         
         
@@ -478,21 +514,33 @@ def _inspect_mode(mode):
     if mode in ("corr","diff"):
         return mode
     else:
-        raise ValueError("Invalid mode")
+        raise ValueError("Invalid mode.")
     
 def _inspect_scale(scale):
     try:
         return bool(scale)
     except:
-        raise ValueError("Invalid scale")
+        raise ValueError("Invalid scale.")
+        
+def _inspect_slice(tindex):
+    if isinstance(tindex, int):
+        if tindex < 0:
+            return slice(tindex,tindex-1,-1)
+        else:
+            return slice(tindex,tindex+1)
+    elif isinstance(tindex, slice):
+        return tindex
+    else:
+        raise ValueError("`tindex` must be a slice object or an int object.")
         
 def normalize(data, background = None, variance = None, norm = None,  mode = "corr", 
-              scale = False, mask = None, weight = None, ret_weight = False, out = None):
+              scale = False, tindex = slice(None), indices = (), mask = None, conj_mask = None, mask_axes = None, 
+              weight = None, ret_weight = False, out = None):
     """Normalizes correlation (difference) data. Data must be data as returned
     from ccorr or acorr functions. 
     
-    Except forthe most basic normalization, background and variance data must be provided.
-    Tou can use :func:`stats` to compute background and variance data.
+    Except for the most basic normalization, background and variance data must 
+    be provided.Tou can use :func:`stats` to compute background and variance data.
     
     Parameters
     ----------
@@ -516,6 +564,8 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     mask : ndarray, optional
         An array of bools indicating which k-values should we select. If not 
         given, compute at every k-value.
+    tindex : slice or int
+        A time slice applied to data. By default, all time data is collected.
     weight : ndarray, optional
         If you wish to specify your own weight for weighted normalization, you 
         must provide it here, otherwise it is computed from the data (default).
@@ -533,9 +583,14 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     """
     print1("Normalizing...")
     #determine what kind of data is there ('diff' or 'corr')
+    data = asraw(data)
     method = _method_from_data(data)
     scale = _inspect_scale(scale)
     mode = _inspect_mode(mode)
+    single = isinstance(tindex, int)
+    
+    # tindex must be a slice, make it one in case it is int
+    tindex  = _inspect_slice(tindex)
     
     if isinstance(norm,str):
         norm = norm_from_string(norm)
@@ -558,16 +613,16 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     print2("   * mode       : {}".format(mode))
     print2("   * mask       : {}".format(mask is not None))
     
-    bg1, bg2 = _inspect_background(background, norm, mask)
+    bg1, bg2 = _inspect_background(background, norm, mask, conj_mask)
     
     if (norm & NORM_WEIGHTED == NORM_WEIGHTED):
         level = disable_prints()
         norm_comp = (norm & (NORM_SUBTRACTED | NORM_COMPENSATED)) | NORM_STRUCTURED
         comp_data = normalize(data, background, variance, norm = norm_comp,  mode = mode, 
-              scale = scale, mask = mask)
+              scale = scale, mask = mask, conj_mask = conj_mask, tindex = tindex, indices = indices)
         norm_base = (norm & (NORM_SUBTRACTED| NORM_COMPENSATED))| NORM_STANDARD
         base_data = normalize(data, background, variance, norm = norm_base,  mode = mode, 
-              scale = scale, mask = mask)
+              scale = scale, mask = mask, conj_mask = conj_mask, tindex = tindex, indices = indices)
         
         _scale_factor = 1. if scale == True else scale_factor(variance,mask)
         
@@ -583,6 +638,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         if weight is None:
             weight = weight_from_data(weighted_data, delta, scale_factor = _scale_factor, mode = mode)
             
+            #repeat two extra times to smooth out
             for i in range(2):
                 weighted_data = weighted_sum(comp_data, base_data, weight)
                 weight = weight_from_data(weighted_data, delta, scale_factor = _scale_factor, mode = mode)
@@ -618,19 +674,26 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         
         enable_prints(level) 
         
-        if ret_weight == True:
-            return weighted_sum(comp_data, base_data,weight), weight
-        else:
-            return weighted_sum(comp_data, base_data,weight)
+        out = weighted_sum(comp_data, base_data,weight)
         
-    count = data[1]
+        if single:
+            out = out[...,0]
+            weight = weight[...,0]
+        
+        if ret_weight == True:
+            return out, weight
+        else:
+            return out
+        
+    
     
     #add dimensions for broadcasting
     bg1 = bg1[...,None]
     bg2 = bg2[...,None]
+
+    data = select_raw(data,  tindex = tindex, indices = indices, data_mask = mask, conj_mask = conj_mask, axes = mask_axes)
     
-    if mask is not None:
-        data = take_data(data, mask)
+    count = data[1]
     
     #dimensions of correlation data (the first element of the data tuple)
     ndim = data[0].ndim
@@ -641,13 +704,13 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
     for i in range(ndiff):
         count = np.expand_dims(count,-2)
         
-    if norm == NORM_STANDARD:
+    if norm == NORM_STANDARD|NORM_BASELINE or norm == NORM_STANDARD:
         #result = _normalize_ccorr_0(data[0], count, bg1, bg2, out = out)
         result = normalize_corr_baseline(data[0], count, bg1, bg2, out = out)
         if mode == "diff":
             result = _corr2diff(result, variance, mask)
     
-    elif norm == NORM_STRUCTURED:
+    elif norm == NORM_STRUCTURED|NORM_BASELINE or norm == NORM_STRUCTURED:
         if method == "corr":
             offset = _variance2offset(variance, mask)
             result = normalize_struct_baseline(data[0], count, bg1, bg2, offset, data[2],  out = out)
@@ -662,7 +725,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
             if mode == "corr":
                 result = _diff2corr(result, variance, mask)
 
-    elif (norm == NORM_SUBTRACTED|NORM_STANDARD) or (norm == NORM_SUBTRACTED|NORM_STANDARD|NORM_COMPENSATED) :
+    elif (norm == NORM_SUBTRACTED|NORM_STANDARD):
         m1 = data[3]
         m2 = data[4] if data[4] is not None else m1
         #result = _normalize_ccorr_2(data[0], count, bg1, bg2, m1,m2, out = out)
@@ -687,7 +750,7 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
         if mode == "diff":
             result = _corr2diff(result, variance, mask)        
 
-    elif (norm == NORM_STRUCTURED|NORM_SUBTRACTED)  or (norm == NORM_SUBTRACTED|NORM_STRUCTURED|NORM_COMPENSATED) :
+    elif (norm == NORM_STRUCTURED|NORM_SUBTRACTED):
         if method == "corr":
             offset = _variance2offset(variance, mask)
             m1 = data[3]
@@ -714,17 +777,37 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
 
         if mode == "diff":
             result = _corr2diff(result, variance, mask)   
+
     else :
         raise ValueError("Unknown normalization mode {}".format(norm))                 
         
     if scale == True:
         result /= _scale_factor[...,None]
-        
+    if single:
+        result = result[...,0]
+        if weight is not None:
+            weight = weight[...,0]
     if ret_weight == True:
         return result, weight
     else:
         return result
 
+
+def asraw(data):
+    d,c,sq,m1,m2 = data
+    if np.iscomplexobj(d):
+        d = np.asarray(d, CDTYPE)
+    else:
+        d = np.asarray(d, FDTYPE)
+    c = np.asarray(c,I64DTYPE)
+    if sq is not None:
+        sq = np.asarray(sq,FDTYPE)
+    if m1 is not None:
+        m1 = np.asarray(m1,CDTYPE)
+    if m2 is not None:
+        m2 = np.asarray(m1,CDTYPE)  
+    return d,c,sq,m1,m2
+    
 
 def _data_estimator(data, size = 8, n = 3, multilevel = False):
     from cddm.multitau import log_average, merge_multilevel
@@ -737,9 +820,111 @@ def _data_estimator(data, size = 8, n = 3, multilevel = False):
     mask = np.isnan(y)
     mask = np.logical_not(np.all(mask,axis = tuple(range(mask.ndim-1))))
     return x[mask], denoise(y[...,mask], n = n)
+
+
+def slice_data(data, tindex = slice(None), indices = ()):
+    if not isinstance(indices, tuple):
+        # we must use a tuple for numpy index slicing, otherwise fancy indexing may be used.
+        raise ValueError("`indices` must be a tuple")
+    data = data[..., tindex]
+    return data[indices]
+
+def slice_raw(data, tindex = slice(None), indices = ()):  
+    def _slice(i,data):
+        if i !=1:
+            data = slice_data(data, tindex = tindex, indices = indices) if data is not None else None
+        else:
+            data = slice_data(data, tindex = tindex) 
+        return data
+    return tuple((_slice(i,d) for (i,d) in enumerate(data)))  
+    
+def mask_data(data, data_mask = None, conj_mask = None, axes = None):
+    """Selects correlation data from a given mask array."""
+    if data_mask is not None:
+        if axes is None:
+            axes = tuple(range(data_mask.ndim))
+            
+        data = np.asarray(data)
+        dest_axes = tuple(range(len(axes))) 
         
-def take_data(data, mask):
-    """Selects correlation(difference) data at given masked indices.
+        data = np.moveaxis(data, axes, dest_axes)
+    
+        out = data[data_mask]
+        if conj_mask is not None:
+            m = conj_mask[data_mask]
+            out[m] = np.conj(out[m]) 
+        return out
+    else:
+        return data
+
+def mask_raw(data, data_mask, conj_mask = None, axes = None):  
+    """Selects raw correlation data from a given mask array."""
+    def _mask(i,data):
+        if i !=1:
+            return mask_data(data, data_mask, conj_mask, axes) if data is not None else None
+        else:
+            return data
+    return tuple((_mask(i,d) for (i,d) in enumerate(data))) 
+
+def select_data(data, tindex = slice(None), indices = (), data_mask = None, conj_mask = None, axes = None):
+    """Slices correlation data and selects from a given mask array."""
+    out = slice_data(data, tindex, indices)
+    out = mask_data(out, data_mask, conj_mask, axes)
+    return out
+
+def select_raw(data, tindex = slice(None), indices = (), data_mask = None, conj_mask = None, axes = None):
+    """Slices raw correlation data and selects from a given mask array."""
+    def _mask(i,data):
+        if i !=1:
+            data = select_data(data, tindex = tindex, indices = indices, data_mask = data_mask, conj_mask = conj_mask,  axes = axes) if data is not None else None
+        else:
+            data = select_data(data, tindex = tindex) 
+        return data
+        
+    return tuple((_mask(i,d) for (i,d) in enumerate(data)))    
+
+def fill_data(data, data_mask, axes = None, out = None):
+    if axes is None:
+        axes = tuple(range(data_mask.ndim))
+    if out is None:
+        shape = [None] * (data.ndim-1 + data_mask.ndim)
+        for i in range(data_mask.ndim):
+            shape[axes[i]] = data_mask.shape[i]
+        ax = 1
+        for i in range(len(shape)):
+            if shape[i] is None:
+                shape[i] = data.shape[ax]
+                ax += 1
+        out = np.empty(shape = shape, dtype = data.dtype)
+        out[...] = np.nan
+        
+    dest_axes = tuple(range(len(axes)))   
+    out_selected = np.moveaxis(out, axes, dest_axes)
+    out_selected[data_mask] = data
+    return out
+
+def average_data(data, window = None, axis = 0):
+    data = np.asarray(data)
+    if window is not None:
+        # compute and return windowed average
+        window = np.asarray(window)
+        if isinstance(axis,int):
+            axis = (axis,)     
+        indices = [np.newaxis]*data.ndim
+        for i in axis: 
+            indices[i] = slice(None)
+        window = window/window.sum()
+        #for broadcasting we add new axes...
+        window = window[tuple(indices)]
+        data = data * window
+        return np.sum(data,axis = axis)
+    else:
+        # return mean
+        return np.mean(data, axis = axis)
+
+def take_data(data, mask, tindex = slice(None)):
+    """Selects and slices correlation(difference) raw data at a given masked
+    indices and a time slice.
     
     Parameters
     ----------
@@ -747,6 +932,8 @@ def take_data(data, mask):
         Data tuple as returned by `ccorr` and `acorr` functions
     mask : ndarray
         A boolean frame mask array 
+    tindex : slice
+        A time slice applied to data. By default, all time data is collected
     
     Returns
     -------
@@ -756,7 +943,9 @@ def take_data(data, mask):
     """
     def _mask(i,data):
         if i !=1:
-            data = data[...,mask,:] if data is not None else None
+            data = data[...,mask,tindex] if data is not None else None
+        else:
+            data = data[...,tindex]
         return data
         
     return tuple((_mask(i,d) for (i,d) in enumerate(data)))
@@ -840,7 +1029,7 @@ def fold_data(data, mode = 0):
         Output array of shape (..., n).
         With mode = 0: out[i] = 0.5 * data[i] + np.conj(data[-i])
         With mode = 1: out[i] = data[i] 
-        With mode = 2: out[i] = data[-i]
+        With mode = -1: out[i] = data[-i]
     """
     data = np.asarray(data)
     if not np.iscomplexobj(data):
@@ -864,5 +1053,5 @@ def fold_data(data, mode = 0):
 
 
 __all__ = ["weight_from_data","weighted_sum","scale_factor", "noise_delta",
-           "weight_from_g", "weight_from_d","sigma_weighted","normalize", "take_data",
+           "weight_from_g", "weight_from_d","sigma_weighted","normalize", "select_data", "select_raw",
            "norm_flags","NORM_COMPENSATED","NORM_STANDARD","NORM_SUBTRACTED","NORM_WEIGHTED", "NORM_STRUCTURED"]

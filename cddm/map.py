@@ -100,35 +100,11 @@ def sector_indexmap(kmap, anglemap, angle = 0., sector = 30., kstep = 1.):
     out[0,0] = 0
     return out
 
-def fft2_sector_indexmap(kmap, anglemap, angle = 0., sector = 30., kstep = 1.):
-    """Builds indexmap array of integers ranging from -1 (invalid data)
-    and positive integers. Each non-negative integer is a valid k-index computed
-    from sector parameters.
-    
-    Parameters
-    ----------
-    kmap : ndarray
-        Size of wavevector at each (i,j) indices in the rfft2 ouptut data.
-    anglemap : ndarray
-        Angle of the wavevector at each (i,j) indices in the rfft2 ouptut data.      
-    angle : float
-        Mean angle of the sector in degrees (-180 to 180).
-    sector : float
-        Width of the sector in degrees (between 0 and 180) 
-    kstep : float, optional
-        k resolution in units of minimum step size.
-        
-    Returns
-    -------
-    map : ndarray
-        Ouput array of non-zero valued k-indices where data is valid, -1 elsewhere.
-    """
+def _fft2_sector_indexmap(kmap, anglemap, ks, angle = 0., sector = 30., kstep = 1., include_origin = True):
     if angle < -180 or angle > 180:
         raise ValueError("Wrong angle value")
     if sector <= 0 or sector > 180:
         raise ValueError("Wrong sector value")
-    kmax = kmap.max()
-    ks = np.arange(0, kmax + kstep, kstep)
     
     out = np.empty(kmap.shape, int)
     out[...] =-1
@@ -158,9 +134,65 @@ def fft2_sector_indexmap(kmap, anglemap, angle = 0., sector = 30., kstep = 1.):
         out[mask] = i
 
     #k = (0,0) is present regardless of angle, sector
-    out[0,0] = 0
+    if include_origin == True:
+        out[0,0] = 0
     return out
 
+
+def fft2_sector_indexmap(kmap, anglemap, angle = 0., sector = 30., kstep = 1.):
+    """Builds indexmap array of integers ranging from -1 (invalid data)
+    and positive integers. Each non-negative integer is a valid k-index computed
+    from sector parameters.
+    
+    Parameters
+    ----------
+    kmap : ndarray
+        Size of wavevector at each (i,j) indices in the rfft2 ouptut data.
+    anglemap : ndarray
+        Angle of the wavevector at each (i,j) indices in the rfft2 ouptut data.      
+    angle : float
+        Mean angle of the sector in degrees (-180 to 180).
+    sector : float
+        Width of the sector in degrees (between 0 and 180) 
+    kstep : float, optional
+        k resolution in units of minimum step size.
+        
+    Returns
+    -------
+    map : ndarray
+        Ouput array of non-zero valued k-indices where data is valid, -1 elsewhere.
+    """
+    kmax = kmap.max()
+    ks = np.arange(0, kmax + kstep, kstep)
+    return _fft2_sector_indexmap(kmap, anglemap, ks, angle = angle, sector = sector, kstep = kstep)
+
+def fft2_sector_mask(kmap, anglemap, k, angle = 0., sector = 30., kwidth = 1.):
+    ks = (k,)
+    out = _fft2_sector_indexmap(kmap, anglemap, ks, angle = angle, sector = sector, kstep = kwidth, include_origin = False)
+    # Only one k-value, make that value +1, empty data is -1, which makes it zero
+    out+=1
+    return np.asarray(out,bool)
+
+def _adjust_index(i,n):
+    n_half = n/2 
+    if i > n_half:
+        i = i%(-n_half)
+    if i < -n_half:
+        i = i%(n_half)  
+    return i
+    
+def circle_mask(ii,jj, i, j, radius = 1, inclusive = False):
+    height, width = ii.shape
+    i = _adjust_index(i,height)
+    j = _adjust_index(j,width)
+    mi = ii - i
+    mj = jj - j
+    if inclusive == True:
+        m = np.sqrt(mi**2 + mj**2) <= radius
+    else:
+        m = np.sqrt(mi**2 + mj**2) < radius
+    return m
+    
 def _get_steps_size_half(kisize,kjsize,shape):
     height, width = (1, 1) if shape is None else shape
     
@@ -190,10 +222,13 @@ def _get_steps_size_full(kisize,kjsize,shape):
         kjsize = shape[1]
     return _get_steps_size_half(kisize,kjsize,shape)
 
-def _kangle(ki,kj):
+def ij2rf(ki,kj):
     y,x = ki,kj
     x2, y2  = x**2, y**2
-    return (x2 + y2)**0.5 , np.arctan2(-y,x)         
+    return (x2 + y2)**0.5 , np.arctan2(-y,x)      
+
+def rf2ij(k,f):
+    return -k*np.sin(f), k*np.cos(f)
 
 def rfft2_kangle(kisize = None, kjsize = None, shape = None):
     """Build k,angle arrays based on the size of the rfft2 data. 
@@ -214,7 +249,7 @@ def rfft2_kangle(kisize = None, kjsize = None, shape = None):
         k, angle arrays 
     """
     ki,kj = rfft2_grid(kisize = kisize, kjsize = kjsize, shape = shape)
-    return _kangle(ki,kj)
+    return ij2rf(ki,kj)
             
 def fft2_kangle(kisize = None, kjsize = None, shape = None):
     """Build k,angle arrays based on the size of the fft2 data. 
@@ -235,7 +270,7 @@ def fft2_kangle(kisize = None, kjsize = None, shape = None):
         k, angle arrays 
     """
     ki,kj = fft2_grid(kisize = kisize, kjsize = kjsize, shape = shape)
-    return _kangle(ki,kj)
+    return ij2rf(ki,kj)
 
 def _grid_half(kisize_step, kjsize_step):
     (kisize, kistep), (kjsize, kjstep) = kisize_step, kjsize_step
@@ -290,6 +325,10 @@ def fft2_grid(kisize = None, kjsize = None, shape = None):
     """
     kisize_step, kjsize_step = _get_steps_size_full(kisize,kjsize,shape)
     return _grid_full(kisize_step, kjsize_step )
+
+def grid(shape):
+    kisize, kjsize = shape
+    return fft2_grid(kisize, kjsize, shape)
 
 def _k_select_complex(data, k, indexmap, kmap, computed_mask, masked_data):
     mask = (indexmap == int(round(k)))
@@ -669,15 +708,88 @@ def k_select(data, angle , sector = 5, kstep = 1, k = None, shape = None, mask =
     except TypeError:
         #not iterable
         return _k_select(data, k, indexmap, kmap, mask)
+
+class Mask:
+    def __init__(self, mask_shape, frame_shape = None,  data_space = "rfft2"):
+        self.mask_shape = mask_shape
+        self.frame_shape = frame_shape
+        self.data_space = data_space
+        
+        kisize, kjsize = self.mask_shape
+        if self.data_space == "rfft2":
+            kisize, kjsize = as_fft2_shape(kisize, kjsize,shape = self.frame_shape)
+
+        self.imap, self.jmap = fft2_grid(kisize, kjsize, shape = self.frame_shape)        
+        self.kmap, self.anglemap = fft2_kangle(kisize = kisize, kjsize = kjsize, shape = self.frame_shape)
+                     
+    def set_sector(self,center, sector = 5, kwidth = 1, coordinates = "ij"):
+        if self.coordinates == "ij":
+            k,angle = ij2rf(*center)
+            angle = angle * 180/np.pi
+        else:
+            k, angle = center
+        mask = fft2_sector_mask(self.kmap, self.anglemap, k = k, angle = angle,sector = sector, kwidth = kwidth)
+        return self.set_mask(mask)
+        
+    def set_circle(self, center, radius = 1, coordinates = "rf"):
+        if coordinates == "ij":
+            i,j = center
+        else:
+            k, angle = center 
+            i, j = rf2ij(k,angle*np.pi/180.)
+        mask = circle_mask(self.imap, self.jmap, i = i,j = j, radius = radius)
+        return self.set_mask(mask)
+        
+    def set_mask(self, mask):        
+        if mask is not None:
+            self._mask = mask
+            if self.data_space == "rfft2":
+                self._data_mask = as_rfft2_mask(mask)
+                self._conj_mask = as_rfft2_conj(mask)
+            else:
+                self._conj_mask = None
+                self._data_mask = mask           
+        else:
+            self._mask = None
+            self._conj_mask = None  
+            self._data_mask = None
+            
+    @property        
+    def mask(self):
+        return self._mask
+        
+    @property        
+    def conj_mask(self):
+        if self.data_space == "rfft2":
+            return self._conj_mask  
+        
+    @property        
+    def data_mask(self):
+        return self._data_mask        
+
     
-#
-#if __name__ == "__main__":
-#    import matplotlib.pyplot as plt
-#    k,f = rfft2_kangle(129,65, (256,256))
-#    m = sector_indexmap(k,f, angle = 0,sector = 30)
-#    plt.imshow(np.fft.fftshift(m,0))
-#    
-#    kmask = m == 32
-#    plt.figure()
-#    plt.imshow(np.fft.fftshift(kmask,0))
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    k,f = fft2_kangle(129,129, (256,256))
+    m = fft2_sector_indexmap(k,f, angle = 0,sector = 30)
+    plt.imshow(np.fft.fftshift(m))
+    
+    kmask = m == 32
+    plt.figure()
+    plt.imshow(np.fft.fftshift(kmask))
+    
+    m = fft2_sector_mask(k,f, k = 0.4, angle = 0,sector = 30)
+    plt.figure()
+    plt.imshow(m)
+    
+    ii, jj = grid((256,256))
+    
+    m = circle_mask(ii,jj,-5,-4,1)
+    plt.figure()
+    plt.imshow(m)   
+    
+    
+
+    
     

@@ -59,6 +59,7 @@ from cddm._core_nb import _cross_corr_complex_regular, _cross_corr_complex, _cro
 #imported for backward compatibility
 from cddm.norm import NORM_STANDARD, NORM_SUBTRACTED, NORM_STRUCTURED, NORM_WEIGHTED, NORM_COMPENSATED
 from cddm.norm import weight_from_data, weighted_sum, scale_factor, normalize, norm_flags, take_data
+from cddm.norm import CALC_MEAN, CALC_SQUARE, AVAILABLE_CORR_NORMS, AVAILABLE_DIFF_NORMS
 
 #--------------------------
 #Core correlation functions
@@ -1010,9 +1011,9 @@ def _default_method(method, n):
 
 def _default_norm(norm, method, cross = True):
     if method == "diff":
-        supported = (NORM_STRUCTURED,NORM_STRUCTURED|NORM_SUBTRACTED) if cross else (NORM_STRUCTURED,)
+        supported = AVAILABLE_DIFF_NORMS if cross else (AVAILABLE_DIFF_NORMS[0],)
     else:
-        supported = (1,2,3,5,6,7)
+        supported = AVAILABLE_CORR_NORMS
     if norm is None:
         norm = supported[-1]
     if norm not in supported:
@@ -1113,7 +1114,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
     else:
         _sum = auto_sum
         
-    if (norm & NORM_STRUCTURED) and correlate:
+    if (norm & CALC_SQUARE) and correlate:
         if fs is None:
             fs =  abs2(f)
         else:
@@ -1123,7 +1124,7 @@ def acorr(f, t = None, fs = None,  n = None,  norm = None,
         # we multiply with 2 so that it is equivalent to ccorr implementation where sq = sq1 + sq2
         sq = _sum(2*fs,t,axis = new_axis, n = n, aout = sq) 
     
-    if norm & NORM_SUBTRACTED and correlate:
+    if norm & CALC_MEAN and correlate:
         print2("... Computing amean...")
         
         ds = _sum(f,t = t,axis = new_axis, n = n, aout = ds)
@@ -1267,7 +1268,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         _sum = cross_sum
 
         
-    if (norm & NORM_STRUCTURED) and correlate:
+    if (norm & CALC_SQUARE) and correlate:
         print2("... tau sum square")
         if f1s is None:
             f1s =  abs2(f1)
@@ -1282,7 +1283,7 @@ def ccorr(f1,f2,t1 = None, t2 = None,  n = None,
         sq = _sum(f1s,t1,t_other = t2,axis = new_axis, n = n, aout = sq, complex = complex) 
         sq = _sum(f2s,t2,t_other = t1,axis = new_axis, n = n ,aout = sq, complex = complex, time_inversion = True) 
     
-    if norm & NORM_SUBTRACTED:
+    if norm & CALC_MEAN:
         print2("... tau sum signal")
         
         ds1 = _sum(f1,t = t1,t_other = t2,axis = new_axis, n = n, aout = ds1, complex = complex)

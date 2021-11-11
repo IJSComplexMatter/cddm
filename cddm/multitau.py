@@ -25,7 +25,7 @@ For time averaging of linear spaced data use:
 
 from __future__ import absolute_import, print_function, division
 
-from cddm.core import normalize, ccorr,acorr, NORM_STRUCTURED, NORM_STANDARD, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_COMPENSATED
+from cddm.core import normalize, ccorr,acorr#, NORM_STRUCTURED, NORM_STANDARD, NORM_SUBTRACTED, NORM_WEIGHTED, NORM_COMPENSATED
 from cddm.core import _transpose_data, _inspect_cross_arguments,_default_norm,\
         _is_aligned, _move_axis_and_align, _inspect_auto_arguments, abs2,\
         reshape_input, reshape_output, thread_frame_shape, reshape_frame
@@ -40,7 +40,7 @@ from cddm._core_nb import mean, _mean
 
 from cddm.norm import weighted_sum,weight_from_data, _method_from_data,_inspect_scale,_inspect_mode,_default_norm_from_data, scale_factor, norm_from_string, fold_data
 from cddm.avg import log_interpolate
-
+from cddm.norm import CALC_MEAN, CALC_SQUARE
 import time
 
 #: placehold for matplotlib plots so that they are not garbage collected diring live view
@@ -199,8 +199,8 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     
     if correlate == True:
         #we need to track square of the signal
-        f1s = abs2(f1) if (norm & NORM_STRUCTURED) else None
-        f2s = abs2(f2) if (norm & NORM_STRUCTURED) and cross else None
+        f1s = abs2(f1) if (norm & CALC_SQUARE) else None
+        f2s = abs2(f2) if (norm & CALC_SQUARE) and cross else None
     else:
         f1s,f2s = None,None
 
@@ -244,11 +244,11 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     count_slow = np.zeros((nlevel, n_slow,),IDTYPE)
     m1, m2, sq = None, None, None
  
-    if (norm & NORM_STRUCTURED) and correlate == True:
+    if (norm & CALC_SQUARE) and correlate == True:
         sq = np.zeros(slow_shape, FDTYPE) 
         sq = _transpose_data(sq, new_axis) 
         
-    if norm & NORM_SUBTRACTED:
+    if norm & CALC_MEAN:
         m1 = np.zeros(slow_shape, CDTYPE) 
         m1 = _transpose_data(m1, new_axis) 
         m2 = np.zeros(slow_shape, CDTYPE) if cross else None
@@ -273,7 +273,7 @@ def _compute_multi(f1,f2 = None, t1 = None, t2 = None, axis = 0, period = 1, lev
     for i in range(nlevel):
         f1 = _bin(f1,axis, new_axis)
         f2 = _bin(f2,axis, new_axis) if cross else None
-        if (norm & NORM_STRUCTURED) and correlate:
+        if (norm & CALC_SQUARE) and correlate:
             f1s = _bin(f1s,axis, new_axis)
             f2s = _bin(f2s,axis, new_axis) if cross else None
         axis = new_axis
@@ -569,7 +569,7 @@ def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True, complex
     if OPTIMIZE_LAYOUT:
         out_fast = _transpose_data(out_fast) 
     
-    if norm & NORM_SUBTRACTED:
+    if norm & CALC_MEAN:
         m1_fast = np.zeros(fast_shape, CDTYPE)
         if OPTIMIZE_LAYOUT:  
             m1_fast = _transpose_data(m1_fast)        
@@ -579,7 +579,7 @@ def _init_data_fast(n_fast, shape, norm, cross = True, correlate = True, complex
     else:
         m1_fast, m2_fast = None, None
         
-    if (norm & NORM_STRUCTURED) and correlate == True:
+    if (norm & CALC_SQUARE) and correlate == True:
         sq_fast = np.zeros(fast_shape, FDTYPE)
         if OPTIMIZE_LAYOUT: 
             sq_fast = _transpose_data(sq_fast) 
@@ -609,7 +609,7 @@ def _init_data_slow(n_level, n_slow, shape, norm, cross = True, correlate = True
     if OPTIMIZE_LAYOUT:
         out_slow = _transpose_data(out_slow)    
     
-    if norm & NORM_SUBTRACTED:
+    if norm & CALC_MEAN:
         m1_slow = np.zeros(slow_shape, CDTYPE)  
         if OPTIMIZE_LAYOUT:
             m1_slow = _transpose_data(m1_slow)                  
@@ -618,7 +618,7 @@ def _init_data_slow(n_level, n_slow, shape, norm, cross = True, correlate = True
             m2_slow = _transpose_data(m2_slow) if cross  == True else None
     else:
         m1_slow, m2_slow = None, None
-    if (norm & NORM_STRUCTURED) and correlate == True:
+    if (norm & CALC_SQUARE) and correlate == True:
         sq_slow = np.zeros(slow_shape, FDTYPE) 
         if OPTIMIZE_LAYOUT:
             sq_slow = _transpose_data(sq_slow) 
@@ -651,7 +651,7 @@ def _init_data_f(n_decades, half_chunk_size, shape, cross = True):
     return fdata1, fdata2
 
 def _init_data_sq(data_shape, norm, correlate = True, cross = True):
-    if (norm & NORM_STRUCTURED) and correlate == True:
+    if (norm & CALC_SQUARE) and correlate == True:
         #allocate memory for square data
         sq1 = np.empty(data_shape, FDTYPE)
         sq2 = np.empty(data_shape, FDTYPE) if cross  == True else None
@@ -850,12 +850,12 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
             r = np.random.rand() 
             if cross == True:
                 _add_data2(i,x1, x2, fdata1,fdata2, binning,r)
-                if (norm & NORM_STRUCTURED) and correlate:
+                if (norm & CALC_SQUARE) and correlate:
                     _add_sq2(i,x1,x2,sq1,sq2,binning,r)
 
             else:
                 _add_data1(i,x1, fdata1,binning,r)
-                if (norm & NORM_STRUCTURED) and correlate:
+                if (norm & CALC_SQUARE) and correlate:
                     _add_sq1(i,x1,sq1,binning,r)                
                 
         if i % (half_chunk_size) == half_chunk_size -1: 
@@ -890,8 +890,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 np.subtract(out_var1, abs2(out_bg1), out_var1)
                 np.subtract(out_var2, abs2(out_bg2), out_var2)  if cross else None
             
-            f1s = _sliced_data(sq1,0,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None
-            f2s = _sliced_data(sq2,0,fstart1,fstop1)  if (norm & NORM_STRUCTURED) and correlate and cross else None
+            f1s = _sliced_data(sq1,0,fstart1,fstop1) if (norm & CALC_SQUARE) and correlate else None
+            f2s = _sliced_data(sq2,0,fstart1,fstop1)  if (norm & CALC_SQUARE) and correlate and cross else None
            
             out = data_fast
                 
@@ -904,17 +904,17 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                 acorr(_sliced_data(fdata1,0,fstart1,fstop1),t1[istart1:istop1],fs = f1s, axis = axis, n = n_fast, norm = norm, aout = out, method = method, complex = complex) 
 
             if istart2 >= 0 and mode == "full":
-                if (norm & NORM_STRUCTURED) and correlate:
+                if (norm & CALC_SQUARE) and correlate:
                     f1s = _sliced_data(sq1,0,fstart1,fstop1)
  
                 if cross:
-                    if (norm & NORM_STRUCTURED) and correlate:
+                    if (norm & CALC_SQUARE) and correlate:
                         f2s = _sliced_data(sq2,0,fstart2,fstop2)
                     ccorr(_sliced_data(fdata1,0,fstart1,fstop1),_sliced_data(fdata2,0,fstart2,fstop2),t1[istart1:istop1],t2[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex) 
 
                 else:
 
-                    f2s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+                    f2s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & CALC_SQUARE) and correlate else None
 
                     # if correlate:
                     #     out = data_fast[0],data_fast[1], data_fast[2], None, None 
@@ -948,8 +948,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                     
                 if cross:
 
-                    f1s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
-                    f2s = _sliced_data(sq2,0,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None  
+                    f1s = _sliced_data(sq1,0,fstart2,fstop2) if (norm & CALC_SQUARE) and correlate else None
+                    f2s = _sliced_data(sq2,0,fstart1,fstop1) if (norm & CALC_SQUARE) and correlate else None  
                     ccorr(_sliced_data(fdata1,0,fstart2,fstop2),_sliced_data(fdata2,0,fstart1,fstop1),t1[istart2:istop2],t2[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex) 
 
 
@@ -973,8 +973,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                     istop2 = istop1 - half_chunk_size  
                 
 
-                    f1s = _sliced_data(sq1,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None
-                    f2s = _sliced_data(sq2,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate and cross else None  
+                    f1s = _sliced_data(sq1,j,fstart1,fstop1) if (norm & CALC_SQUARE) and correlate else None
+                    f2s = _sliced_data(sq2,j,fstart1,fstop1) if (norm & CALC_SQUARE) and correlate and cross else None  
 
                     out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
 
@@ -985,16 +985,16 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
            
                     if istart2 >= 0 and mode == "full":
 
-                        f1s = _sliced_data(sq1,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None
+                        f1s = _sliced_data(sq1,j,fstart1,fstop1) if (norm & CALC_SQUARE) and correlate else None
 
                         if cross:
 
-                            f2s = _sliced_data(sq2,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+                            f2s = _sliced_data(sq2,j,fstart2,fstop2) if (norm & CALC_SQUARE) and correlate else None
                             ccorr(_sliced_data(fdata1,j,fstart1,fstop1),_sliced_data(fdata2,j,fstart2,fstop2),t_slow[istart1:istop1],t_slow[istart2:istop2],f1s = f1s, f2s = f2s, axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex) 
 
                         else:
 
-                            f2s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
+                            f2s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & CALC_SQUARE) and correlate else None
 
                             # _out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
                             # if correlate:
@@ -1023,8 +1023,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
                                 
                         if cross:
 
-                            f1s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & NORM_STRUCTURED) and correlate else None
-                            f2s = _sliced_data(sq2,j,fstart1,fstop1) if (norm & NORM_STRUCTURED) and correlate else None  
+                            f1s = _sliced_data(sq1,j,fstart2,fstop2) if (norm & CALC_SQUARE) and correlate else None
+                            f2s = _sliced_data(sq2,j,fstart1,fstop1) if (norm & CALC_SQUARE) and correlate else None  
                             ccorr(_sliced_data(fdata1,j,fstart2,fstop2),_sliced_data(fdata2,j,fstart1,fstop1),t_slow[istart2:istop2],t_slow[istart1:istop1],f1s = f1s, f2s = f2s,axis = axis, n = n_fast,norm = norm,aout = out, method = method, complex = complex) 
 
                 else:
@@ -1056,7 +1056,7 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
     
     f1 = fdata1[-1]
     f2 = fdata2[-1] if cross else None
-    if (norm & NORM_STRUCTURED) and correlate:
+    if (norm & CALC_SQUARE) and correlate:
         sq1 = sq1[-1]
         sq2 = sq2[-1] if cross else None
         
@@ -1067,8 +1067,8 @@ def _compute_multi_iter(data, t1, t2 = None, period = 1, level_size = 16,
         axis = axis if OPTIMIZE_LAYOUT else 0 
         f1 = _bin(f1,axis, r = r)
         f2 = _bin(f2,axis, r = r) if cross else None
-        sq1 = _bin(sq1,axis, r = r) if (norm & NORM_STRUCTURED) and correlate else None
-        sq2 = _bin(sq2,axis, r = r) if (norm & NORM_STRUCTURED) and correlate and cross else None
+        sq1 = _bin(sq1,axis, r = r) if (norm & CALC_SQUARE) and correlate else None
+        sq2 = _bin(sq2,axis, r = r) if (norm & CALC_SQUARE) and correlate and cross else None
       
         out =  tuple(((d[j-1] if d is not None else None) for d in data_slow))
         
@@ -1733,14 +1733,66 @@ def t_multilevel(shape, period = 1):
         x *= 2
     return out
         
+def _inspect_tslice(tslice, tlevel):
+    if tlevel is not None:
+        tlevel = int(tlevel)
+        if tlevel < 0:
+            raise ValueError("`tlevel` must be positive or 0")
+    if tslice is not None:
+        if tlevel is None:
+            raise ValueError("`tlevel` must also be specified if `tslice` is set.")
+        if not isinstance(tslice, slice):
+            raise ValueError("`tslice` must be a slice object")
+    else:
+        tslice = slice(None)
+    return tslice, tlevel
+    
+
 def normalize_multi(data, background = None, variance = None, norm = None,  mode = "corr", 
-              scale = False, mask = None):
+              scale = False, mask = None, tslice = None, tlevel = None):
     """A multitau version of :func:`.core.normalize`.
     
     Performs normalization of data returned by :func:`ccorr_multi`,
      :func:`acorr_multi`,:func:`iccorr_multi`, or :func:`iacorr_multi` function.
     
-    See documentation of :func:`.core.normalize`.
+    Except for the most basic normalization, background and variance data must 
+    be provided.Tou can use :func:`stats` to compute background and variance data.
+    
+    Parameters
+    ----------
+    data : tuple 
+        Input length two tuple of valid correlation data tuples.
+    background : (ndarray, ndarray) or ndarray, optional
+        Background (mean) of the frame(s) in k-space
+    variance : (ndarray, ndarray) or ndarray, optional
+        Variance of the frame(s) in k-space
+    norm : int, optional
+        Normalization type (0:baseline,1:compensation,2:bg subtract,
+        3: compensation + bg subtract). Input data must support the chosen
+        normalization, otherwise exception is raised. If not given it is chosen
+        based on the input data.
+    mode : str, optional
+        Representation mode: either "corr" (default) for correlation function,
+        or "diff" for image structure function (image difference).
+    scale : bool, optional
+        If specified, performs scaling so that data is scaled beteween 0 and 1.
+        This works in connection with variance, which must be provided.
+    mask : ndarray, optional
+        An array of bools indicating which k-values should we select. If not 
+        given, compute at every k-value.
+    tslice : slice
+        A time slice applied to data. By default, all time data is collected.
+        If set, you must also define tlevel.
+    tlevel : int
+        Which level from the multilevel data to take. If not set, it calculates 
+        all levels and multilevel data is returned.
+        
+    Returns
+    -------
+    out : ndarray
+        Normalized data, in case tlevel is specified
+    fast,slow : ndarray, ndarray
+        Normalized multitau data tuple
     """
 
     print1("Normalizing...")
@@ -1750,6 +1802,8 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
     method = _method_from_data(lin)
     scale = _inspect_scale(scale)
     mode = _inspect_mode(mode)
+    tslice, tlevel = _inspect_tslice(tslice, tlevel)
+    
     if isinstance(norm,str):
         norm = norm_from_string(norm)
     #determine default normalization if not specified by user
@@ -1761,6 +1815,7 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
     print2("   * scale      : {}".format(scale))
     print2("   * mode       : {}".format(mode))
     print2("   * mask       : {}".format(mask is not None))
+    print2("   * tlevel     : {}".format(tlevel))
     
     level = disable_prints()
     
@@ -1808,14 +1863,23 @@ def normalize_multi(data, background = None, variance = None, norm = None,  mode
     #               scale = scale, mask = mask)
     #     multi = normalize(multi, background = background, variance = variance, norm = norm, mode = mode,
     #               scale = scale, mask = mask)  
+    if tlevel is None:
+        lin = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,
+                  scale = scale, mask = mask)
+        multi = normalize(multi, background = background, variance = variance, norm = norm, mode = mode,
+                  scale = scale, mask = mask)  
     
-    lin = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,
-              scale = scale, mask = mask)
-    multi = normalize(multi, background = background, variance = variance, norm = norm, mode = mode,
-              scale = scale, mask = mask)  
-
-    enable_prints(level)        
-    return lin, multi
+        enable_prints(level)        
+        return lin, multi
+    else:
+        if tlevel == 0:
+            out = normalize(lin, background = background, variance = variance, norm = norm, mode = mode,
+                  scale = scale, mask = mask, tslice = tslice)   
+        else:
+            out = normalize(multi[tlevel-1], background = background, variance = variance, norm = norm, mode = mode,
+                  scale = scale, mask = mask, tslice = tslice)   
+        enable_prints(level)        
+        return out      
 
 #if __name__ == "__main__":
 #    import doctest
