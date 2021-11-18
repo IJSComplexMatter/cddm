@@ -144,9 +144,9 @@ def clear_buffer(key = None):
         CALLBACK.clear()
         BUFFERED_KEYS.clear()
     else:
-        BUFFER.pop(key)
-        CALLBACK.pop(key)
-        BUFFERED_KEYS.remove(key)
+        BUFFER.pop(key,None)
+        CALLBACK.pop(key,None)
+        BUFFERED_KEYS.discard(key)
              
 
     

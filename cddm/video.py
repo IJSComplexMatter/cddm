@@ -26,9 +26,37 @@ if ZARR_INSTALLED:
     AVAILABLE_SAVE_VIDEO_FORMATS = AVAILABLE_SAVE_VIDEO_FORMATS + ("zarr",)
     AVAILABLE_LOAD_VIDEO_FORMATS = AVAILABLE_LOAD_VIDEO_FORMATS + ("zarr",)
 
+UNKNOWN_VIDEO_FORMAT = "unknown"
+
 def user_warning(message):
     import warnings
     warnings.warn(message, UserWarning, stacklevel=2)
+
+class VideoIter(object):
+    """Converts an iterable into a VideoIter object which has a specified length""" 
+    def __init__(self, video, count = None):
+        self.video = iter(video)
+        if count is None:
+            try:
+                count = len(video)
+            except TypeError:
+                raise ValueError("Video length could not be determined. You must specify count!")
+        self._count = count
+        
+    def __iter__(self):
+        return self
+        
+    def __next__(self):
+        try:
+            if self._count == 0:
+                raise StopIteration()
+            else:
+                return next(self.video)
+        finally:
+            self._count -= 1
+    
+    def __len__(self):
+        return self._count
 
 class LoadedVideo(object):
     """Video object for in-memory or memmap arrays"""
@@ -39,10 +67,20 @@ class LoadedVideo(object):
         return tuple((a[index] for a in self.arrays))
         
     def __iter__(self):
-        return fromarrays(self.arrays)
+        video = (a for a in zip(*self.arrays))
+        return VideoIter(video, len(self))
     
     def __len__(self):
         return min(tuple((len(a) for a in self.arrays)))
+    
+def get_video_format(path):
+    if os.path.exists(os.path.join(path,"0.zarr")) :
+        return "zarr"
+    elif os.path.exists(os.path.join(path,"0.npy")) :
+        return "npy"
+    else:
+        return UNKNOWN_VIDEO_FORMAT
+    
 
 def fromarrays(arrays):
     """Creates a multi-frame iterator from given list of arrays.
@@ -73,16 +111,23 @@ def _empty_arrays(frames, count, fmt, compressor = "default"):
         raise ValueError(f"Unsupported data format `{fmt}`.")         
     return out
 
-def _empty_memmap_arrays(frames, basename, count, fmt, compressor = "default"):
+def _empty_memmap_arrays(frames, path, count, fmt, compressor = "default"):
     if fmt == "npy":
-        out = tuple( (np.lib.format.open_memmap(basename + "_{}.npy".format(i), "w+", shape = (count,) + frame.shape, dtype = frame.dtype) 
+        out = tuple( (np.lib.format.open_memmap(os.path.join(path,"{}.npy".format(i)), "w+", shape = (count,) + frame.shape, dtype = frame.dtype) 
                       for i,frame in enumerate(frames)))
     elif fmt == "zarr" and ZARR_INSTALLED:
-        out = tuple( (zarr.open(basename + "_{}.zarr".format(i), "w", compressor = compressor, shape = (count,) + frame.shape, dtype = frame.dtype, chunks = (1,)+frame.shape ) 
+        out = tuple( (zarr.open(os.path.join(path,"{}.zarr".format(i)), "w", compressor = compressor, shape = (count,) + frame.shape, dtype = frame.dtype, chunks = (1,)+frame.shape ) 
                       for i,frame in enumerate(frames)))   
     else:
         raise ValueError(f"Unsupported data format `{fmt}`.")         
     return out
+
+def asvideo(video, count = None):
+    try:
+        len(video)
+        return video
+    except:
+        return VideoIter(video, count)
 
 def asarrays(video, count = None, fmt = "npy", compressor = "default"):
     """Loads multi-frame video into numpy arrays. 
@@ -143,11 +188,11 @@ def asarrays(video, count = None, fmt = "npy", compressor = "default"):
     print_frame_rate(count,t0)
     return out
 
-def asmemmaps(path, video, count = None, name = "video", fmt = "npy", compressor = "default"):
+def asmemmaps(path, video, count = None, fmt = "npy", compressor = "default"):
     """Loads multi-frame video into numpy memmaps or zarr arrays. 
     
-    Actual data is written to numpy files with the provided basename and
-    subscripted by source identifier (index), e.g. "{basename}_0.npy" and "{basename}_1.npy"
+    Actual data is written to numpy files with the provided path name and
+    subscripted by source identifier, e.g. "{path}/0.npy" and "{path}/1.npy"
     in case of dual-frame video source.
      
     Parameters
@@ -159,9 +204,6 @@ def asmemmaps(path, video, count = None, name = "video", fmt = "npy", compressor
     count : int, optional
         Defines how many multi-frames are in the video. If not provided it is determined
         by len().
-    name : str
-        Base name (without the extension and frame identifier) for the array 
-        storage files.
     fmt : str
         Either 'npy' (default) or 'zarr'. 
     compressor : any
@@ -173,8 +215,6 @@ def asmemmaps(path, video, count = None, name = "video", fmt = "npy", compressor
         A tuple of memmapped or zarr array(s) representing video(s)
     """
 
-    basename = os.path.join(path, name)
-    
     if not os.path.exists(path):
         os.mkdir(path)
     
@@ -188,7 +228,7 @@ def asmemmaps(path, video, count = None, name = "video", fmt = "npy", compressor
     print_progress(0, count)
     
     frames = next(video)
-    out = _empty_memmap_arrays(frames, basename, count, fmt, compressor)
+    out = _empty_memmap_arrays(frames, path, count, fmt, compressor)
     [_load_at_index(out[i],0,frame) for i,frame in enumerate(frames)]
     for j,frames in enumerate(video):
         print_progress(j+1, count)
@@ -197,26 +237,24 @@ def asmemmaps(path, video, count = None, name = "video", fmt = "npy", compressor
     print_progress(count, count)   
     return out
 
-def open_arrays(path, name = "video", fmt = "npy"):
+def open_arrays(path):
     """Opens video stored as numpy or zarr arrays into memmaps.
     
     Parameters
     ----------
     path: str
         Path to directory structure where multi-frame videos will be storred.
-    name : str
-        Base name (without the extension and frame identifier) for the array 
-        storage files.
-    fmt : str
-        Either 'npy' (default) or 'zarr'. 
-    
+
     Returns
     -------
     out : tuple of arrays
         A tuple of memmapped array(s) representing video(s)
     """
-    basename = os.path.join(path, name) 
-    files = (basename+f"_1.{fmt}", basename+f"_2.{fmt}")
+    fmt = get_video_format(path)
+    if fmt == UNKNOWN_VIDEO_FORMAT:
+        raise ValueError("Unknown video format")
+
+    files = (os.path.join(path,f"0.{fmt}"), os.path.join(path,f"1.{fmt}"))
     if fmt == "npy": 
         arrays = tuple((np.lib.format.open_memmap(fname) for fname in files if os.path.exists(fname)))
     elif fmt == "zarr" and ZARR_INSTALLED:
@@ -225,28 +263,23 @@ def open_arrays(path, name = "video", fmt = "npy"):
         raise ValueError(f"Unsupported data format `{fmt}`.")
     return arrays
 
-def open_video(path, name = "video", fmt = "npy"):
+def open_video(path):
     """Opens video stored as numpy (or zarr) arrays and returns a video iterator.
 
     Parameters
     ----------
     path: str
-        Path to directory structure where multi-frame videos will be storred.
-    name : str
-        Base name (without the extension and frame identifier) for the array 
-        storage files.
-    fmt : str
-        Either 'npy' (default) or 'zarr'. 
+        Path to directory structure where multi-frame videos are storred.
     
     Returns
     -------
     out : tuple
         A video iterable. A tuple of multi-frame data (arrays) 
     """
-    arrays = open_arrays(path, name = name, fmt = fmt)
+    arrays = open_arrays(path)
     return LoadedVideo(arrays)
 
-def recorded(path,video, count = None, name = "video", fmt = "npy", compressor = "default"):
+def recorded(path,video, count = None, fmt = "npy", compressor = "default"):
     """Creates a recording video. Video is saved to disk as numpy files during
     iteration over frames.
     
@@ -259,9 +292,6 @@ def recorded(path,video, count = None, name = "video", fmt = "npy", compressor =
     count : int, optional
         Defines how many multi-frames are in the video. If not provided it is determined
         by len().
-    name : str
-        Base name (without the extension and frame identifier) for the array 
-        storage files.
     fmt : str
         Either 'npy' (default) or 'zarr'. Type of data format used for storing.
     compressor : any
@@ -276,7 +306,6 @@ def recorded(path,video, count = None, name = "video", fmt = "npy", compressor =
     if path and not os.path.exists(path):
         os.mkdir(path)
         
-    basename = os.path.join(path,name)
     
     if count is None:
         try:
@@ -285,7 +314,7 @@ def recorded(path,video, count = None, name = "video", fmt = "npy", compressor =
             raise ValueError("You must provide count")
         
     frames = next(video)
-    out = _empty_memmap_arrays(frames, basename, count, fmt, compressor)
+    out = _empty_memmap_arrays(frames, path, count, fmt, compressor)
     [_load_at_index(out[i],0,frame) for i,frame in enumerate(frames)]
     yield frames
     
@@ -319,7 +348,7 @@ def load(video, count = None, fmt = "npy", compressor = "default"):
     video = asarrays(video, count, fmt = fmt, compressor = compressor)
     return  LoadedVideo(video)
 
-def save_video(path, video, count = None, name = "video", fmt = "npy", compressor = "default"):
+def save_video(path, video, count = None, fmt = "npy", compressor = "default"):
     """Saves video to disk as numpy or zarr files.
     
     Parameters
@@ -331,9 +360,6 @@ def save_video(path, video, count = None, name = "video", fmt = "npy", compresso
     count : int, optional
         Defines how many multi-frames are in the video. If not provided it is determined
         by len().
-    name : str
-        Base name (without the extension and frame identifier) for the array 
-        storage files.
     fmt : str
         Either 'npy' (default) or 'zarr'. Type of data format used for storing.
     compressor : any
@@ -341,7 +367,7 @@ def save_video(path, video, count = None, name = "video", fmt = "npy", compresso
         zarr accepts.
     """
         
-    video = recorded(path,video, count, name, fmt, compressor)
+    video = recorded(path,video, count, fmt, compressor)
     t0 = time.time()
         
     print1("Saving video...")
