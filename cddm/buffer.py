@@ -136,7 +136,7 @@ def clear_callback(key = None):
     if key is None:
         CALLBACK.clear()
     else:
-        CALLBACK.pop(key)
+        CALLBACK.pop(key,None)
                      
 def clear_buffer(key = None):
     if key is None:

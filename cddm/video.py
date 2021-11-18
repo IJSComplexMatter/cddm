@@ -847,7 +847,7 @@ if __name__ == '__main__':
     #example how to use show_video and play
     video = random_video(count = 16*16, dual = True, dtype = "uint16", max_value = 255)
     #video = load(video, 1256)
-    video = show_frames(video, typ = "cam1", )
+    video = show_frames(video, typ = "cam1")
     video = show_frames(video, typ = "diff")
     
     #p = play_threaded(video)
