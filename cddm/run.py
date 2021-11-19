@@ -2,12 +2,11 @@
 Runtime functions. 
 """
 
-from cddm.buffer import clear_buffer, clear_callback,CALLBACK, process_buffer
+from cddm.buffer import destroy_buffer, CALLBACK, process_buffer
 import time
 from queue import Queue, Full
 from threading import Thread, Event
 from cddm.viewer import pause
-
 
 THREADS = {}
 STOP_EVENTS = {}
@@ -128,7 +127,7 @@ def _run_buffered(iterable, fps = None, keys = None, mode = "all", initialize = 
             yield out
         
     finally:
-        clear_buffer()
+        destroy_buffer()
 
 def _run_buffered_threaded(iterable, fps = None, keys = None, mode = "all", initialize = None, finalize = None):
     q = Queue()
@@ -191,7 +190,7 @@ def _run_buffered_threaded(iterable, fps = None, keys = None, mode = "all", init
             if out is None:
                 break
     finally:
-        clear_buffer()
+        destroy_buffer()
 
 def run_buffered(iterable, spawn = True, fps = None, keys = None, mode = "all", initialize = None, finalize = None):
     if spawn == True:
@@ -219,7 +218,7 @@ class RunningContext():
     def __exit__(self,exception_type, exception_value, exception_traceback):
         stop_threads()
         join_threads()
-        clear_callback()
+        destroy_buffer()
 
         if exception_type in (KeyboardInterrupt,):
             #we do not want to raise exception if ctrl-c was pressed, so return True

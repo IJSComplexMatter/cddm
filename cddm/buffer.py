@@ -4,9 +4,14 @@ Data buffering.
 
 from queue import Queue
 
+# buffer queues placehold
 BUFFER = {}
+# buffer callback placehold
 CALLBACK = {}
+
+# names of buffers currently in active use. Each buffer object can be used only once.
 BUFFERED_KEYS = set()
+
         
 def buffer_key(key = None):
     """Generate a unique buffer key, or inspect if name is valid"""
@@ -31,10 +36,16 @@ def set_callback(callback, key = None):
     else:
         raise ValueError("Callback must be a callback object")
 
+def remove_callback(key = None):
+    if key is None:
+        CALLBACK.clear()
+    else:
+        CALLBACK.pop(key,None)
+
 def get_callback(key):
     return CALLBACK.get(key)
          
-def set_buffer(key, maxsize = 0):
+def create_buffer(key = None, maxsize = 0):
     key = buffer_key(key)
     queue = Queue(maxsize)
     BUFFER[key] = queue 
@@ -42,28 +53,41 @@ def set_buffer(key, maxsize = 0):
 def get_buffer(key):
     return BUFFER.get(key)
 
+def destroy_buffer(key = None):
+    if key is None:
+        BUFFER.clear()
+        CALLBACK.clear()
+        BUFFERED_KEYS.clear()
+    else:
+        BUFFER.pop(key,None)
+        CALLBACK.pop(key,None)
+        BUFFERED_KEYS.discard(key)
+             
 def iter_data(key):
     queue = get_buffer(key)
-    while not queue.empty():
-        data = queue.get() 
-        yield data
+    if queue:
+        while not queue.empty():
+            data = queue.get() 
+            yield data
         
 def next_data(key):
     queue = get_buffer(key)
-    if not queue.empty():
+    if queue and not queue.empty():
         return queue.get()
     
 def buffered(iterable, key = None, callback =  None, selected = None, maxsize = 0):
     if key is None:
         key = buffer_key()
     if key not in BUFFER.keys():
-        set_buffer(key, maxsize)
+        create_buffer(key, maxsize)
     queue = get_buffer(key)
     if key in BUFFERED_KEYS:
         raise ValueError("Buffer already used!")
     else:
         BUFFERED_KEYS.add(key)
     set_callback(callback, key)
+
+
     return queued(iterable, queue, selected = selected)
 
 def process_buffer(keys = None, mode = "first"):
@@ -71,7 +95,6 @@ def process_buffer(keys = None, mode = "first"):
         keys = CALLBACK.keys()
     elif not hasattr(keys, "__iter__"):
         keys = (keys,)
-        
     if mode == "all": 
         _process_buffer_all(keys)
     elif mode == "first":
@@ -132,22 +155,7 @@ def queued(video, queue, selected = None, skip_if_full = True):
                 queue.put((i,frames))
         yield frames    
 
-def clear_callback(key = None):
-    if key is None:
-        CALLBACK.clear()
-    else:
-        CALLBACK.pop(key,None)
-                     
-def clear_buffer(key = None):
-    if key is None:
-        BUFFER.clear()
-        CALLBACK.clear()
-        BUFFERED_KEYS.clear()
-    else:
-        BUFFER.pop(key,None)
-        CALLBACK.pop(key,None)
-        BUFFERED_KEYS.discard(key)
-             
+
 
     
     

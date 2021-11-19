@@ -35,6 +35,18 @@ if PYQTGRAPH_INSTALLED:
 
 _FIGURES = set()
 
+
+CUSTOM_FRAMES_VIEWER_CONSTRUCTOR = [None]
+
+def register_viewer_constructor(viewer):
+    CUSTOM_FRAMES_VIEWER_CONSTRUCTOR[0] = viewer
+
+def get_frames_viewer(title, **kwargs):
+    if CDDMConfig.showlib == "custom":
+        return CUSTOM_FRAMES_VIEWER_CONSTRUCTOR[0](title, **kwargs)
+    else:
+        return FramesViewer(title, **kwargs)
+
 def figure_title(name):
     """Generate a unique figure title"""
     i = len(_FIGURES)+1
@@ -123,6 +135,7 @@ class FramesViewer():
             if CDDMConfig.showlib == "cv2":
                 cv2.destroyWindow(self.fig)
             elif CDDMConfig.showlib == "pyqtgraph":
+                del self.im
                 self.fig.destroy()
             else:
                 plt.close(self.fig) 

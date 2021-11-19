@@ -15,7 +15,7 @@ from cddm.print_tools import print_progress, print1, print_frame_rate
 
 from cddm.buffer import buffered
 from cddm.run import asrunning
-from cddm.viewer import FramesViewer, figure_title
+from cddm.viewer import figure_title, get_frames_viewer
 from cddm.decorators import deprecated
 
 AVAILABLE_SAVE_VIDEO_FORMATS = ("npy",)
@@ -111,18 +111,21 @@ def _empty_arrays(frames, count, fmt, compressor = "default"):
         raise ValueError(f"Unsupported data format `{fmt}`.")         
     return out
 
-def _empty_memmap_arrays(frames, path, count, fmt, compressor = "default"):
+def _open_memmap_arrays(frames, path, count, fmt, compressor = "default", create = True):
     if fmt == "npy":
-        out = tuple( (np.lib.format.open_memmap(os.path.join(path,"{}.npy".format(i)), "w+", shape = (count,) + frame.shape, dtype = frame.dtype) 
+        mode = "w+" if create else "r+"
+        out = tuple( (np.lib.format.open_memmap(os.path.join(path,"{}.npy".format(i)), mode = mode, shape = (count,) + frame.shape, dtype = frame.dtype) 
                       for i,frame in enumerate(frames)))
     elif fmt == "zarr" and ZARR_INSTALLED:
-        out = tuple( (zarr.open(os.path.join(path,"{}.zarr".format(i)), "w", compressor = compressor, shape = (count,) + frame.shape, dtype = frame.dtype, chunks = (1,)+frame.shape ) 
+        mode = "w" if create else "r+"
+        out = tuple( (zarr.open(os.path.join(path,"{}.zarr".format(i)), mode = mode, compressor = compressor, shape = (count,) + frame.shape, dtype = frame.dtype, chunks = (1,)+frame.shape ) 
                       for i,frame in enumerate(frames)))   
     else:
         raise ValueError(f"Unsupported data format `{fmt}`.")         
     return out
 
 def asvideo(video, count = None):
+    """Converts a video iterator into a VideoIter object"""
     try:
         len(video)
         return video
@@ -188,7 +191,7 @@ def asarrays(video, count = None, fmt = "npy", compressor = "default"):
     print_frame_rate(count,t0)
     return out
 
-def asmemmaps(path, video, count = None, fmt = "npy", compressor = "default"):
+def asmemmaps(path, video, count = None, fmt = "npy", compressor = "default", chunks = None):
     """Loads multi-frame video into numpy memmaps or zarr arrays. 
     
     Actual data is written to numpy files with the provided path name and
@@ -217,7 +220,13 @@ def asmemmaps(path, video, count = None, fmt = "npy", compressor = "default"):
 
     if not os.path.exists(path):
         os.mkdir(path)
-    
+        
+    if chunks is not None:
+        chunks = int(chunks)
+        if chunks < 1:
+            chunks = 1 if fmt == "zarr" else 1024
+        print(chunks)
+        
     if count is None:
         try:
             count = len(video)
@@ -228,11 +237,16 @@ def asmemmaps(path, video, count = None, fmt = "npy", compressor = "default"):
     print_progress(0, count)
     
     frames = next(video)
-    out = _empty_memmap_arrays(frames, path, count, fmt, compressor)
+    out = _open_memmap_arrays(frames, path, count, fmt, compressor, create = True)
     [_load_at_index(out[i],0,frame) for i,frame in enumerate(frames)]
     for j,frames in enumerate(video):
-        print_progress(j+1, count)
-        [_load_at_index(out[i],j+1,frame) for i,frame in enumerate(frames)]
+        j = j+1
+        if chunks and j % chunks == 0:
+            #force flushing, closes memap and reopens it in order to clear system memory
+            out = _open_memmap_arrays(frames, path, count, fmt, compressor, create = False)
+            
+        print_progress(j, count)
+        [_load_at_index(out[i],j,frame) for i,frame in enumerate(frames)]
     
     print_progress(count, count)   
     return out
@@ -279,7 +293,7 @@ def open_video(path):
     arrays = open_arrays(path)
     return LoadedVideo(arrays)
 
-def recorded(path,video, count = None, fmt = "npy", compressor = "default"):
+def recorded(path,video, count = None, fmt = "npy", compressor = "default", chunks = -1):
     """Creates a recording video. Video is saved to disk as numpy files during
     iteration over frames.
     
@@ -305,8 +319,12 @@ def recorded(path,video, count = None, fmt = "npy", compressor = "default"):
     """
     if path and not os.path.exists(path):
         os.mkdir(path)
+           
+    if chunks is not None:
+        chunks = int(chunks)
+        if chunks < 1:
+            chunks = 1024 if fmt == "npy" else 1
         
-    
     if count is None:
         try:
             count = len(video)
@@ -314,12 +332,17 @@ def recorded(path,video, count = None, fmt = "npy", compressor = "default"):
             raise ValueError("You must provide count")
         
     frames = next(video)
-    out = _empty_memmap_arrays(frames, path, count, fmt, compressor)
+    out = _open_memmap_arrays(frames, path, count, fmt, compressor, create = True)
     [_load_at_index(out[i],0,frame) for i,frame in enumerate(frames)]
     yield frames
     
     for j,frames in enumerate(video):
-        [_load_at_index(out[i],j+1,frame) for i,frame in enumerate(frames)]
+        j = j+1
+        if chunks and j % chunks == 0:
+            #force flushing, closes memap and reopens it in order to clear system memory
+            out = _open_memmap_arrays(frames, path, count, fmt, compressor, create = False)
+            
+        [_load_at_index(out[i],j,frame) for i,frame in enumerate(frames)]
         yield frames
     
 def load(video, count = None, fmt = "npy", compressor = "default"):
@@ -769,7 +792,7 @@ def show_frames(video, title = None, viewer = None, selected = None, **kwargs):
         A multi-frame iterator
     title : str
         Unique title of the video. You can use :func:`figure_title`
-        a to produce unique name.
+        to produce a unique name.
     viewer: callable
         Here you can provide your own callable viewer object that is 
         responsible for the visualization and data conversion.
@@ -799,9 +822,8 @@ def show_frames(video, title = None, viewer = None, selected = None, **kwargs):
     if title is None:
         typ = kwargs.get("typ", "cam1")
         title = figure_title(f"frames - {typ}")
-    if viewer is None:
-        viewer = FramesViewer(title, **kwargs)
-    return buffered(video, maxsize=1, callback = viewer, selected = selected)
+    viewer = get_frames_viewer(title, **kwargs)
+    return buffered(video, title, maxsize=1, callback = viewer, selected = selected)
         
             
 def show_data(iterable, viewer, selected = None):
@@ -841,11 +863,14 @@ if __name__ == '__main__':
     from cddm.run import running   
     import cddm.conf
     cddm.conf.set_verbose(2)
+    count = 16*16
+    
+    from threading import Thread
 
 
     cddm.conf.set_showlib("pyqtgraph")    
     #example how to use show_video and play
-    video = random_video(count = 16*16, dual = True, dtype = "uint16", max_value = 255)
+    video = random_video(count = count, dual = True, dtype = "uint16", max_value = 255)
     #video = load(video, 1256)
     video = show_frames(video, typ = "cam1")
     video = show_frames(video, typ = "diff")
@@ -855,10 +880,15 @@ if __name__ == '__main__':
     #v1,v2 = asarrays(play(video),count = 16*16)
     
     #video = recorded("deleteme",video,count = 16*16, fmt = "zarr")
-    
+
     with running(video) as video:
-        v1,v2 = asmemmaps("deleteme", video,fmt = "zarr", count = 16*16)
-        
+        v1,v2 = asmemmaps("deleteme", video,fmt = "npy", count = count, chunks = -1)
+    #import time
+    #time.sleep(10)
+    #t = Thread(target = worker, args = (video,), daemon = True)
+    #t.start()
+    #t.join()
+    
 ##    #example how to use ImageShow
 ##    video = random_video(count = 256)
 ##    viewer = ImageShow()
