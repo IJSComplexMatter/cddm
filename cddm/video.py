@@ -133,7 +133,7 @@ def asvideo(video, count = None):
         return VideoIter(video, count)
 
 def asarrays(video, count = None, fmt = "npy", compressor = "default"):
-    """Loads multi-frame video into numpy arrays. 
+    """Loads multi-frame video into numpy or zarr arrays. 
      
     Parameters
     ----------
@@ -143,7 +143,11 @@ def asarrays(video, count = None, fmt = "npy", compressor = "default"):
         Defines how many frames are in the video. If not provided it will calculate
         length of the video based on the length of the iterable. If that is not
         possible ValueError is raised
-       
+    fmt : str
+        Either 'npy' (default) or 'zarr'. 
+    compressor : any
+        Compressor used for zarr arrays
+        
     Returns
     -------
     out : tuple of arrays
@@ -872,8 +876,8 @@ if __name__ == '__main__':
     #example how to use show_video and play
     video = random_video(count = count, dual = True, dtype = "uint16", max_value = 255)
     #video = load(video, 1256)
-    video = show_frames(video, typ = "cam1")
-    video = show_frames(video, typ = "diff")
+    video = show_frames(video, typ = "cam1", fps = 4)
+    video = show_frames(video, typ = "diff", fps = 20)
     
     #p = play_threaded(video)
     #v1,v2 = asarrays(video,count = 16*16)
@@ -881,7 +885,7 @@ if __name__ == '__main__':
     
     #video = recorded("deleteme",video,count = 16*16, fmt = "zarr")
 
-    with running(video) as video:
+    with running(video,spawn = True) as video:
         v1,v2 = asmemmaps("deleteme", video,fmt = "npy", count = count, chunks = -1)
     #import time
     #time.sleep(10)

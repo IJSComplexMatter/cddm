@@ -11,36 +11,54 @@ from cddm.viewer import pause
 THREADS = {}
 STOP_EVENTS = {}
 
-def join_threads():
-    """Joins all threads"""
-    try:
-        for t in THREADS.values():
-            t.join(1)
-    finally:
-        THREADS.clear()
-        STOP_EVENTS.clear()
+def join_thread(name = None):
+    """Joins a thread. If name is not specified,
+    it joins all available threads."""
+    if name is not None:
+        try:
+            THREADS[name].join(1)
+            print(f"Thread {name} joined.")
+        except RuntimeError:
+            #in case we already started threads
+            pass
+        finally:
+            THREADS.pop(name)
+            STOP_EVENTS.pop(name)  
+    else:
+        names = tuple(THREADS.keys())
+        for name in names:
+            join_thread(name)    
         
-def stop_threads():
-    """Stops all running threads"""
-    print("Stopping threads")
-    for stop_event in STOP_EVENTS.values():
-        stop_event.set()
+def stop_thread(name = None):
+    """Stops a running thread. If name is not specified,
+    it stops all available threads."""
+    if name is not None:
+        try:
+            STOP_EVENTS[name].set()
+            print(f"Thread {name} stapped")
+        except RuntimeError:
+            #in case we already started threads
+            pass
+    else:
+        names = tuple(STOP_EVENTS.keys())
+        for name in names:
+            stop_thread(name)
     
-def start_threads(name = None):
+def start_thread(name = None):
     """Starts a thread with a specified name. If name is not specified,
     it starts all available threads."""
     if name is not None:
-        THREADS[name].start()
-        print(f"Thread {name} started")
+        try:
+            THREADS[name].start()
+            print(f"Thread {name} started")
+        except RuntimeError:
+            #in case we already started threads
+            pass
     else:
-        for name, t in THREADS.items():
-            try:
-                t.start()
-                print(f"Thread {name} started")
-            except RuntimeError:
-                #in case we already started threads
-                pass
-    
+        names = tuple(THREADS.keys())
+        for name in names:
+            start_thread(name)
+
 def thread_name(name = None):
     """Returns a unique thread name. If name is specified, and is not unique,
     ValueError is raised."""
@@ -106,30 +124,16 @@ def threaded(iterable, queue_size = 0, block = True, name = None):
             
     return iterable(t,q)
 
-def _run_buffered(iterable, fps = None, keys = None, mode = "all", initialize = None, finalize = None):
-    if keys is None:
-        keys = CALLBACK.keys()
-    
-    t0 = None   
-    i = 0
+
+def _run_buffered(iterable,  keys = None):
     try:     
         for out in iterable:
-            if t0 is None:
-                t0 = time.time()  
-                
-            if fps is None or time.time()-t0 >= i/fps: 
-                if initialize is not None:
-                    initialize()
-                process_buffer(keys = keys, mode =  mode)
-                if finalize is not None:
-                    finalize()
-                i+=1
+            process_buffer(keys = keys)
             yield out
-        
     finally:
         destroy_buffer()
 
-def _run_buffered_threaded(iterable, fps = None, keys = None, mode = "all", initialize = None, finalize = None):
+def _run_buffered_threaded(iterable, keys = None):
     q = Queue()
     name = thread_name()
     
@@ -149,62 +153,36 @@ def _run_buffered_threaded(iterable, fps = None, keys = None, mode = "all", init
     t.start()
     
     out = False #dummy  
-    t0 = None   
-    i = 0
+
     try:
         while True:
-            if fps is None:
-                while not q.empty():
-                    out = q.get()
-                    if out is None:
-                        break
-                    else:
-                        yield out
-                    q.task_done()
-                if initialize is not None:
-                    initialize()
-                process_buffer(keys = keys, mode =  mode)
-                if finalize is not None:
-                    finalize()
-                i+=1
-            else:
-                if t0 is None:
-                    t0 = time.time()
-                while not q.empty():
-                    out = q.get()
-                    q.task_done()
-    
-                    if out is None:
-                        break
-                    else:
-                        yield out
-                dt = i/fps -  (time.time()-t0)
-                if dt > 0:
-                    time.sleep(dt)
-                if initialize is not None:
-                    initialize()
-                process_buffer(keys = keys, mode =  mode)
-                if finalize is not None:
-                    finalize()
-                i+=1
+            while not q.empty():
+                out = q.get()
+                if out is None:
+                    break
+                else:
+                    yield out
+                q.task_done()
+
+            process_buffer(keys = keys)
+ 
             if out is None:
                 break
     finally:
         destroy_buffer()
 
-def run_buffered(iterable, spawn = True, fps = None, keys = None, mode = "all", initialize = None, finalize = None):
+def run_buffered(iterable, spawn = True, keys = None):
     if spawn == True:
-        return _run_buffered_threaded(iterable, fps = fps, keys =keys, mode = mode, initialize = initialize, finalize = finalize)
+        return _run_buffered_threaded(iterable, keys =keys)
     else:
-        return _run_buffered(iterable, fps = fps, keys =keys, mode = mode, initialize = initialize, finalize = finalize)
-
+        return _run_buffered(iterable, keys =keys)
 
 class RunningContext():
-    def __init__(self, video, fps = None, spawn = False):
+    def __init__(self, video, spawn = False):
         self.video = video
         self.spawn = spawn
-        self.fps = fps
-        self.iter = run_buffered(self.video, fps = self.fps, spawn = self.spawn, finalize = pause)
+
+        self.iter = run_buffered(self.video, spawn = self.spawn)
 
     def __iter__(self):
         return self
@@ -216,8 +194,8 @@ class RunningContext():
         return self.__iter__()
 
     def __exit__(self,exception_type, exception_value, exception_traceback):
-        stop_threads()
-        join_threads()
+        stop_thread()
+        join_thread()
         destroy_buffer()
 
         if exception_type in (KeyboardInterrupt,):
@@ -231,25 +209,41 @@ def asrunning(video):
         return video
     else:
         return running(video)
-        
-def running(video, fps = None, spawn = False):
+         
+def running(video, spawn = False):
     """Returns a running context 
     """
     if isinstance(video, RunningContext):
         raise ValueError("Cannot create a running context video.")
-    return RunningContext(video, fps, spawn)    
+    return RunningContext(video, spawn)    
 
-def run(video, fps = None, spawn = True):
+def run(video, spawn = True):
     """Runs the iterator and shows live graphs. 
     
     By default, a background thread is launched which performs the iteration
     and the main thread is responsible for running live graphs. 
     """
-    with running(video, fps = fps, spawn =  spawn) as video:
+    with running(video, spawn =  spawn) as video:
         for data in video:
             pass
     return data
 
+def process(iterable, spawn = True):
+    """Consumes iterable and returns results queue"""
+    queue = Queue(1)
+    def worker(iterable, queue):
+        try:
+            for data in iterable:
+                pass
+        finally:
+            queue.put(data)
+    if spawn == True:
+        t = Thread(target = worker, args = (iterable, queue), daemon = True)
+        t.start()
+    else:
+        worker()
+    return queue
+        
 if __name__ == "__main__":
     pass
     

@@ -3,12 +3,14 @@ Data buffering.
 """
 
 from queue import Queue
+from threading import Event
 
 # buffer queues placehold
 BUFFER = {}
+
+BUFFER_CHANGED_EVENT = {}
 # buffer callback placehold
 CALLBACK = {}
-
 # names of buffers currently in active use. Each buffer object can be used only once.
 BUFFERED_KEYS = set()
 
@@ -49,19 +51,25 @@ def create_buffer(key = None, maxsize = 0):
     key = buffer_key(key)
     queue = Queue(maxsize)
     BUFFER[key] = queue 
-
+    BUFFER_CHANGED_EVENT[key] = Event()
+    
 def get_buffer(key):
     return BUFFER.get(key)
+
+def get_buffer_changed_event(key):
+    return BUFFER_CHANGED_EVENT.get(key)
 
 def destroy_buffer(key = None):
     if key is None:
         BUFFER.clear()
         CALLBACK.clear()
         BUFFERED_KEYS.clear()
+        BUFFER_CHANGED_EVENT.clear()
     else:
         BUFFER.pop(key,None)
         CALLBACK.pop(key,None)
         BUFFERED_KEYS.discard(key)
+        BUFFER_CHANGED_EVENT.pop(key,None)
              
 def iter_data(key):
     queue = get_buffer(key)
@@ -81,62 +89,79 @@ def buffered(iterable, key = None, callback =  None, selected = None, maxsize = 
     if key not in BUFFER.keys():
         create_buffer(key, maxsize)
     queue = get_buffer(key)
+    event = get_buffer_changed_event(key)
     if key in BUFFERED_KEYS:
         raise ValueError("Buffer already used!")
     else:
         BUFFERED_KEYS.add(key)
     set_callback(callback, key)
 
+    return queued(iterable, queue, event = event, selected = selected)
 
-    return queued(iterable, queue, selected = selected)
+# def process_buffer(keys = None, mode = "first"):
+#     if keys is None:
+#         keys = CALLBACK.keys()
+#     elif not hasattr(keys, "__iter__"):
+#         keys = (keys,)
+#     if mode == "all": 
+#         _process_buffer_all(keys)
+#     elif mode == "first":
+#         _process_buffer_first(keys)
+#     elif mode == "last":
+#         _process_buffer_last(keys)
+#     else:
+#         raise ValueError("Invalid buffer processing mode")
+            
+# def _process_buffer_all(keys):
+#     for key in keys:
+#         callback = get_callback(key)
+#         queue = get_buffer(key)               
+#         while not queue.empty():
+#             data = queue.get()
+#             callback(*data)    
 
-def process_buffer(keys = None, mode = "first"):
+# def _process_buffer_first(keys):
+#     for key in keys:
+#         callback = get_callback(key)
+#         queue = get_buffer(key)  
+#         #read first element and process              
+#         if not queue.empty():
+#             data = queue.get()
+#             callback(*data) 
+#         #empty buffer with no processing
+#         while not queue.empty():
+#             data = queue.get()  
+
+# def _process_buffer_last(keys):
+#     for key in keys:
+#         callback = get_callback(key)
+#         queue = get_buffer(key)   
+#         data = None 
+#         #read buffer data without processing
+#         if not queue.empty():
+#             data = queue.get()
+#         #process only last obtained data
+#         if data is not None:
+#             callback(*data) 
+
+def process_buffer(keys = None):
     if keys is None:
         keys = CALLBACK.keys()
     elif not hasattr(keys, "__iter__"):
         keys = (keys,)
-    if mode == "all": 
-        _process_buffer_all(keys)
-    elif mode == "first":
-        _process_buffer_first(keys)
-    elif mode == "last":
-        _process_buffer_last(keys)
-    else:
-        raise ValueError("Invalid buffer processing mode")
-            
-def _process_buffer_all(keys):
-    for key in keys:
-        callback = get_callback(key)
-        queue = get_buffer(key)               
-        while not queue.empty():
-            data = queue.get()
-            callback(*data)    
+    _process_buffer(keys)
 
-def _process_buffer_first(keys):
+ 
+def _process_buffer(keys):
     for key in keys:
-        callback = get_callback(key)
-        queue = get_buffer(key)  
-        #read first element and process              
-        if not queue.empty():
-            data = queue.get()
-            callback(*data) 
-        #empty buffer with no processing
-        while not queue.empty():
-            data = queue.get()  
-
-def _process_buffer_last(keys):
-    for key in keys:
-        callback = get_callback(key)
-        queue = get_buffer(key)   
-        data = None 
-        #read buffer data without processing
-        if not queue.empty():
-            data = queue.get()
-        #process only last obtained data
-        if data is not None:
-            callback(*data) 
-            
-def queued(video, queue, selected = None, skip_if_full = True):
+        event = BUFFER_CHANGED_EVENT[key]
+        if event.is_set():
+            event.clear()
+            callback = get_callback(key)
+            queue = get_buffer(key)  
+            callback(queue) 
+           
+def queued(video, queue, event = None, selected = None, skip_if_full = True):
     if selected is None:
         def _is_selected(i):
             return True        
@@ -153,6 +178,8 @@ def queued(video, queue, selected = None, skip_if_full = True):
                 pass
             else:
                 queue.put((i,frames))
+            if event is not None:
+                event.set()
         yield frames    
 
 

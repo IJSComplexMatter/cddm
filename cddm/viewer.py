@@ -14,6 +14,8 @@ from cddm.decorators import skip_runtime_error
 from cddm.conf import CDDMConfig, CV2_INSTALLED, PYQTGRAPH_INSTALLED
 from cddm.frames import FramesConverter
 
+import time
+
 _matplotlib_3_4_or_greater = False
 
 try:
@@ -35,17 +37,30 @@ if PYQTGRAPH_INSTALLED:
 
 _FIGURES = set()
 
+CUSTOM_FRAMES_VIEWER_REGISTERS = {"constructor" : None, "destructor" : None}
 
-CUSTOM_FRAMES_VIEWER_CONSTRUCTOR = [None]
+def register_viewer_constructor(constructor):
+    CUSTOM_FRAMES_VIEWER_REGISTERS["contructor"] = constructor
 
-def register_viewer_constructor(viewer):
-    CUSTOM_FRAMES_VIEWER_CONSTRUCTOR[0] = viewer
+def register_viewer_destructor(destructor):
+    CUSTOM_FRAMES_VIEWER_REGISTERS["destructor"] = destructor
 
 def get_frames_viewer(title, **kwargs):
     if CDDMConfig.showlib == "custom":
-        return CUSTOM_FRAMES_VIEWER_CONSTRUCTOR[0](title, **kwargs)
+        constructor = CUSTOM_FRAMES_VIEWER_REGISTERS["contructor"]
+        if constructor is not None:
+            return constructor(title, **kwargs)
     else:
         return FramesViewer(title, **kwargs)
+    
+def destroy_frames_viewer(title = None):
+    if CDDMConfig.showlib == "custom":
+        destructor = CUSTOM_FRAMES_VIEWER_REGISTERS["destructor"]
+        if destructor is not None:
+            return destructor(title)
+    else:
+        _FIGURES.clear()
+        
 
 def figure_title(name):
     """Generate a unique figure title"""
@@ -69,12 +84,16 @@ class FramesViewer():
     
     fig = None
     
-    def __init__(self, title = "video", **kwargs):
+    def __init__(self, title = "video",**kwargs):
+        self.fps = kwargs.pop("fps",None)
         self.convert = FramesConverter(**kwargs)
         self.title = str(title)
         if self.title in _FIGURES:
             raise ValueError(f"Figure {title} already exists!")
         _FIGURES.add(self.title)
+        
+        self.start_time = time.time()
+
         
     def _prepare_image(self,frames):
         return self.convert(frames)
@@ -146,8 +165,18 @@ class FramesViewer():
     def __del__(self):
         self.close()
         
-    def __call__(self, index, value):
-        self.show(value) 
+    def __call__(self, queue):
+        ok = True
+        if self.fps is not None:
+            dt = time.time() - self.start_time
+            if dt < 1./self.fps:
+                ok = False
+            else:
+                self.start_time = time.time()
+        if ok:       
+            index, value = queue.get()
+            self.show(value) 
+            pause()
                 
 def _pause_mpl(value):
     """Alternative to plt.pause, which plots the figure always on top.
@@ -174,7 +203,7 @@ def pause(i = 1):
     elif CDDMConfig.showlib == "custom":
         pass
     # pauses only if it finds at least one active matplotlib figures
-    _pause_mpl(i/1000)
+    #_pause_mpl(i/1000)
          
 class VideoViewer(object):
     """
