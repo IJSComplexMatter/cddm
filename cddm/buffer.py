@@ -6,7 +6,9 @@ from queue import Queue
 from threading import Event
 
 # buffer queues placehold
-BUFFER = {}
+BUFFER_QUEUE = {}
+
+BUFFER_DATA = {}
 
 BUFFER_CHANGED_EVENT = {}
 # buffer callback placehold
@@ -18,17 +20,17 @@ BUFFERED_KEYS = set()
 def buffer_key(key = None):
     """Generate a unique buffer key, or inspect if name is valid"""
     if key is None:
-        i = len(BUFFER)
+        i = len(BUFFER_QUEUE)
         return i
     else:
-        if key in BUFFER.keys():
+        if key in BUFFER_QUEUE.keys():
             raise ValueError("Buffer key {} already exists!".format(key))
         return key
 
 def set_callback(callback, key = None):
     if key is None:
-        key = tuple(BUFFER.keys())[-1]
-    if key not in BUFFER.keys():
+        key = tuple(BUFFER_QUEUE.keys())[-1]
+    if key not in BUFFER_QUEUE.keys():
         raise ValueError("You must connect a callback to an existing buffer!")
         
     if callback is None:
@@ -50,45 +52,54 @@ def get_callback(key):
 def create_buffer(key = None, maxsize = 0):
     key = buffer_key(key)
     queue = Queue(maxsize)
-    BUFFER[key] = queue 
+    BUFFER_QUEUE[key] = queue 
     BUFFER_CHANGED_EVENT[key] = Event()
     
-def get_buffer(key):
-    return BUFFER.get(key)
+def get_buffer_queue(key):
+    return BUFFER_QUEUE.get(key)
 
 def get_buffer_changed_event(key):
     return BUFFER_CHANGED_EVENT.get(key)
 
 def destroy_buffer(key = None):
     if key is None:
-        BUFFER.clear()
+        BUFFER_QUEUE.clear()
+        BUFFER_DATA.clear()
         CALLBACK.clear()
         BUFFERED_KEYS.clear()
         BUFFER_CHANGED_EVENT.clear()
     else:
-        BUFFER.pop(key,None)
+        BUFFER_QUEUE.pop(key,None)
+        BUFFER_DATA.pop(key,None)
         CALLBACK.pop(key,None)
         BUFFERED_KEYS.discard(key)
         BUFFER_CHANGED_EVENT.pop(key,None)
+
+def get_data(key):
+    queue = get_buffer_queue(key)
+    if queue and not queue.empty():
+        BUFFER_DATA[key] = queue.get()
+        queue.task_done()
+    return BUFFER_DATA[key] 
              
 def iter_data(key):
-    queue = get_buffer(key)
+    queue = get_buffer_queue(key)
     if queue:
         while not queue.empty():
             data = queue.get() 
             yield data
         
 def next_data(key):
-    queue = get_buffer(key)
+    queue = get_buffer_queue(key)
     if queue and not queue.empty():
         return queue.get()
     
 def buffered(iterable, key = None, callback =  None, selected = None, maxsize = 0):
     if key is None:
         key = buffer_key()
-    if key not in BUFFER.keys():
+    if key not in BUFFER_QUEUE.keys():
         create_buffer(key, maxsize)
-    queue = get_buffer(key)
+    queue = get_buffer_queue(key)
     event = get_buffer_changed_event(key)
     if key in BUFFERED_KEYS:
         raise ValueError("Buffer already used!")
@@ -158,8 +169,9 @@ def _process_buffer(keys):
         if event.is_set():
             event.clear()
             callback = get_callback(key)
-            queue = get_buffer(key)  
-            callback(queue) 
+            data = get_data(key)  
+            if data is not None:
+                callback(*data) 
            
 def queued(video, queue, event = None, selected = None, skip_if_full = True):
     if selected is None:

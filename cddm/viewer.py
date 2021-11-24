@@ -165,7 +165,7 @@ class FramesViewer():
     def __del__(self):
         self.close()
         
-    def __call__(self, queue):
+    def __call__(self, index, value):
         ok = True
         if self.fps is not None:
             dt = time.time() - self.start_time
@@ -174,7 +174,6 @@ class FramesViewer():
             else:
                 self.start_time = time.time()
         if ok:       
-            index, value = queue.get()
             self.show(value) 
             pause()
                 
