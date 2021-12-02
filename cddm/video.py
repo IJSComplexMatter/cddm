@@ -631,6 +631,42 @@ class StreamingIterable():
            
     def __iter__(self):
         return self
+    
+class ShiftedIterable():
+    def __init__(self, iterable, shift = 0, frames = (0,-1)):
+        self.v1, self.v2 = split(iterable)
+        self.shift = shift
+        self.i, self.j = tuple((int(x) for x in frames))  
+        self._v2_shift = 0 
+        
+    @property   
+    def shift(self):
+        return self._shift
+    
+    @shift.setter
+    def shift(self, value):
+        self._shift = int(value)
+    
+    def __next__(self):
+        f1 = next(self.v1)[self.i]
+        try:
+            if self._v2_shift < self.shift:
+                for i in range(self.shift - self._v2_shift + 1):
+                    f2 = next(self.v2)[self.j]
+                self._v2_shift = self.shift
+            elif self._v2_shift > self.shift:
+                f2 = None
+                self._v2_shift -= 1
+            else:  
+                #all good we are synchronized, so just grab next frame
+                f2 = next(self.v2)[self.j]
+        except:
+            # v2 may have raised StopIteration, so we are over bounds
+            f2 = None
+        return f1, f2
+
+    def __iter__(self):
+        return self
 
 def split(iterable, n = 2):
     """Splits an iterable into two or more iterables.
@@ -671,6 +707,28 @@ def split(iterable, n = 2):
     """
     source = SourceIterable(iterable, n)
     return tuple((StreamingIterable(source,i) for i in range(n)))
+
+def shifted(video, shift = 0, frames = (0,-1)):
+    """Shifts frames in an iterable video. Returns a dual-frame iterator.
+    The second frame of the dual frame data is a shifted frame, whereas
+    the first frame is the current frame. Shift can be negative.
+    
+    Parameters
+    ----------
+    video : video iterator
+        Input video iterator. 
+    shift : int
+        The amount of shift between two frames in the dual-frame output
+    frames : (int,int)
+        Specifies which frames from the multi-frame input data to return.
+        
+    Returns
+    -------
+    video : ShiftedIterable
+        A dual-frame iterator. The first frame is the current frame, the second
+        is the shifted frame or NoneType, in case shifting is out of scope.
+    """ 
+    return ShiftedIterable(video, shift, frames)
 
 def apply(video, func):
     """Apply a custom function to frames
@@ -826,7 +884,8 @@ def show_frames(video, title = None, viewer = None, selected = None, **kwargs):
     if title is None:
         typ = kwargs.get("typ", "cam1")
         title = figure_title(f"frames - {typ}")
-    viewer = get_frames_viewer(title, **kwargs)
+    if viewer is None:
+        viewer = get_frames_viewer(title, **kwargs)
     return buffered(video, title, maxsize=1, callback = viewer, selected = selected)
         
             

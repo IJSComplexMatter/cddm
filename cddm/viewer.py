@@ -75,17 +75,21 @@ class FramesViewer():
     Parameters
     ----------
     title : str
-       Title of the video
-    norm_func : callable
-        Normalization function that takes a single argument (array) and returns
-        a single element (array). Can be used to apply custom normalization 
-        function to the image before it is shown.
+        Title of the video
+    fps : float
+        Defines how many frames per second the viewer should process. If not specified
+        It will try to show as many as possible.
+       
+    Extra parameters
+    ----------------
+    kwargs : any
+        Parameters that are passed to FramesConverter. See FramesConverter for details.
     """
     
     fig = None
     
-    def __init__(self, title = "video",**kwargs):
-        self.fps = kwargs.pop("fps",None)
+    def __init__(self, title = "video", fps = None, **kwargs):
+        self.fps = fps
         self.convert = FramesConverter(**kwargs)
         self.title = str(title)
         if self.title in _FIGURES:
@@ -199,14 +203,50 @@ def pause(i = 1):
         if app is None:
             app = QtGui.QApplication([])
         app.processEvents()
-    elif CDDMConfig.showlib == "custom":
+    if CDDMConfig.showlib == "custom":
         pass
-    # pauses only if it finds at least one active matplotlib figures
-    #_pause_mpl(i/1000)
-         
+    else:
+        # pauses only if it finds at least one active matplotlib figures
+        _pause_mpl(i/1000)
+        
+def video_viewer(video, count = None, title = "", imshow_options = {}, **kwargs):
+    """Returns a matplotlib-based viewer.
+    
+    video : list-like, iterator
+        A list of a tuple of 2D arrays or a generator of a tuple of 2D arrays. 
+        If an iterator is provided, you must set 'count' as well. 
+    count: int
+        Length of the video. When this is set it displays only first 'count' frames of the video.
+    title : str, optional
+        Plot title.
+    imshow_options : options, optional
+        Extra arguments passed directly to imshow function  
+    kwargs : options
+        Options passed to :class:`FramesConverter``
+
+    Examples
+    --------    
+    
+    >>> from cddm.viewer import video_viewer
+    >>> video = ((np.random.randn(256,256),) for i in range(256))
+    >>> vg = video_viewer(video, 256, title = "iterator example") #must set nframes, because video has no __len__  
+    
+    #>>> vg.show()
+    
+    >>> video = [(np.random.randn(256,256),) for i in range(256)] 
+    >>> vl = VideoViewer(video, title = "list example", typ) 
+    
+    #>>> vl.show()  
+    
+    """
+    converter = FramesConverter(**kwargs)
+    return VideoViewer(video, count, title, converter, **imshow_options)
+
 class VideoViewer(object):
     """
     A matplotlib-based video viewer.
+    
+    Use :func:`video_viewer` for easier creation.
     
     Parameters
     ----------
@@ -215,43 +255,28 @@ class VideoViewer(object):
         If an iterator is provided, you must set 'count' as well. 
     count: int
         Length of the video. When this is set it displays only first 'count' frames of the video.
-    id : int, optional
-        For multi-frame data specifies camera index.
-    norm_func : callable
-        Normalization function that takes a single argument (array) and returns
-        a single element (array). Can be used to apply custom normalization 
-        function to the image before it is shown.    
     title : str, optional
         Plot title.
+    converter : callable
+        Frames converter function. This function must take frames tuple as an argument
+        and compute and return a 2D image array that can be processed by 
+        matplotlib's imshow function.
     kw : options, optional
         Extra arguments passed directly to imshow function
-        
-    Examples
-    --------    
-    
-    >>> from cddm.viewer import VideoViewer
-    >>> video = (np.random.randn(256,256) for i in range(256))
-    >>> vg = VideoViewer(video, 256, title = "iterator example") #must set nframes, because video has no __len__  
-    
-    #>>> vg.show()
-    
-    >>> video = [np.random.randn(256,256) for i in range(256)] 
-    >>> vl = VideoViewer(video, title = "list example") 
-    
-    #>>> vl.show()  
     """
 
-    def __init__(self, video, count = None, id = 0, norm_func = lambda x : x.real, title = "", **kw):
-
+    def __init__(self, video, count = None, title = "", converter = None, **kw):
         if count is None:
             try:
                 count = len(video)
             except TypeError:
                 raise Exception("You must specify count!")
-                
-        self._norm = norm_func
-                
-        self.id = id
+
+        if callable(converter):
+            self.convert = converter
+        else:
+            raise ValueError("Not a valid converter")
+             
         self.index = 0
         self.video = video
         self.fig, self.ax = plt.subplots()
@@ -357,17 +382,13 @@ class VideoViewer(object):
         self.bprev2.on_clicked(prev_fast)
         self.bprev.on_clicked(prev_frame)
         
-    def _prepare_image(self,im):
-        if isinstance(im, tuple) or isinstance(im, list):
-            return self._norm(im[self.id])
-        else:
-            return self._norm(im)
+    def _prepare_image(self,frames):
+        return self.convert(frames)
         
     def show(self):
         """Shows video."""
         plt.show()
-        
-        
+                
 class CustomRadioButtons(RadioButtons):
 
     def __init__(self, ax, labels, active=0, activecolor='C0', size=49,
@@ -1264,14 +1285,14 @@ class MultitauViewer(CorrViewer):
         return t, data_repr(avg, self.mode)
 
         
-#       
-#if __name__ == "__main__":
-#    video = (np.random.randn(256,256) for i in range(256))
-#    vg = VideoViewer(video, 256, title = "iterator example") #must set nframes, because video has no __len__
-#    vg.show()
-#    
-#    video = [np.random.randn(256,256) for i in range(256)] 
-#    vl = VideoViewer(video, title = "list example") 
-#    vl.show()  
+      
+if __name__ == "__main__":
+    video = ((np.random.randn(256,256),) for i in range(256))
+    vg = video_viewer(video, 256, title = "iterator example") #must set nframes, because video has no __len__
+    vg.show()
+    
+    video = [(np.random.randn(256,256),) for i in range(256)] 
+    vl = video_viewer(video, title = "list example") 
+    vl.show()  
 
     
