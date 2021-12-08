@@ -723,7 +723,7 @@ class Mask:
         self.kmap, self.anglemap = fft2_kangle(kisize = kisize, kjsize = kjsize, shape = self.frame_shape)
                      
     def set_sector(self,center, sector = 5, kwidth = 1, coordinates = "ij"):
-        if self.coordinates == "ij":
+        if coordinates == "ij":
             k,angle = ij2rf(*center)
             angle = angle * 180/np.pi
         else:

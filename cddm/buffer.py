@@ -34,7 +34,7 @@ def set_callback(callback, key = None):
         raise ValueError("You must connect a callback to an existing buffer!")
         
     if callback is None:
-        callback = CALLBACK.get(key, lambda x : x)
+        callback = CALLBACK.get(key, lambda x,y : x)
     if callable(callback):
         CALLBACK[key] = callback
     else:

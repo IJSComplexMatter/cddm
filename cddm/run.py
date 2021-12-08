@@ -156,6 +156,7 @@ def _run_buffered_threaded(iterable, keys = None):
 
     try:
         while True:
+            out = False
             while not q.empty():
                 out = q.get()
                 if out is None:
@@ -163,7 +164,8 @@ def _run_buffered_threaded(iterable, keys = None):
                 else:
                     yield out
                 q.task_done()
-
+            if out == False:
+                time.sleep(1/30.)
             process_buffer(keys = keys)
  
             if out is None:
@@ -217,15 +219,17 @@ def running(video, spawn = False):
         raise ValueError("Cannot create a running context video.")
     return RunningContext(video, spawn)    
 
-def run(video, spawn = True):
+def run(video, spawn = True, callback = None):
     """Runs the iterator and shows live graphs. 
     
     By default, a background thread is launched which performs the iteration
     and the main thread is responsible for running live graphs. 
     """
     with running(video, spawn =  spawn) as video:
-        for data in video:
-            pass
+        for i, data in enumerate(video):
+            if callback is not None:
+                if not callback(i,data):
+                    break
     return data
 
 def process(iterable, spawn = True):

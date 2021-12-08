@@ -1173,7 +1173,9 @@ def iccorr_multi(data, t1 = None, t2 = None, level_size = 2**4, norm = None, met
             if i%viewer_interval == 0:
                 if stats == True:
                     viewer.set_data(data[0], background = data[1], variance = data[2])
+
                     viewer.plot()
+
                 else:
                     viewer.set_data(data)
                     viewer.plot()             

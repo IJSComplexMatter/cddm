@@ -849,7 +849,7 @@ def mask_data(data, data_mask = None, conj_mask = None, axes = None):
         
         data = np.moveaxis(data, axes, dest_axes)
     
-        out = data[data_mask]
+        out = data[...,data_mask,:]
         if conj_mask is not None:
             m = conj_mask[data_mask]
             out[m] = np.conj(out[m]) 

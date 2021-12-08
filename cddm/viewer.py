@@ -40,14 +40,15 @@ _FIGURES = set()
 CUSTOM_FRAMES_VIEWER_REGISTERS = {"constructor" : None, "destructor" : None}
 
 def register_viewer_constructor(constructor):
-    CUSTOM_FRAMES_VIEWER_REGISTERS["contructor"] = constructor
+    CUSTOM_FRAMES_VIEWER_REGISTERS["constructor"] = constructor
 
 def register_viewer_destructor(destructor):
     CUSTOM_FRAMES_VIEWER_REGISTERS["destructor"] = destructor
 
 def get_frames_viewer(title, **kwargs):
     if CDDMConfig.showlib == "custom":
-        constructor = CUSTOM_FRAMES_VIEWER_REGISTERS["contructor"]
+        constructor = CUSTOM_FRAMES_VIEWER_REGISTERS["constructor"]
+        print("custom constructor", constructor)
         if constructor is not None:
             return constructor(title, **kwargs)
     else:
@@ -830,7 +831,9 @@ class DataViewer(object):
     kstep = 1
     mode = "real"
     
-    def __init__(self, semilogx = True, shape = None, mask = None):
+    _initialized = False
+    
+    def __init__(self, semilogx = True, shape = None, mask = None, fig = None):
         self.semilogx = semilogx
         self.shape = shape
         self.computed_mask = mask
@@ -838,6 +841,7 @@ class DataViewer(object):
             self.kisize, self.kjsize = mask.shape
         else:
             self.kisize, self.kjsize = None,None
+        self.fig = fig
                
     def _init_map(self):
         kisize, kjsize =  as_fft2_shape(self.kisize, self.kjsize, shape = self.shape)
@@ -857,28 +861,31 @@ class DataViewer(object):
             raise ValueError("You must first set data to plot!")
         self._init_map()
         self._init_graph()
-        
-        self.fig, (self.ax1,self.ax2) = plt.subplots(1,2,gridspec_kw = {'width_ratios':[3, 1]})
-        
-        self.fig.show()
-        
-        plt.subplots_adjust(bottom=0.25)
+                
+        if self.fig is None:
+            self.fig, (self.ax1,self.ax2) = plt.subplots(1,2,gridspec_kw = {'width_ratios':[3, 1]})
+            self.fig.show() #TODO: do I really need to show here?
+        else:
+            (self.ax1,self.ax2) = self.fig.subplots(1,2,gridspec_kw = {'width_ratios':[3, 1]})
+            # must not show. User is responsible for event loop.
+            
+        self.fig.subplots_adjust(bottom=0.25)
 
 
         self.im = self.ax2.imshow(np.fft.fftshift(self.graph), 
             extent=[0,self.graph.shape[1],self.graph.shape[0]//2+1,-self.graph.shape[0]//2-1])
 
-        self.selectorax = plt.axes([0.1, 0.95, 0.65, 0.03])
+        self.selectorax = self.fig.add_axes([0.1, 0.95, 0.65, 0.03])
         self.selectorindex = CustomRadioButtons(self.selectorax, ["real", "imag", "abs", "phase"], active = 0)
         
         
-        self.kax = plt.axes([0.1, 0.15, 0.65, 0.03])
+        self.kax = self.fig.add_axes([0.1, 0.15, 0.65, 0.03])
         self.kindex = Slider(self.kax, "k",0,int(self.kmap.max()),valinit = self.k, valfmt='%i')
 
-        self.angleax = plt.axes([0.1, 0.10, 0.65, 0.03])
+        self.angleax = self.fig.add_axes([0.1, 0.10, 0.65, 0.03])
         self.angleindex = Slider(self.angleax, "angle",-90,90,valinit = self.angle, valfmt='%.2f')        
 
-        self.sectorax = plt.axes([0.1, 0.05, 0.65, 0.03])
+        self.sectorax = self.fig.add_axes([0.1, 0.05, 0.65, 0.03])
         self.sectorindex = Slider(self.sectorax, "sector",0,180,valinit = self.sector, valfmt='%.2f') 
         
 
@@ -895,6 +902,7 @@ class DataViewer(object):
         self.angleindex.on_changed(update)
         self.sectorindex.on_changed(update)
         self.selectorindex.on_clicked(update_mode)
+        self._initialized = True
               
     def set_data(self, data, t = None):
         """Sets correlation data.
@@ -1000,8 +1008,7 @@ class DataViewer(object):
         
     def plot(self):
         """Plots data. You must first call :meth:`.set_data` to set input data"""
-        
-        if self.fig is None:
+        if self._initialized == False:
             self._init_fig()
             self.set_mask(int(round(self.k)),self.angle,self.sector, self.kstep)
             
@@ -1009,9 +1016,7 @@ class DataViewer(object):
         self.graph = self.indexmap*1.0 # make it float
         self.graph[self.graph_mask] = self._max_graph_value +1
         self.graph[nans] = np.nan
-        
         self.im.set_data(np.fft.fftshift(self.graph))
-                    
         with np.errstate(divide='ignore', invalid='ignore'):
             state = disable_prints()
             t, avg_data = self.get_data()
@@ -1026,10 +1031,9 @@ class DataViewer(object):
                 self.l, = self.ax1.semilogx(t,avg_data)
             else:
                 self.l, = self.ax1.plot(t,avg_data)
-
         self.fig.canvas.draw() 
         self.fig.canvas.flush_events()
-        plt.pause(0.01)
+        plt.pause(0.01) #TODO: do we need this?
 
     def show(self,data = None):
         """Sets data and plots."""
@@ -1041,7 +1045,10 @@ class DataViewer(object):
         pass
         
     def __call__(self, i, data):
-        return self.show(data = data)
+        try:
+            return self.show(data = data)
+        except:
+            pass
 
 class CorrViewer(DataViewer):
     """Plots raw correlation data. You need to hold reference to this object, 
@@ -1070,7 +1077,7 @@ class CorrViewer(DataViewer):
     background = None
     variance = None
     
-    def __init__(self, semilogx = True,  shape = None, size = None, norm = None, scale = False, mask = None, fold = None):
+    def __init__(self, semilogx = True,  shape = None, size = None, norm = None, scale = False, mask = None, fold = None, fig = None):
         self.norm  = norm
         self.scale = scale
         self.semilogx = semilogx
@@ -1080,7 +1087,8 @@ class CorrViewer(DataViewer):
         self.fold = fold
         if mask is not None:
             self.kisize, self.kjsize = mask.shape
-        
+        self.fig = fig
+            
     def set_norm(self, value):
         """Sets norm parameter"""
         method = _method_from_data(self.data)
@@ -1092,7 +1100,7 @@ class CorrViewer(DataViewer):
         self.set_norm(self.norm)
         
         #self.rax = plt.axes([0.48, 0.55, 0.15, 0.3])
-        self.cax = plt.axes([0.44, 0.72, 0.2, 0.15])
+        self.cax = self.fig.add_axes([0.44, 0.72, 0.2, 0.15])
         
         self.active = [bool(self.norm & NORM_STRUCTURED),bool(self.norm & NORM_SUBTRACTED), bool((self.norm & NORM_WEIGHTED == NORM_WEIGHTED)) , bool((self.norm & NORM_COMPENSATED) == NORM_COMPENSATED)  ]
         
@@ -1117,6 +1125,7 @@ class CorrViewer(DataViewer):
             except ValueError:
                 self.check.set_active(index)
             self.set_mask(int(round(self.kindex.val)),self.angleindex.val,self.sectorindex.val, self.kstep)
+        
             self.plot()
 
                 
@@ -1158,7 +1167,8 @@ class CorrViewer(DataViewer):
     def get_normalized_data(self):
         if self.data is None:
             raise ValueError("No data, you must first set data.")
-        if self._normalized_data is None:
+        if True:
+        #if self._normalized_data is None:
             data = normalize(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.half_mask)
     
             if np.iscomplexobj(data) :
@@ -1187,12 +1197,13 @@ class CorrViewer(DataViewer):
         return t, data_repr(avg, self.mode)    
 
     def __call__(self, i, data):
+
         if len(data) == 3:
             self.set_data(*data)
         else:
             self.set_data(data)
         return self.show()
-    
+
             
 class MultitauViewer(CorrViewer):
     """Shows multitau data in plot. You need to hold reference to this object, 
@@ -1215,7 +1226,7 @@ class MultitauViewer(CorrViewer):
         For complex data this is a required parameter. I specifies whether to 
         fold data or not.
     """
-    def __init__(self,  semilogx = True,  shape = None, norm = None, scale = False, mask = None, fold = None):
+    def __init__(self,  semilogx = True,  shape = None, norm = None, scale = False, mask = None, fold = None, fig = None):
 
         self.norm  = norm
         self.scale = scale
@@ -1225,6 +1236,7 @@ class MultitauViewer(CorrViewer):
         self.fold = fold
         if mask is not None:
             self.kisize, self.kjsize = mask.shape
+        self.fig = fig
         
     #@doc_inherit
     def set_norm(self, value):
@@ -1256,7 +1268,8 @@ class MultitauViewer(CorrViewer):
         self._normalized_data = None
             
     def get_normalized_data(self):
-        if self._normalized_data is None:
+        if True:
+        #if self._normalized_data is None:
             data = normalize_multi(self.data, self.background, self.variance, norm = self.norm, scale = self.scale, mask = self.half_mask)
             
             if np.iscomplexobj(data[0]) :
