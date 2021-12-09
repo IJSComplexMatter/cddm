@@ -795,7 +795,11 @@ def normalize(data, background = None, variance = None, norm = None,  mode = "co
 
 
 def asraw(data):
-    d,c,sq,m1,m2 = data
+    if len(data) == 5:
+        d,c,sq,m1,m2 = data
+    else:
+        d,c,m1,m2 = data
+        sq = None
     if np.iscomplexobj(d):
         d = np.asarray(d, CDTYPE)
     else:
@@ -806,8 +810,11 @@ def asraw(data):
     if m1 is not None:
         m1 = np.asarray(m1,CDTYPE)
     if m2 is not None:
-        m2 = np.asarray(m1,CDTYPE)  
-    return d,c,sq,m1,m2
+        m2 = np.asarray(m2,CDTYPE)  
+    if len(data)==5:
+        return d,c,sq,m1,m2
+    else:
+        return d,c,m1,m2
     
 
 def _data_estimator(data, size = 8, n = 3, multilevel = False):

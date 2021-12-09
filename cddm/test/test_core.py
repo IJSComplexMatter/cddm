@@ -3,6 +3,7 @@ import numpy as np
 import cddm.core as core
 from cddm.conf import FDTYPE, CDTYPE
 from cddm.video import fromarrays
+from cddm.norm import NORM_STANDARD,NORM_STRUCTURED,NORM_WEIGHTED, NORM_SUBTRACTED
 
 #test arrays
 a = np.asarray([1.,2,3,4])
@@ -534,29 +535,29 @@ class TestIcorr(unittest.TestCase):
     def test_cross_equivalence(self):
         for method in ("corr","fft"):
             bg,var = core.stats(test_data1, test_data2, axis = 0)
-            data = core.ccorr(test_data1, test_data2,n = 8, norm = 1, method = method)
+            data = core.ccorr(test_data1, test_data2,n = 8, norm = NORM_STANDARD, method = method)
             out1 = core.normalize(data, bg, var)
             vid = fromarrays((test_data1, test_data2))
-            data,bg,var = core.iccorr(vid, count = len(test_data1),chunk_size = 16,n = 8, norm = 1, method = method)
+            data,bg,var = core.iccorr(vid, count = len(test_data1),chunk_size = 16,n = 8, norm = NORM_STANDARD, method = method)
             out2 = core.normalize(data, bg, var)  
             self.assertTrue(allclose(out1, out2))              
 
     def test_auto_equivalence_3(self):
         for method in ("corr",):
             bg,var = core.stats(test_data1, axis = 0)
-            data1 = core.ccorr(test_data1,test_data1, n = 8, norm = 3, method = method)
-            out1 = core.normalize(data1, bg, var, norm = 3)
-            data2,bg,var = core.iacorr(test_data1, n = 8, norm = 3, method = method)
-            out2 = core.normalize(data2, bg, var, norm = 3)  
+            data1 = core.ccorr(test_data1,test_data1, n = 8, norm = NORM_WEIGHTED, method = method)
+            out1 = core.normalize(data1, bg, var, norm = NORM_WEIGHTED)
+            data2,bg,var = core.iacorr(test_data1, n = 8, norm = NORM_WEIGHTED, method = method)
+            out2 = core.normalize(data2, bg, var, norm = NORM_WEIGHTED)  
             self.assertTrue(allclose(out1, out2))    
 
     def test_auto_equivalence_2(self):
         for method in ("corr","fft","diff"):
             bg,var = core.stats(test_data1, axis = 0)
-            data1 = core.acorr(test_data1, n = 8, norm = 2, method = method)
-            out1 = core.normalize(data1, bg, var, norm = 2)
-            data2,bg,var = core.iacorr(test_data1, n = 8, norm = 2, method = method)
-            out2 = core.normalize(data2, bg, var, norm = 2)  
+            data1 = core.acorr(test_data1, n = 8, norm = NORM_STRUCTURED, method = method)
+            out1 = core.normalize(data1, bg, var, norm = NORM_STRUCTURED)
+            data2,bg,var = core.iacorr(test_data1, n = 8, norm = NORM_STRUCTURED, method = method)
+            out2 = core.normalize(data2, bg, var, norm = NORM_STRUCTURED)  
             self.assertTrue(allclose(out1, out2))    
 
 def wrap(data, conj = True):
@@ -601,16 +602,16 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 for axis in (0,1,2):
                     bg,var = core.stats(test_data1, test_data2, axis = axis)
-                    data = core.ccorr(test_data1, test_data2, norm = 2, method = "fft", axis = axis)
-                    self.out = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "fft", axis = axis)
+                    self.out = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale)
         
-                    data = core.ccorr(test_data1, test_data2, norm = 2, method = "corr", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "corr", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
         
-                    data = core.ccorr(test_data1, test_data2, norm = 2, method = "diff", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "diff", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
 
@@ -619,16 +620,16 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 axis = 0
                 bg,var = core.stats(test_data1, test_data2, axis = axis)
-                data = core.ccorr(test_data1, test_data2, norm = 2, method = "fft", axis = axis)
-                self.out = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale, mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "fft", axis = axis)
+                self.out = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale, mask = test_mask)
     
-                data = core.ccorr(test_data1, test_data2, norm = 2, method = "corr", axis = axis)
-                out_other = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale, mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "corr", axis = axis)
+                out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale, mask = test_mask)
                 
                 self.assertTrue(allclose(self.out, out_other))
     
-                data = core.ccorr(test_data1, test_data2, norm = 2, method = "diff", axis = axis)
-                out_other = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale, mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "diff", axis = axis)
+                out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale, mask = test_mask)
                 
                 self.assertTrue(allclose(self.out, out_other))
                 
@@ -637,16 +638,16 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 for axis in (0,1,2):
                     bg,var = core.stats(test_data1, axis = axis)
-                    data = core.ccorr(test_data1, test_data1, norm = 2, method = "fft", axis = axis)
-                    self.out = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data1, norm = NORM_STRUCTURED, method = "fft", axis = axis)
+                    self.out = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale)
         
-                    data = core.acorr(test_data1,norm = 2, method = "corr", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale)
+                    data = core.acorr(test_data1,norm = NORM_STRUCTURED, method = "corr", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
         
-                    data = core.acorr(test_data1,norm = 2, method = "diff", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale)
+                    data = core.acorr(test_data1,norm = NORM_STRUCTURED, method = "diff", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
     
@@ -655,16 +656,16 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 for axis in (0,1,2):
                     bg,var = core.stats(test_data1, test_data2, axis = axis)
-                    data = core.ccorr(test_data1, test_data2, norm = 6, method = "fft", axis = axis)
-                    self.out = core.normalize(data, bg, var, norm = 6, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED|NORM_SUBTRACTED, method = "fft", axis = axis)
+                    self.out = core.normalize(data, bg, var, norm = NORM_STRUCTURED|NORM_SUBTRACTED, mode = mode, scale = scale)
         
-                    data = core.ccorr(test_data1, test_data2, norm = 6, method = "corr", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 6, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED|NORM_SUBTRACTED, method = "corr", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED|NORM_SUBTRACTED, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
         
-                    data = core.ccorr(test_data1, test_data2, norm = 6, method = "diff", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 6, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED|NORM_SUBTRACTED, method = "diff", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED|NORM_SUBTRACTED, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
 
@@ -674,16 +675,16 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 axis = 0
                 bg,var = core.stats(test_data1, test_data2, axis = axis)
-                data = core.ccorr(test_data1, test_data2, norm = 6, method = "fft", axis = axis)
-                self.out = core.normalize(data, bg, var, norm = 6, mode = mode, scale = scale,mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED|NORM_SUBTRACTED, method = "fft", axis = axis)
+                self.out = core.normalize(data, bg, var, norm = NORM_STRUCTURED|NORM_SUBTRACTED, mode = mode, scale = scale,mask = test_mask)
     
-                data = core.ccorr(test_data1, test_data2, norm = 6, method = "corr", axis = axis)
-                out_other = core.normalize(data, bg, var, norm = 6, mode = mode, scale = scale,mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED|NORM_SUBTRACTED, method = "corr", axis = axis)
+                out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED|NORM_SUBTRACTED, mode = mode, scale = scale,mask = test_mask)
                 
                 self.assertTrue(allclose(self.out, out_other))
     
-                data = core.ccorr(test_data1, test_data2, norm = 6, method = "diff", axis = axis)
-                out_other = core.normalize(data, bg, var, norm = 6, mode = mode, scale = scale,mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED|NORM_SUBTRACTED, method = "diff", axis = axis)
+                out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED|NORM_SUBTRACTED, mode = mode, scale = scale,mask = test_mask)
                 
                 self.assertTrue(allclose(self.out, out_other))
 
@@ -692,11 +693,11 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 for axis in (0,1,2):
                     bg,var = core.stats(test_data1, test_data2, axis = axis)
-                    data = core.ccorr(test_data1, test_data2, norm = 1, method = "fft", axis = axis)
-                    self.out = core.normalize(data, bg, var, norm = 1, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STANDARD, method = "fft", axis = axis)
+                    self.out = core.normalize(data, bg, var, norm = NORM_STANDARD, mode = mode, scale = scale)
         
-                    data = core.ccorr(test_data1, test_data2, norm = 1, method = "corr", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 1, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STANDARD, method = "corr", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STANDARD, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
 
@@ -705,11 +706,11 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 for axis in (0,1,2):
                     bg,var = core.stats(test_data1, axis = axis)
-                    data = core.acorr(test_data1,  norm = 1, method = "fft", axis = axis)
-                    self.out = core.normalize(data, bg, var, norm = 1, mode = mode, scale = scale)
+                    data = core.acorr(test_data1,  norm = NORM_STANDARD, method = "fft", axis = axis)
+                    self.out = core.normalize(data, bg, var, norm = NORM_STANDARD, mode = mode, scale = scale)
         
-                    data = core.acorr(test_data1,norm = 1, method = "corr", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 1, mode = mode, scale = scale)
+                    data = core.acorr(test_data1,norm = NORM_STANDARD, method = "corr", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STANDARD, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
 
@@ -720,11 +721,11 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 axis = 0
                 bg,var = core.stats(test_data1, test_data2, axis = axis)
-                data = core.ccorr(test_data1, test_data2, norm = 1, method = "fft", axis = axis)
-                self.out = core.normalize(data, bg, var, norm = 1, mode = mode, scale = scale, mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STANDARD, method = "fft", axis = axis)
+                self.out = core.normalize(data, bg, var, norm = NORM_STANDARD, mode = mode, scale = scale, mask = test_mask)
     
-                data = core.ccorr(test_data1, test_data2, norm = 1, method = "corr", axis = axis)
-                out_other = core.normalize(data, bg, var, norm = 1, mode = mode, scale = scale, mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STANDARD, method = "corr", axis = axis)
+                out_other = core.normalize(data, bg, var, norm = NORM_STANDARD, mode = mode, scale = scale, mask = test_mask)
                 
                 self.assertTrue(allclose(self.out, out_other))                    
 
@@ -733,11 +734,11 @@ class TestCorr(unittest.TestCase):
             for mode in ("corr", "diff"):
                 for axis in (0,1,2):
                     bg,var = core.stats(test_data1, test_data2, axis = axis)
-                    data = core.ccorr(test_data1, test_data2, norm = 2, method = "fft", axis = axis)
-                    self.out = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "fft", axis = axis)
+                    self.out = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale)
         
-                    data = core.ccorr(test_data1, test_data2, norm = 2, method = "corr", axis = axis)
-                    out_other = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale)
+                    data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "corr", axis = axis)
+                    out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale)
                     
                     self.assertTrue(allclose(self.out, out_other))
                     
@@ -745,11 +746,11 @@ class TestCorr(unittest.TestCase):
         for scale in (True, False):
             for mode in ("corr", "diff"):
                 bg,var = core.stats(test_data1, test_data2)
-                data = core.ccorr(test_data1, test_data2, norm = 2, method = "fft")
-                self.out = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale, mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "fft")
+                self.out = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale, mask = test_mask)
     
-                data = core.ccorr(test_data1, test_data2, norm = 2, method = "corr")
-                out_other = core.normalize(data, bg, var, norm = 2, mode = mode, scale = scale,mask = test_mask)
+                data = core.ccorr(test_data1, test_data2, norm = NORM_STRUCTURED, method = "corr")
+                out_other = core.normalize(data, bg, var, norm = NORM_STRUCTURED, mode = mode, scale = scale,mask = test_mask)
                 
                 self.assertTrue(allclose(self.out, out_other))
                 
