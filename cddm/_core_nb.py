@@ -1194,7 +1194,13 @@ def weight_from_g(g, delta):
     tmp1 = 2*g
     g2 = g.real**2 + g.imag**2
     tmp2 = g2 + 1 + delta**2
-    return tmp1/tmp2    
+    if tmp2 != 0.:
+        return tmp1/tmp2  
+    else:
+        # workaround for numba bug, above division fails with an exception
+        # for complex data case when divisor is zero, so we return np.nan instead
+        
+        return np.nan
 
 
 @nb.vectorize([F(C,F,C,C)],target = NUMBA_TARGET, cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)
@@ -1216,7 +1222,13 @@ def weight_prime_from_g(g,delta, b1, b2):
     
     tmp1 = 2 * g.real + 2 * r + (s1 + s2) * g.real
     tmp2 = g2 + 1 + d2 + s1 + s2 + (s2 - s1) * delta + 2 * r * g.real + 2 * i * g.imag
-    return tmp1/tmp2    
+    if tmp2 != 0.:
+        return tmp1/tmp2  
+    else:
+        # workaround for numba bug, above division fails with an exception
+        # for complex data case when divisor is zero, so we return np.nan instead
+        
+        return np.nan
 
 def weight_prime_from_d(d, delta, b1, b2):
     g = 1 - d/2.

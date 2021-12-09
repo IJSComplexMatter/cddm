@@ -48,7 +48,7 @@ if __name__ == "__main__":
     viewer.k = 15
     viewer.sector = 30
 
-    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, complex = True,viewer = viewer, auto_background = True)
+    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, complex = True,viewer = viewer)
 
     #: save the normalized data to numpy files
     for norm in (1,2,3,5,6,7,9,10,11,13,14,15):
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         if norm in (5,6,7):
             np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_fast_norm_{}.npy".format(norm)),fast)
             np.save(p.join(DATA_PATH,"cross_correlate_multi_raw_slow_norm_{}.npy".format(norm)),slow)
-        x,y = log_merge(fast, slow)
+        x,y = log_merge(fast, slow, fold = True)
         
         np.save(p.join(DATA_PATH,"cross_correlate_multi_norm_{}_data.npy".format(norm)),y)
     np.save(p.join(DATA_PATH,"cross_correlate_multi_t.npy"),x)
