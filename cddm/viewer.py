@@ -1197,12 +1197,15 @@ class CorrViewer(DataViewer):
         return t, data_repr(avg, self.mode)    
 
     def __call__(self, i, data):
+        try:
+            if len(data) == 3:
+                self.set_data(*data)
+            else:
+                self.set_data(data)
 
-        if len(data) == 3:
-            self.set_data(*data)
-        else:
-            self.set_data(data)
-        return self.show()
+            return self.show()
+        except:
+            pass
 
             
 class MultitauViewer(CorrViewer):

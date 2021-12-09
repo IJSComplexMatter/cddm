@@ -48,7 +48,7 @@ if __name__ == "__main__":
     viewer.k = 15
     viewer.sector = 30
 
-    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, viewer = viewer)
+    data, bg, var = iccorr_multi(fft, t1, t2, period = PERIOD, complex = True,viewer = viewer, auto_background = True)
 
     #: save the normalized data to numpy files
     for norm in (1,2,3,5,6,7,9,10,11,13,14,15):

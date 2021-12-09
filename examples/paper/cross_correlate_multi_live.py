@@ -2,7 +2,7 @@
 For testing, inspects videos and performs live correlation calculation...
 """
 from cddm.viewer import MultitauViewer, CorrViewer, MultitauArrayViewer
-from cddm.video import multiply, normalize_video, crop, show_video, play_threaded, asarrays, load, show_diff, show_data
+from cddm.video import multiply, normalize_video, crop, show_frames,  asarrays, load,  show_data
 from cddm.run import run
 from cddm.window import blackman
 from cddm.fft import rfft2, normalize_fft
@@ -33,7 +33,7 @@ video = dual_video_simulator.video
 #video = load(video,count = NFRAMES)
 
 #video = show_diff(video, dt = (5,7,8,9,10), t1= t1, t2 = t2)
-video = show_video(video)
+video = show_frames(video)
 
 #:perform the actual multiplication
 video = multiply(video, window_video)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     import os.path as p
 
     #we will show live calculation with the viewer
-    viewer = MultitauArrayViewer(scale = True, semilogx = True, axes = (0,1))
+    viewer = MultitauViewer(scale = True, semilogx = True)
     #viewer = CorrViewer(scale = True, semilogx = False)
     
     #initial mask parameters
@@ -67,10 +67,10 @@ if __name__ == "__main__":
     
     
     #: now perform auto correlation calculation with default parameters and show live
-    data_iter = iccorr_multi_iter(fft, t1, t2, period = PERIOD, complex = True, binning = 0)
+    data_iter = iccorr_multi_iter(fft, t1, t2, period = PERIOD, complex = False, binning = 0)
     data_iter = show_data(data_iter, viewer)
-    data, bg, var = run(data_iter, fps = 10, spawn = True)
+    data, bg, var = run(data_iter)
     
-    #data, bg, var = iccorr(fft, t1, t2,n=256, viewer = viewer,complex = True)
+    #data, bg, var = iccorr(fft, t1, t2,n=256, viewer = viewer,complex = False)
 
     viewer.show()
