@@ -19,6 +19,7 @@ def join_thread(name = None):
             THREADS[name].join(1)
             print(f"Thread {name} joined.")
         except RuntimeError:
+            print(f"Error joining thread {name}")
             #in case we already started threads
             pass
         finally:
@@ -33,12 +34,7 @@ def stop_thread(name = None):
     """Stops a running thread. If name is not specified,
     it stops all available threads."""
     if name is not None:
-        try:
-            STOP_EVENTS[name].set()
-            print(f"Thread {name} stapped")
-        except RuntimeError:
-            #in case we already started threads
-            pass
+        STOP_EVENTS[name].set()
     else:
         names = tuple(STOP_EVENTS.keys())
         for name in names:
