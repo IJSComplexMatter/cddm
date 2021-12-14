@@ -80,7 +80,8 @@ def get_data(key):
     if queue and not queue.empty():
         BUFFER_DATA[key] = queue.get()
         queue.task_done()
-    return BUFFER_DATA[key] 
+    #buffer data may be empty, so we get it with a get method
+    return BUFFER_DATA.get(key)
              
 def iter_data(key):
     queue = get_buffer_queue(key)
