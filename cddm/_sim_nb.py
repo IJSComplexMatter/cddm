@@ -10,6 +10,8 @@ import math
 
 from cddm.conf import U16,U8,F,I, NUMBA_TARGET, NUMBA_PARALLEL , NUMBA_CACHE, NUMBA_FASTMATH
 
+import logging
+logging.info("Importing _sim_nb")
 
 #this is so simple that it is faster to compute in cpu mode
 @nb.vectorize([F(F,F,F)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)

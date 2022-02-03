@@ -9,7 +9,7 @@ from cddm.conf import C,F, I64, NUMBA_TARGET, NUMBA_FASTMATH, NUMBA_CACHE
 from cddm.fft import _fft, _ifft
 from cddm.decorators import doc_inherit
 
-logging.info("Compiling cddm library.")
+logging.info("Importing _core_nb")
 #Some useful functions
 
 @nb.vectorize([C(C,C), F(F,F)], target = "cpu", cache = NUMBA_CACHE, fastmath = NUMBA_FASTMATH)

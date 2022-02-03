@@ -64,7 +64,7 @@ def thread_name(name = None):
         raise ValueError(f"Thread name {name} already exists.")
     return name
 
-def threaded(iterable, queue_size = 0, block = True, name = None):
+def threaded(iterable, queue_size = 0, block = True, name = None, queue = None, callback = None):
     """
     Returns a new iterator that runs the process in a background thread. 
     
@@ -79,6 +79,9 @@ def threaded(iterable, queue_size = 0, block = True, name = None):
         False and ques_size is finite and Full.
     name : any
         Name of the thread. It can be anyyhing that can be set as a dictionary key.
+    queue: any
+        An object that implements a queue interface. If not set, one is created from the
+        queue_size parameter. If set, queue_size is ignored.
     
     Returns
     -------
@@ -86,7 +89,10 @@ def threaded(iterable, queue_size = 0, block = True, name = None):
         A data iterator.
     """
     name = thread_name(name)
-    q = Queue(queue_size)
+    if queue is None:
+        q = Queue(queue_size)
+    else:
+        q = queue
     
     def worker(video, name, stop_event):
         try:
@@ -129,7 +135,9 @@ def _run_buffered(iterable,  keys = None):
     finally:
         destroy_buffer()
 
-def _run_buffered_threaded(iterable, keys = None):
+from pyface.api import GUI
+
+def _run_buffered_threaded(iterable, keys = None, pause = None):
     q = Queue()
     name = thread_name()
     
@@ -155,32 +163,38 @@ def _run_buffered_threaded(iterable, keys = None):
             out = False
             while not q.empty():
                 out = q.get()
+
                 if out is None:
                     break
                 else:
                     yield out
                 q.task_done()
+
             if out == False:
                 time.sleep(1/30.)
-            process_buffer(keys = keys)
- 
-            if out is None:
+            elif out is None:
                 break
+            else:
+                process_buffer(keys = keys)
+            
+            if pause is not None:
+                pause()
+
     finally:
         destroy_buffer()
 
-def run_buffered(iterable, spawn = True, keys = None):
+def run_buffered(iterable, spawn = True, keys = None, pause = None):
     if spawn == True:
-        return _run_buffered_threaded(iterable, keys =keys)
+        return _run_buffered_threaded(iterable, keys =keys, pause = pause)
     else:
         return _run_buffered(iterable, keys =keys)
 
 class RunningContext():
-    def __init__(self, video, spawn = False):
+    def __init__(self, video, spawn = False, pause = None):
         self.video = video
         self.spawn = spawn
 
-        self.iter = run_buffered(self.video, spawn = self.spawn)
+        self.iter = run_buffered(self.video, spawn = self.spawn, pause = pause)
 
     def __iter__(self):
         return self
@@ -208,20 +222,20 @@ def asrunning(video):
     else:
         return running(video)
          
-def running(video, spawn = False):
+def running(video, spawn = False, pause = None):
     """Returns a running context 
     """
     if isinstance(video, RunningContext):
         raise ValueError("Cannot create a running context video.")
-    return RunningContext(video, spawn)    
+    return RunningContext(video, spawn, pause = pause)    
 
-def run(video, spawn = True, callback = None):
+def run(video, spawn = True, callback = None, pause = None):
     """Runs the iterator and shows live graphs. 
     
     By default, a background thread is launched which performs the iteration
     and the main thread is responsible for running live graphs. 
     """
-    with running(video, spawn =  spawn) as video:
+    with running(video, spawn =  spawn, pause = pause) as video:
         for i, data in enumerate(video):
             if callback is not None:
                 if not callback(i,data):
