@@ -103,6 +103,8 @@ def threaded(iterable, queue_size = 0, block = True, name = None, queue = None, 
                     pass
                 if stop_event.is_set():
                     break
+        except BaseException as e:
+            q.put(e)
         finally:
             print(f"Thread {name} stopped.")
             q.put(None)
@@ -113,8 +115,10 @@ def threaded(iterable, queue_size = 0, block = True, name = None, queue = None, 
     
     def iterable(t,q):
         try:
+            #make sure thread is started
             t.start()
         except RuntimeError:
+            #if thread has already started just pass
             pass
         
         while True:
@@ -122,6 +126,8 @@ def threaded(iterable, queue_size = 0, block = True, name = None, queue = None, 
             q.task_done()
             if out is None:
                 break
+            elif isinstance(out, BaseException):
+                raise out
             yield out
             
     return iterable(t,q)
@@ -147,6 +153,8 @@ def _run_buffered_threaded(iterable, keys = None, pause = None):
                 if stop_event.is_set():
                     break
                 q.put(frames)
+        except BaseException as e:
+            q.put(e)
         finally:
             q.put(None)
     stop_event = Event()
@@ -166,6 +174,8 @@ def _run_buffered_threaded(iterable, keys = None, pause = None):
 
                 if out is None:
                     break
+                elif isinstance(out, BaseException):
+                    raise out
                 else:
                     yield out
                 q.task_done()
@@ -232,8 +242,9 @@ def running(video, spawn = False, pause = None):
 def run(video, spawn = True, callback = None, pause = None):
     """Runs the iterator and shows live graphs. 
     
-    By default, a background thread is launched which performs the iteration
-    and the main thread is responsible for running live graphs. 
+    By default, a background thread is launched which performs the actual iteration
+    and the main thread only reads data from queue. Any exception raised in the bacground
+    thread is caught and re-raised in the main thread.
     """
     with running(video, spawn =  spawn, pause = pause) as video:
         for i, data in enumerate(video):
