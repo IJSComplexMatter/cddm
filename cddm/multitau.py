@@ -1335,6 +1335,77 @@ def iacorr_multi(data, t = None, level_size = 2**4, norm = None, method = "corr"
                     viewer.plot()
     return data
 
+def iacorr_multi_iter(data, t = None, level_size = 2**4, norm = None, method = "corr", count = None, period = 1,
+                 binning = None, nlevel = None, chunk_size = None, thread_divisor = None,  
+                 auto_background = False,  mode = "full", mask = None, stats = True, complex = False):
+    """Iterative version of :func:`.acorr_multi`
+        
+    Parameters
+    ----------
+    data : iterable
+        An iterable object, iterating over dual-frame ndarray data.
+    t : array-like, optional
+        Array of integers defining frame times of the first data. If not defined, 
+        regular-spaced data is assumed.
+    level_size : int, optional
+        If provided, determines the length of the multi_level data.
+    norm : int, optional
+        Specifies normalization procedure 0,1,2, or 3 (default).
+    method : str, optional
+        Either 'fft', 'corr' or 'diff'. If not given it is chosen automatically based on 
+        the rest of the input parameters.
+    count : int, optional
+        If given, it defines how many elements of the data to process. If not given,
+        count is set to len(t1) if that is not specified, it is set to len(data).  
+    period : int, optional
+        Period of the irregular-spaced random triggering sequence. For regular
+        spaced data, this should be set to 1 (deefault).
+    binning : int, optional
+        Binning mode (0 - no binning, 1 : average, 2 : random select)
+    nlevel : int, optional
+        If specified, defines how many levels are used in multitau algorithm.
+        If not provided, all available levels are used.
+    chunk_size : int
+        Length of data chunk. 
+    thread_divisor : int, optional
+        If specified, input frame is reshaped to 2D with first axis of length
+        specified with the argument. It defines how many treads are run. This
+        must be a divisor of the total size of the frame. Using this may speed 
+        up computation in some cases because of better memory alignment and
+        cache sizing.
+    auto_background : bool
+        Whether to use data from first chunk to calculate and subtract background.
+    viewer : any, optional
+        You can use :class:`.viewer.MultitauViewer` to display data.
+    viewer_interval : int, optional
+        A positive integer, defines how frequently are plots updated 1 for most 
+        frequent, higher numbers for less frequent updates. 
+    mode : str
+        Either "full" or "chunk". With mode = "full", output of this function 
+        is identical to the output of :func:`ccorr_multi`. With mode = "chunk", 
+        cross correlation between neighbouring chunks is not computed.
+    mask : ndarray, optional
+        If specifed, computation is done only over elements specified by the mask.
+        The rest of elements are not computed, np.nan values are written to output
+        arrays.
+    stats : bool
+        Whether to return stats as well.
+        
+    Returns
+    -------
+    (lin, multi), bg, var : (acorr_type, acorr_type), ndarray, ndarray
+        A tuple of linear (short delay) data and multilevel (large delay) data,
+        background and variance data. See :func:`.core.acorr` for definition 
+        of acorr_type
+    lin, multi : acorr_type, acorr_type
+        If `stats` == False
+    """
+    for i, data in enumerate(_compute_multi_iter(data, t, None, period = period, level_size = level_size , 
+                        chunk_size = chunk_size,  binning = binning,  method = method, count = count,auto_background = auto_background,
+                        nlevel = nlevel, norm = norm, stats = stats, thread_divisor = thread_divisor, mode = mode, mask = mask, cross = False, complex = complex)):
+
+        yield data
+
 def triangular_kernel(n):
     """Returns normalized triangular kernel for a given level integer
     
