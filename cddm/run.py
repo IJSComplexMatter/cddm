@@ -88,6 +88,7 @@ def threaded(iterable, queue_size = 0, block = True, name = None, queue = None, 
     out : iterator
         A data iterator.
     """
+
     name = thread_name(name)
     if queue is None:
         q = Queue(queue_size)
@@ -103,8 +104,9 @@ def threaded(iterable, queue_size = 0, block = True, name = None, queue = None, 
                     pass
                 if stop_event.is_set():
                     break
-        except BaseException as e:
-            q.put(e)
+        #except BaseException as e:
+        #    print("Error obtaining data. Exception message:", e)
+        #    q.put(e)
         finally:
             print(f"Thread {name} stopped.")
             q.put(None)
@@ -141,7 +143,7 @@ def _run_buffered(iterable,  keys = None):
     finally:
         destroy_buffer()
 
-from pyface.api import GUI
+#from pyface.api import GUI
 
 def _run_buffered_threaded(iterable, keys = None, pause = None):
     q = Queue()
@@ -224,13 +226,13 @@ class RunningContext():
             #we do not want to raise exception if ctrl-c was pressed, so return True
             return False
 
-def asrunning(video):
+def asrunning(video, pause = None):
     """Converts iterable to a running iterable. 
     """
     if isinstance(video, RunningContext):
         return video
     else:
-        return running(video)
+        return running(video, pause = pause)
          
 def running(video, spawn = False, pause = None):
     """Returns a running context 

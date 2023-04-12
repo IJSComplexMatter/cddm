@@ -19,6 +19,7 @@ from cddm.conf import FDTYPE
 
 from cddm._sim_nb import mirror, numba_seed, make_step, draw_points, draw_psf, shot_noise_poisson, shot_noise_gaussian, adc_clean
 import cddm._sim_nb as _sim_nb
+import cddm.map
 
 def _inspect_frame_dtype(dtype, intensity):
     dtype = np.dtype(dtype)
@@ -27,6 +28,49 @@ def _inspect_frame_dtype(dtype, intensity):
     if intensity > 255 and dtype != "uint16" or intensity < 0:
         raise ValueError("Invalid intensity for dtype {}".format(dtype))
     return dtype
+
+def particle(shape, radius = 5, intensity = 1, alpha = 0.5):
+    h,w = shape
+    ii, jj = cddm.map.fft2_grid(h,w, shape = shape)   
+    k = np.sqrt(ii**2 + jj**2)
+    k = (k - radius)*alpha
+    k[k<0] = 0
+    k[k>1] = 1
+    return 1+np.cos(np.pi*k)
+    
+    
+    return (1 - np.tanh(alpha*(np.abs(k)-radius)))*0.5*intensity
+    
+    return intensity/(1+np.exp(alpha*(np.abs(k)-radius)))
+
+def particle_form_factor(shape, radius = 5, intensity = 1, alpha = 1):
+    im = particle(shape, radius, intensity, alpha)
+    return np.fft.rfft2(im)
+    
+
+def create_form_factor(shape, form_func = None, intensity = 1):
+    h,w = shape
+    ii, jj = cddm.map.rfft2_grid(h,w//2+1, shape = shape)   
+    if form_func is None:
+        def form_func(kx, ky, shape):
+            h,w  = shape
+            k = np.sqrt((kx/h)**2 + (ky/w)**2)
+            out = np.cos(2*np.pi*k)
+            mask = k > 1/4
+            out[mask] = 0
+            return out        
+    return intensity * form_func(ii,jj, shape)
+     
+def draw_particles(im, particles, form):
+    h,w = im.shape
+    ii, jj = cddm.map.rfft2_grid(h,w//2+1, shape = im.shape)
+    out = 0
+    for data, f in zip(particles, form):
+        x,y = data
+        phase = ii* (-1j* x * np.pi*2/h) + jj* (-1j *y * np.pi*2/w)
+        out += f*np.exp(phase)
+    out = np.round(np.fft.irfft2(out))
+    return np.add(im, out, casting = "unsafe", out = im)
 
 def form_factor(window, sigma = 3, intensity = 5, navg = 10, dtype = "uint8", mode = "rfft2"):
     """Computes point spread function form factor.
@@ -137,10 +181,14 @@ def brownian_walk(x0, count = 1024, shape = (256,256), delta = 1, dt = 1, veloci
         yield x
 
         if callable(velocity):
-            _velocity = velocity(x)
-            _velocity = np.asarray(_velocity, FDTYPE)
+            _velocity = velocity(x,i)
+            _velocity = np.asarray(_velocity, FDTYPE)*dt
         if callable(delta):
-            _delta = delta(x)
+            try:
+                _delta = delta(x,i)
+            except TypeError:
+                _delta = delta(x)
+
             _scale = _delta*np.sqrt(dt)
             _scale = np.asarray(_scale, FDTYPE)
             

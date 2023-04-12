@@ -132,7 +132,7 @@ def asvideo(video, count = None):
     except:
         return VideoIter(video, count)
 
-def asarrays(video, count = None, fmt = "npy", compressor = "default"):
+def asarrays(video, count = None, fmt = "npy", compressor = "default", pause = None):
     """Loads multi-frame video into numpy or zarr arrays. 
      
     Parameters
@@ -168,7 +168,7 @@ def asarrays(video, count = None, fmt = "npy", compressor = "default"):
 
     print_progress(0, count)
     
-    video = asrunning(video)
+    video = asrunning(video, pause = pause)
     
     video = iter(video)
     
